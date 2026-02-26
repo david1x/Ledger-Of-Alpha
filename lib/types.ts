@@ -1,3 +1,27 @@
+// ── Auth ──────────────────────────────────────────────────────────────────
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  password_hash: string;
+  email_verified: number;          // 0 | 1
+  two_factor_secret: string | null;
+  two_factor_enabled: number;      // 0 | 1
+  two_factor_backup_codes: string | null; // JSON array of hashed codes
+  created_at: string;
+}
+
+/** Shape embedded in the session JWT and returned from getSessionUser() */
+export interface SessionUser {
+  id: string;
+  email: string;
+  name: string;
+  emailVerified: boolean;
+  twoFactorEnabled: boolean;
+  twoFactorDone: boolean;
+}
+
+// ── Trade ─────────────────────────────────────────────────────────────────
 export type TradeDirection = "long" | "short";
 export type TradeStatus = "planned" | "open" | "closed";
 

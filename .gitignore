@@ -8,10 +8,11 @@ out/
 # database (local only — contains real trade data)
 data/
 
-# env files
+# env files (never commit secrets)
 .env
 .env.local
 .env.*.local
+# .env.example IS committed — it has no secrets, only docs
 
 # TypeScript build info
 tsconfig.tsbuildinfo

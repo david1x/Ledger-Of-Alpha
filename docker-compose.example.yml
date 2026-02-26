@@ -1,0 +1,77 @@
+# ─────────────────────────────────────────────────────────────
+#  docker-compose.example.yml
+#
+#  This is a fully-documented example. To use it:
+#    1. Copy it:  cp docker-compose.example.yml docker-compose.yml
+#    2. Fill in the values below
+#    3. Run:      docker-compose up -d --build
+# ─────────────────────────────────────────────────────────────
+
+services:
+  app:
+    build: .
+
+    # ── Ports ──────────────────────────────────────────────────
+    # Change 3000 on the left to expose on a different host port.
+    ports:
+      - "3000:3000"
+
+    # ── Volumes ────────────────────────────────────────────────
+    # The SQLite database lives in ./data on the host.
+    # Back this directory up regularly!
+    volumes:
+      - ./data:/app/data
+
+    environment:
+      # ── Application ──────────────────────────────────────────
+      # The public URL of your deployment.
+      # Used in verification emails and OTP emails.
+      NEXT_PUBLIC_APP_URL: "https://your-domain.com"
+
+      # ── JWT Secret ───────────────────────────────────────────
+      # Signs all session tokens. Must be at least 32 characters.
+      # Generate one with:  openssl rand -base64 32
+      # NEVER commit this value to git.
+      JWT_SECRET: "replace-with-a-strong-random-secret-at-least-32-chars"
+
+      # ── SMTP Email ───────────────────────────────────────────
+      # Required for: email verification, 2FA OTP emails, future notifications.
+      # If not set, emails are printed to stdout (useful in dev, not production).
+      #
+      # Gmail example (use an App Password, not your account password):
+      SMTP_HOST: "smtp.gmail.com"
+      SMTP_PORT: "587"
+      SMTP_SECURE: "false"           # true = port 465 (SSL), false = STARTTLS
+      SMTP_USER: "your@gmail.com"
+      SMTP_PASS: "your-app-password"
+      SMTP_FROM: "Ledger Of Alpha <noreply@your-domain.com>"
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/auth/me"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+# ── Usage notes ──────────────────────────────────────────────────────────────
+#
+#  Build and start:
+#    docker-compose up -d --build
+#
+#  View logs:
+#    docker-compose logs -f app
+#
+#  Stop:
+#    docker-compose down
+#
+#  Backup the database:
+#    cp -r ./data ./data-backup-$(date +%Y%m%d)
+#
+#  The first user to register becomes a regular user.
+#  There's no admin panel yet — manage users directly via SQLite if needed:
+#    docker-compose exec app sh
+#    sqlite3 /app/data/ledger-of-alpha.db
+#
+# ─────────────────────────────────────────────────────────────────────────────

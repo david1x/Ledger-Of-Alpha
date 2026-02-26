@@ -1,25 +1,68 @@
 "use client";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
 import Logo from "./Logo";
-import { BarChart2, BookOpen, LineChart, Settings, TrendingUp, Layout } from "lucide-react";
+import { BarChart2, BookOpen, LineChart, Settings, TrendingUp, Layout, ChevronDown, LogOut, User } from "lucide-react";
 import clsx from "clsx";
 
 const NAV_LINKS = [
-  { href: "/", label: "Dashboard", icon: Layout },
-  { href: "/trades", label: "Trades", icon: TrendingUp },
-  { href: "/planner", label: "Planner", icon: BarChart2 },
-  { href: "/journal", label: "Journal", icon: BookOpen },
-  { href: "/chart", label: "Chart", icon: LineChart },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/",        label: "Dashboard", icon: Layout },
+  { href: "/trades",  label: "Trades",    icon: TrendingUp },
+  { href: "/planner", label: "Planner",   icon: BarChart2 },
+  { href: "/journal", label: "Journal",   icon: BookOpen },
+  { href: "/chart",   label: "Chart",     icon: LineChart },
+  { href: "/settings",label: "Settings",  icon: Settings },
 ];
+
+const AUTH_PATHS = ["/login", "/register", "/verify-2fa"];
+
+interface MeResponse {
+  guest?: boolean;
+  name?: string;
+  email?: string | null;
+  id?: string;
+}
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [me, setMe] = useState<MeResponse | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Hide on auth pages
+  if (AUTH_PATHS.includes(pathname)) return null;
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    fetch("/api/auth/me").then(r => r.json()).then(setMe).catch(() => null);
+  }, [pathname]);
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  async function handleSignOut() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
+
+  const initials = me?.name
+    ? me.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()
+    : "?";
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 h-14 border-b border-slate-800 dark:border-slate-800 border-slate-200 bg-slate-950/95 dark:bg-slate-950/95 bg-white/95 backdrop-blur-sm">
+    <nav className="fixed top-0 left-0 right-0 z-50 h-14 border-b dark:border-slate-800 border-slate-200 bg-slate-950/95 dark:bg-slate-950/95 bg-white/95 backdrop-blur-sm">
       <div className="max-w-screen-2xl mx-auto h-full px-4 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-bold text-lg tracking-tight">
@@ -28,21 +71,18 @@ export default function Navbar() {
           <span className="dark:text-white text-slate-900">Of Alpha</span>
         </Link>
 
-        {/* Links */}
+        {/* Nav links */}
         <div className="flex items-center gap-1">
           {NAV_LINKS.map(({ href, label, icon: Icon }) => {
             const active = pathname === href;
             return (
-              <Link
-                key={href}
-                href={href}
+              <Link key={href} href={href}
                 className={clsx(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                   active
                     ? "bg-emerald-500/20 text-emerald-400"
-                    : "dark:text-slate-400 text-slate-600 hover:dark:text-white hover:text-slate-900 hover:bg-slate-800/40 dark:hover:bg-slate-800/40 hover:bg-slate-100"
-                )}
-              >
+                    : "dark:text-slate-400 text-slate-600 hover:dark:text-white hover:text-slate-900 hover:dark:bg-slate-800/40 hover:bg-slate-100"
+                )}>
                 <Icon className="w-4 h-4" />
                 <span className="hidden sm:inline">{label}</span>
               </Link>
@@ -50,7 +90,54 @@ export default function Navbar() {
           })}
         </div>
 
-        <ThemeToggle />
+        {/* Right side */}
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+
+          {me?.guest ? (
+            /* Guest badge */
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700/50 dark:text-slate-400 text-slate-500 border dark:border-slate-700 border-slate-300">
+                Guest
+              </span>
+              <Link href="/register"
+                className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors">
+                Sign Up
+              </Link>
+            </div>
+          ) : me?.name ? (
+            /* User menu */
+            <div className="relative" ref={menuRef}>
+              <button onClick={() => setMenuOpen(v => !v)}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors">
+                <div className="w-7 h-7 rounded-full bg-emerald-600 flex items-center justify-center text-white text-xs font-bold">
+                  {initials}
+                </div>
+                <span className="hidden sm:block text-sm dark:text-slate-300 text-slate-700 max-w-[120px] truncate">
+                  {me.name}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+              </button>
+
+              {menuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-52 dark:bg-slate-900 bg-white border dark:border-slate-700 border-slate-200 rounded-xl shadow-xl py-1 z-50">
+                  <div className="px-3 py-2 border-b dark:border-slate-800 border-slate-100">
+                    <p className="text-xs font-medium dark:text-white text-slate-900 truncate">{me.name}</p>
+                    <p className="text-xs dark:text-slate-400 text-slate-500 truncate">{me.email}</p>
+                  </div>
+                  <Link href="/settings" onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm dark:text-slate-300 text-slate-700 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors">
+                    <User className="w-4 h-4" /> Account Settings
+                  </Link>
+                  <button onClick={handleSignOut}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors">
+                    <LogOut className="w-4 h-4" /> Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
       </div>
     </nav>
   );
