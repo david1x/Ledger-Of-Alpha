@@ -130,7 +130,7 @@ export default function PositionSizer({
               <span className="text-xs text-red-400 font-medium">⚠ Over risk limit</span>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-2 mt-2">
+          <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 mt-2">
             <div>
               <div className="text-xs dark:text-slate-500 text-slate-400">Position Value</div>
               <div className="text-sm font-semibold dark:text-white text-slate-900">

@@ -67,7 +67,7 @@ export default function AdminSettingsPage() {
           <p className="text-xs dark:text-slate-400 text-slate-500 mb-4">
             These values are seeded for every new account at registration.
           </p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium dark:text-slate-300 text-slate-700 mb-1.5">Account Size ($)</label>
               <input type="number" value={settings.account_size} onChange={set("account_size")} min="0" className={inputCls} />
@@ -96,8 +96,8 @@ export default function AdminSettingsPage() {
             These settings take precedence over <code className="text-xs">.env.local</code>. Leave all blank to fall back to env vars.
           </p>
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2">
                 <label className="block text-xs font-medium dark:text-slate-300 text-slate-700 mb-1.5">SMTP Host</label>
                 <input type="text" value={settings.smtp_host} onChange={set("smtp_host")}
                   placeholder="smtp.gmail.com" className={inputCls} />

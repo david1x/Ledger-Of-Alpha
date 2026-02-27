@@ -66,10 +66,10 @@ export default function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 h-14 border-b dark:border-slate-800 border-slate-200 bg-slate-950/95 dark:bg-slate-950/95 bg-white/95 backdrop-blur-sm">
       <div className="max-w-screen-2xl mx-auto h-full px-4 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg tracking-tight">
-          <Logo className="w-7 h-7" />
+        <Link href="/" className="flex items-center gap-1.5 font-bold text-sm sm:text-lg tracking-tight">
+          <Logo className="w-6 h-6 sm:w-7 sm:h-7" />
           <span className="text-emerald-400">Ledger</span>
-          <span className="dark:text-white text-slate-900">Of Alpha</span>
+          <span className="hidden sm:inline dark:text-white text-slate-900">Of Alpha</span>
         </Link>
 
         {/* Nav links */}

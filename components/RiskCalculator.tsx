@@ -66,7 +66,7 @@ export default function RiskCalculator({ entry, stopLoss, takeProfit, shares, di
     <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-slate-50 p-4 space-y-3">
       <h3 className="text-xs font-semibold uppercase tracking-wider dark:text-slate-400 text-slate-500">Risk Analysis</h3>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <Stat label="Stop Distance" value={`$${calc.stopDist.toFixed(2)}/sh`} warn={!calc.validStop} warnMsg="Stop wrong side" />
         <Stat label="Target Distance" value={calc.targetDist ? `$${calc.targetDist.toFixed(2)}/sh` : "—"} warn={!calc.validTarget} warnMsg="Target wrong side" />
 

@@ -67,8 +67,10 @@ export default function PersistentChart() {
   const [discordMsg, setDiscordMsg] = useState("");
   const [countdown, setCountdown] = useState<null | 3 | 2 | 1>(null);
 
-  // Quick-add trade panel — open by default
-  const [showPanel, setShowPanel] = useState(true);
+  // Quick-add trade panel — open by default on desktop, closed on mobile
+  const [showPanel, setShowPanel] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 640 : true
+  );
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -78,6 +80,16 @@ export default function PersistentChart() {
 
   const [resetKeys, setResetKeys] = useState<Record<string, number>>({});
   const resetActiveTab = () => setResetKeys(prev => ({ ...prev, [activeId]: (prev[activeId] ?? 0) + 1 }));
+
+  // Detect mobile for panel overlay vs sidebar behavior
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 640 : false
+  );
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const chartRef = useRef<HTMLDivElement>(null);
   const setupChartRef = useRef<SetupChartHandle>(null);
@@ -371,7 +383,7 @@ export default function PersistentChart() {
       </div>
 
       {/* ── Toolbar ── */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b dark:border-slate-800 border-slate-200 dark:bg-slate-950 bg-white shrink-0">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b dark:border-slate-800 border-slate-200 dark:bg-slate-950 bg-white shrink-0">
         {/* Intervals */}
         <div className="flex gap-1">
           {INTERVALS.map(iv => (
@@ -392,7 +404,7 @@ export default function PersistentChart() {
 
         <a href="https://www.tradingview.com/chart/" target="_blank" rel="noopener noreferrer"
           className="flex items-center gap-1 px-2.5 py-1 rounded border dark:border-slate-700 border-slate-200 dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 text-xs font-medium transition-colors whitespace-nowrap">
-          <ExternalLink className="w-3 h-3" />Open in TradingView
+          <ExternalLink className="w-3 h-3" /><span className="hidden sm:inline">Open in TradingView</span>
         </a>
 
         <div className="flex-1" />
@@ -421,12 +433,12 @@ export default function PersistentChart() {
         {discordMode === "link" && (
           <input type="text" value={tvLink} onChange={e => setTvLink(e.target.value)}
             placeholder="Paste tradingview.com/x/… link"
-            className="px-2.5 py-1 text-xs rounded border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-48" />
+            className="px-2.5 py-1 text-xs rounded border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-36 sm:w-48" />
         )}
         {/* Note input — always visible */}
         <input type="text" value={message} onChange={e => setMessage(e.target.value)}
           placeholder="Note for Discord…"
-          className="px-2.5 py-1 text-xs rounded border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-36" />
+          className="px-2.5 py-1 text-xs rounded border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-24 sm:w-36" />
 
         {/* Status message */}
         {discordMsg && (
@@ -471,11 +483,11 @@ export default function PersistentChart() {
           ))}
         </div>
 
-        {/* ── Collapse/expand toggle strip ── */}
+        {/* ── Collapse/expand toggle strip (desktop only) ── */}
         <button
           onClick={() => setShowPanel(v => !v)}
           title={showPanel ? "Collapse panel" : "Add Trade"}
-          className="relative flex flex-col items-center justify-center w-5 shrink-0 border-l dark:border-slate-800 border-slate-200 dark:bg-slate-900/60 bg-slate-50 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors z-10 gap-2"
+          className="hidden sm:flex relative flex-col items-center justify-center w-5 shrink-0 border-l dark:border-slate-800 border-slate-200 dark:bg-slate-900/60 bg-slate-50 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors z-10 gap-2"
         >
           {!showPanel && (
             <span className="[writing-mode:vertical-rl] text-[9px] font-bold tracking-widest text-emerald-400 rotate-180 select-none">
@@ -488,11 +500,26 @@ export default function PersistentChart() {
           }
         </button>
 
-        {/* ── Quick-add trade side panel — always in DOM, collapses via width ── */}
-        <div className={`shrink-0 overflow-hidden transition-[width] duration-200 dark:bg-slate-900 bg-white flex flex-col ${showPanel ? "w-[420px] border-l dark:border-slate-800 border-slate-200" : "w-0"}`}>
+        {/* ── Quick-add trade side panel ── */}
+        {/* Mobile: fixed overlay when open; Desktop: collapsing right sidebar */}
+        <div className={
+          isMobile
+            ? showPanel
+              ? "fixed inset-0 z-50 dark:bg-slate-900 bg-white flex flex-col overflow-hidden"
+              : "hidden"
+            : `shrink-0 overflow-hidden transition-[width] duration-200 dark:bg-slate-900 bg-white flex flex-col ${showPanel ? "w-[420px] border-l dark:border-slate-800 border-slate-200" : "w-0"}`
+        }>
           {/* Panel header */}
-          <div className="flex items-center px-4 py-3 border-b dark:border-slate-800 border-slate-200 shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b dark:border-slate-800 border-slate-200 shrink-0">
             <span className="text-sm font-semibold dark:text-white text-slate-900">Add Trade</span>
+            {isMobile && (
+              <button
+                onClick={() => setShowPanel(false)}
+                className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-4 h-4 dark:text-slate-400 text-slate-500" />
+              </button>
+            )}
           </div>
 
           {/* Chart — pinned, never scrolls away */}
@@ -616,6 +643,17 @@ export default function PersistentChart() {
             </div>
           </div>
       </div>
+
+      {/* ── Mobile FAB — shown when panel is closed on mobile ── */}
+      {!showPanel && (
+        <button
+          onClick={() => setShowPanel(true)}
+          className="sm:hidden fixed bottom-6 right-4 z-40 flex items-center gap-2 px-4 py-3 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium shadow-lg shadow-emerald-500/20 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Add Trade
+        </button>
+      )}
     </div>
   );
 }

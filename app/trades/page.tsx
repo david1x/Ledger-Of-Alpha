@@ -96,14 +96,14 @@ export default function TradesPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Symbol search */}
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 dark:text-slate-400 text-slate-500" />
           <input
             type="text"
             value={symbolQ}
             onChange={(e) => setSymbolQ(e.target.value.toUpperCase())}
             placeholder="Filter by symbol"
-            className="pl-9 pr-3 py-1.5 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
 

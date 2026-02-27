@@ -144,7 +144,7 @@ export default function SettingsPage() {
         <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
           <DollarSign className="w-4 h-4 text-emerald-400" /> Account Settings
         </h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={LABEL}>Account Size ($)</label>
             <input type="number" value={settings.account_size}
@@ -195,7 +195,7 @@ export default function SettingsPage() {
             <p className="text-xs dark:text-slate-400 text-slate-500 mb-3">
               Save these codes somewhere safe. Each can be used once if you lose access to your authenticator.
             </p>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {backupCodes.map(c => (
                 <code key={c} className="text-xs font-mono dark:bg-slate-800 bg-slate-100 px-2 py-1 rounded text-center dark:text-slate-300 text-slate-700">
                   {c}
@@ -218,7 +218,7 @@ export default function SettingsPage() {
             <p className="text-sm dark:text-slate-300 text-slate-700">
               Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password…), then enter the 6-digit code to confirm.
             </p>
-            <div className="flex gap-6 items-start">
+            <div className="flex flex-col sm:flex-row gap-4 items-start">
               {/* QR code */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={tfaSetup.qrDataUrl} alt="2FA QR Code" className="w-40 h-40 rounded-lg border dark:border-slate-700 border-slate-200" />

@@ -134,7 +134,7 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
             </div>
 
             {/* Prices */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div>
                 <label className={LABEL}>Entry Price</label>
                 <input placeholder="0.00" {...numField("entry_price")} />

@@ -16,41 +16,89 @@
 
 ---
 
+## 📸 Screenshots
+
+### Dashboard
+![Dashboard](docs/screenshots/01-dashboard.png)
+*Stats cards, cumulative P&L equity curve, and recent trades — all with live demo data on first load.*
+
+### Trade Log
+![Trade Log](docs/screenshots/02-trades.png)
+*Filter by symbol, status (planned / open / closed), or direction. Full P&L coloring throughout.*
+
+### Trade Journal
+![Journal](docs/screenshots/03-journal.png)
+*Card-based view with trade notes, tags, entry/stop/target, and P&L at a glance.*
+
+### Chart — TradingView + Add Trade Panel
+![Chart](docs/screenshots/04-chart.png)
+*Full-screen TradingView Advanced Chart with a collapsible Add Trade sidebar. Plan your setup, capture it, and post to Discord in one click.*
+
+### Settings
+![Settings](docs/screenshots/05-settings.png)
+*Configure account size, risk %, FMP API key, and Discord webhook.*
+
+### Login
+![Login](docs/screenshots/06-login.png)
+*Clean auth page with guest mode, 2FA support, and email verification.*
+
+---
+
+### 📱 Mobile — Fully Responsive
+
+<table>
+  <tr>
+    <td align="center"><b>Dashboard</b><br/><img src="docs/screenshots/08-mobile-dashboard.png" width="220"/></td>
+    <td align="center"><b>Trade Log</b><br/><img src="docs/screenshots/09-mobile-trades.png" width="220"/></td>
+    <td align="center"><b>Chart + Add Trade</b><br/><img src="docs/screenshots/10-mobile-chart.png" width="220"/></td>
+    <td align="center"><b>Settings</b><br/><img src="docs/screenshots/11-mobile-settings.png" width="220"/></td>
+  </tr>
+</table>
+
+*Stats stack to single column · Trade log renders as cards · Chart fills the screen with a floating "Add Trade" button · All forms stack vertically*
+
+---
+
 ## ✨ Features
 
 ### 📊 Dashboard
-- At-a-glance stats: total trades, win rate, gross P&L, average win/loss
-- Interactive P&L chart (Recharts) — see your equity curve at a glance
+- At-a-glance stats: total P&L, win rate, avg win/loss, expectancy, open/planned count
+- Interactive cumulative P&L equity curve (Recharts)
 - Paginated recent-trades table with inline edit/delete
 - Add-trade modal directly from the dashboard
 
 ### 📋 Trade Log
 - Full trade history with live filters: symbol search, status (planned / open / closed), direction (long / short)
-- Sortable table with P&L coloring and tag display
+- P&L coloring, live unrealized P&L for open positions (refreshes every 60s via Yahoo Finance)
 - Edit and delete any trade without leaving the page
-
-### 🧮 Trade Planner
-- Form to plan a trade before entry: symbol, direction, entry · stop · target, shares, thesis notes, tags
-- **Live RiskCalculator** — shows dollar risk and R-multiple as you type
-- **Live PositionSizer** — calculates optimal share count from account size and risk %
-- Saves as a *planned* trade; promote to *open* or *closed* when ready
-- Account size and risk-per-trade are editable inline
+- Mobile: card-per-trade layout; Desktop: full sortable table
 
 ### 📓 Trade Journal
 - Card-based view of every trade with full notes, tags, symbol, and P&L
 - Filter between "all trades" and "trades with notes"
 - Clean reading layout for post-trade review
 
-### 📈 Chart
+### 📈 Chart Page
 - Full-screen **TradingView Advanced Chart** embed (dark/light theme sync)
+- Multi-tab support — open multiple charts, rename tabs, persist across sessions
 - Interval switcher: 1m · 5m · 15m · 1h · 4h · 1D · 1W
-- Drawing tools side toolbar always visible; user settings persist via localStorage
-- **Discord snapshot** — click once, grant screen permission, get a 3-second countdown to move your mouse, then the chart is cropped and posted automatically
+- **Add Trade panel** — collapsible sidebar with:
+  - Interactive mini-chart (click to set entry / stop / target, drag to reposition)
+  - Live RiskCalculator and PositionSizer as you type
+  - Save as Planned or **Save + Share to Discord** in one click
+- **Discord snapshot** — screen capture with 3-second countdown, or paste a TradingView snapshot link
 
 ### ⚙️ Settings
 - Account size and risk-per-trade percentage
-- Financial Modeling Prep (FMP) API key + on-demand symbol list refresh ($2B+ market cap stocks)
+- Financial Modeling Prep (FMP) API key + on-demand symbol list refresh
 - Discord webhook URL for chart snapshot delivery
+
+### 🔐 Auth & Security
+- JWT sessions with email/password login
+- **2FA** — TOTP (authenticator app) with backup codes
+- Email verification on signup
+- **Guest mode** — explore the app with realistic demo data, no account required
+- **Admin panel** — manage users, toggle admin rights, configure SMTP
 
 ---
 
@@ -62,9 +110,9 @@
 | Language | TypeScript |
 | Styling | Tailwind CSS v3 + dark/light theme via `next-themes` |
 | Database | SQLite via `better-sqlite3` |
-| Charts | Recharts (P&L curve) + TradingView Advanced Chart (candlestick) |
+| Charts | Recharts (P&L curve) · TradingView Advanced Chart · lightweight-charts (setup mini-chart) |
 | Icons | Lucide React |
-| External APIs | Financial Modeling Prep (symbol search), Discord Webhooks |
+| External APIs | Yahoo Finance (live quotes + OHLCV) · Financial Modeling Prep (symbol search) · Discord Webhooks |
 
 ---
 
@@ -87,6 +135,8 @@ Open [http://localhost:3000](http://localhost:3000).
 
 The SQLite database is created automatically at `data/ledger-of-alpha.db` on the first API call — no setup required.
 
+> **Try it instantly** — click **Continue as Guest** on the login page to explore with pre-loaded demo trades. No account needed.
+
 ### Configuration
 
 All configuration is done inside the app at **Settings → ⚙️**.
@@ -107,28 +157,34 @@ tradeviz/
 ├── app/
 │   ├── page.tsx              # Dashboard
 │   ├── trades/page.tsx       # Full trade log
-│   ├── planner/page.tsx      # Trade planner + live risk tools
 │   ├── journal/page.tsx      # Journal card view
-│   ├── chart/page.tsx        # TradingView chart + Discord snapshot
+│   ├── chart/page.tsx        # TradingView chart + Add Trade panel
 │   ├── settings/page.tsx     # App settings
+│   ├── admin/                # Admin panel (users + SMTP)
 │   ├── layout.tsx            # Root layout (Navbar, ThemeProvider)
 │   └── api/
 │       ├── trades/           # GET + POST trades
 │       ├── trades/[id]/      # GET + PUT + DELETE single trade
 │       ├── settings/         # GET + PUT settings
 │       ├── symbols/          # GET symbols (FMP cache)
-│       └── discord/          # POST chart snapshot to webhook
+│       ├── quotes/           # Live prices (Yahoo Finance)
+│       ├── ohlcv/            # OHLCV bars for setup chart
+│       ├── discord/          # POST chart snapshot to webhook
+│       └── auth/             # Login, register, 2FA, guest
 ├── components/
 │   ├── Navbar.tsx
-│   ├── Logo.tsx              # SVG candlestick logo
-│   ├── TradingViewWidget.tsx
-│   ├── ThemeToggle.tsx
-│   ├── RiskCalculator.tsx
-│   └── PositionSizer.tsx
+│   ├── Logo.tsx
+│   ├── PersistentChart.tsx   # Chart page shell (tabs, toolbar, panel)
+│   ├── SetupChart.tsx        # Interactive mini-chart (click/drag price levels)
+│   ├── TradeTable.tsx        # Trade log table + mobile card view
+│   ├── TradeModal.tsx        # Edit/view trade modal
+│   ├── RiskCalculator.tsx    # Live risk metrics
+│   ├── PositionSizer.tsx     # Optimal share count calculator
+│   └── SymbolSearch.tsx      # Debounced symbol autocomplete
 ├── lib/
-│   └── db.ts                 # SQLite init + schema
-├── public/
-│   └── favicon.svg
+│   ├── db.ts                 # SQLite init + schema migrations
+│   ├── auth.ts               # JWT, bcrypt, admin guard
+│   └── demo-data.ts          # Realistic fake trades for guest mode
 └── data/
     └── ledger-of-alpha.db    # Auto-created, gitignored
 ```
@@ -138,7 +194,6 @@ tradeviz/
 ## 🗄 Database Schema
 
 ```sql
--- Trade records
 CREATE TABLE trades (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   symbol      TEXT NOT NULL,
@@ -157,18 +212,9 @@ CREATE TABLE trades (
   created_at  TEXT DEFAULT (datetime('now'))
 );
 
--- Key-value app settings
 CREATE TABLE settings (
   key   TEXT PRIMARY KEY,
   value TEXT
-);
-
--- FMP symbol cache
-CREATE TABLE symbols (
-  symbol     TEXT PRIMARY KEY,
-  name       TEXT,
-  market_cap REAL,
-  updated_at TEXT
 );
 ```
 
@@ -177,16 +223,19 @@ CREATE TABLE symbols (
 ## 📸 Discord Snapshot Flow
 
 1. Open the **Chart** page and load any symbol/timeframe
-2. Click **Snapshot → Discord**
-3. Browser prompts for screen-share permission — click **Share this tab**
-4. A **3-second countdown** appears — move your mouse off the chart
-5. The chart is automatically cropped and posted to your Discord channel with an optional note
+2. Optionally type a note in the toolbar
+3. Click **Capture → Discord**
+4. Browser prompts for screen-share permission — click **Share this tab**
+5. A **3-second countdown** appears — move your mouse off the chart
+6. The chart is automatically cropped and posted to your Discord channel
+
+Alternatively, publish a TradingView snapshot (camera icon → **Publish**), paste the link into the toolbar, and click **Send Link → Discord** — no screen capture required.
 
 ---
 
 ## 🌙 Dark / Light Mode
 
-The app defaults to dark mode. Toggle with the sun/moon button in the top-right corner of the navbar. The TradingView chart syncs its theme automatically.
+Defaults to dark mode. Toggle with the sun/moon button in the navbar. The TradingView chart syncs its theme automatically.
 
 ---
 

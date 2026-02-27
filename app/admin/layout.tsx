@@ -14,14 +14,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen pt-14">
-      <div className="max-w-screen-xl mx-auto px-4 py-8 flex gap-8">
-        {/* Sidebar */}
-        <aside className="w-48 shrink-0">
-          <div className="flex items-center gap-2 mb-6">
+      <div className="max-w-screen-xl mx-auto px-4 py-6 sm:py-8 flex flex-col sm:flex-row gap-4 sm:gap-8">
+        {/* Sidebar — horizontal tabs on mobile, vertical on desktop */}
+        <aside className="sm:w-48 shrink-0">
+          <div className="hidden sm:flex items-center gap-2 mb-6">
             <ShieldCheck className="w-5 h-5 text-emerald-400" />
             <span className="font-semibold dark:text-white text-slate-900">Admin</span>
           </div>
-          <nav className="flex flex-col gap-1">
+          <nav className="flex sm:flex-col gap-1 border-b sm:border-b-0 dark:border-slate-800 border-slate-200 pb-3 sm:pb-0">
             {LINKS.map(({ href, label, icon: Icon }) => (
               <Link key={href} href={href}
                 className={clsx(
