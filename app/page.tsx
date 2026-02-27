@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Trade } from "@/lib/types";
+import { Trade, QuoteMap } from "@/lib/types";
 import StatsCards from "@/components/StatsCards";
 import PnLChart from "@/components/PnLChart";
 import TradeTable from "@/components/TradeTable";
@@ -9,11 +9,23 @@ import { Plus, RefreshCw } from "lucide-react";
 
 export default function Dashboard() {
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [quotes, setQuotes] = useState<QuoteMap>({});
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editTrade, setEditTrade] = useState<Trade | null>(null);
   const [accountSize, setAccountSize] = useState(10000);
   const [riskPercent, setRiskPercent] = useState(1);
+
+  const loadQuotes = async (currentTrades: Trade[]) => {
+    const symbols = [...new Set(
+      currentTrades.filter(t => t.status === "open").map(t => t.symbol)
+    )];
+    if (!symbols.length) { setQuotes({}); return; }
+    try {
+      const res = await fetch(`/api/quotes?symbols=${symbols.join(",")}`);
+      if (res.ok) setQuotes(await res.json());
+    } catch { /* silent */ }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -24,7 +36,10 @@ export default function Dashboard() {
       ]);
       const tradesData = await tradesRes.json();
       const settingsData = await settingsRes.json();
-      if (Array.isArray(tradesData)) setTrades(tradesData);
+      if (Array.isArray(tradesData)) {
+        setTrades(tradesData);
+        await loadQuotes(tradesData);
+      }
       if (settingsData.account_size) setAccountSize(parseFloat(settingsData.account_size));
       if (settingsData.risk_per_trade) setRiskPercent(parseFloat(settingsData.risk_per_trade));
     } finally {
@@ -33,6 +48,13 @@ export default function Dashboard() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Auto-refresh quotes every 60s
+  useEffect(() => {
+    if (!trades.length) return;
+    const id = setInterval(() => loadQuotes(trades), 60_000);
+    return () => clearInterval(id);
+  }, [trades]);
 
   const handleDelete = async (id: number) => {
     await fetch(`/api/trades/${id}`, { method: "DELETE" });
@@ -71,7 +93,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats */}
-      <StatsCards trades={trades} />
+      <StatsCards trades={trades} quotes={quotes} />
 
       {/* P&L Chart */}
       <PnLChart trades={trades} />
@@ -87,6 +109,7 @@ export default function Dashboard() {
           onEdit={handleEdit}
           onDelete={handleDelete}
           limit={8}
+          quotes={quotes}
         />
       </div>
 

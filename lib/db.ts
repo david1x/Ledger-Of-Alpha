@@ -122,6 +122,34 @@ function runMigrations(db: Database.Database) {
     markMigration(db, "002_trades_user_id");
   }
 
+  // ── 004: admin flag on users ──────────────────────────────────────────
+  if (!hasMigration(db, "004_admin_flag")) {
+    const cols = (db.pragma("table_info(users)") as { name: string }[]).map(c => c.name);
+    if (!cols.includes("is_admin")) {
+      db.exec(`ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;`);
+    }
+    markMigration(db, "004_admin_flag");
+  }
+
+  // ── 005: smtp + app_url keys in _system settings ──────────────────────
+  if (!hasMigration(db, "005_system_smtp_settings")) {
+    const insertSetting = db.prepare(
+      "INSERT OR IGNORE INTO settings (user_id, key, value) VALUES ('_system', ?, ?)"
+    );
+    for (const [key, value] of [
+      ["smtp_host", ""],
+      ["smtp_port", "587"],
+      ["smtp_secure", "false"],
+      ["smtp_user", ""],
+      ["smtp_pass", ""],
+      ["smtp_from", ""],
+      ["app_url", ""],
+    ]) {
+      insertSetting.run(key, value);
+    }
+    markMigration(db, "005_system_smtp_settings");
+  }
+
   // ── 003: settings per-user ────────────────────────────────────────────
   if (!hasMigration(db, "003_settings_per_user")) {
     // Check if settings still has the old single-PK structure

@@ -1,5 +1,5 @@
 "use client";
-import { Trade } from "@/lib/types";
+import { Trade, QuoteMap } from "@/lib/types";
 import { Pencil, Trash2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import clsx from "clsx";
 
@@ -8,6 +8,7 @@ interface Props {
   onEdit: (t: Trade) => void;
   onDelete: (id: number) => void;
   limit?: number;
+  quotes?: QuoteMap;
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -16,7 +17,7 @@ const STATUS_STYLE: Record<string, string> = {
   closed: "bg-slate-500/20 dark:text-slate-400 text-slate-500",
 };
 
-export default function TradeTable({ trades, onEdit, onDelete, limit }: Props) {
+export default function TradeTable({ trades, onEdit, onDelete, limit, quotes = {} }: Props) {
   const rows = limit ? trades.slice(0, limit) : trades;
 
   if (rows.length === 0) {
@@ -33,7 +34,7 @@ export default function TradeTable({ trades, onEdit, onDelete, limit }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="dark:bg-slate-800/60 bg-slate-100 border-b dark:border-slate-700 border-slate-200">
-              {["Symbol", "Dir", "Status", "Entry", "Stop", "Target", "Exit", "Shares", "P&L", "Date", ""].map((h) => (
+              {["Symbol", "Dir", "Status", "Entry", "Stop", "Target", "Exit", "Shares", "P&L", "Unrealized", "Date", ""].map((h) => (
                 <th key={h} className="px-3 py-2.5 text-left text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider whitespace-nowrap">
                   {h}
                 </th>
@@ -42,7 +43,12 @@ export default function TradeTable({ trades, onEdit, onDelete, limit }: Props) {
           </thead>
           <tbody className="divide-y dark:divide-slate-800 divide-slate-100">
             {rows.map((t) => {
-              const pnlColor = (t.pnl ?? 0) > 0 ? "text-emerald-400" : (t.pnl ?? 0) < 0 ? "text-red-400" : "dark:text-slate-400 text-slate-500";
+              const livePnl =
+                t.status === "open" && t.entry_price != null && t.shares != null && quotes[t.symbol] !== undefined
+                  ? (quotes[t.symbol] - t.entry_price) * t.shares * (t.direction === "long" ? 1 : -1)
+                  : null;
+              const closedPnlColor = (t.pnl ?? 0) > 0 ? "text-emerald-400" : (t.pnl ?? 0) < 0 ? "text-red-400" : "dark:text-slate-400 text-slate-500";
+              const liveColor = livePnl !== null ? (livePnl > 0 ? "text-emerald-400" : livePnl < 0 ? "text-red-400" : "dark:text-slate-400 text-slate-500") : "dark:text-slate-400 text-slate-500";
               return (
                 <tr key={t.id} className="hover:dark:bg-slate-800/30 hover:bg-slate-50 transition-colors">
                   <td className="px-3 py-2.5 font-bold text-emerald-400">{t.symbol}</td>
@@ -62,8 +68,14 @@ export default function TradeTable({ trades, onEdit, onDelete, limit }: Props) {
                   <td className="px-3 py-2.5 text-emerald-400">{t.take_profit ? `$${t.take_profit}` : "—"}</td>
                   <td className="px-3 py-2.5 dark:text-slate-300 text-slate-700">{t.exit_price ? `$${t.exit_price}` : "—"}</td>
                   <td className="px-3 py-2.5 dark:text-slate-400 text-slate-500">{t.shares ?? "—"}</td>
-                  <td className={clsx("px-3 py-2.5 font-medium", pnlColor)}>
+                  <td className={clsx("px-3 py-2.5 font-medium", closedPnlColor)}>
                     {t.pnl !== null ? `${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}` : "—"}
+                  </td>
+                  <td className={clsx("px-3 py-2.5 font-medium", liveColor)}>
+                    <span className="flex items-center gap-1.5">
+                      {livePnl !== null && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+                      {livePnl !== null ? `${livePnl >= 0 ? "+" : ""}$${livePnl.toFixed(2)}` : "—"}
+                    </span>
                   </td>
                   <td className="px-3 py-2.5 dark:text-slate-500 text-slate-400 text-xs whitespace-nowrap">
                     {t.entry_date ?? t.created_at.slice(0, 10)}

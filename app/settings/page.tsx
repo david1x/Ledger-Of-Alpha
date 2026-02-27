@@ -32,6 +32,10 @@ export default function SettingsPage() {
   const [tfaMsg, setTfaMsg] = useState<{ text: string; type: "ok" | "err" } | null>(null);
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [showSecret, setShowSecret] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [hasAdmin, setHasAdmin] = useState(true);
+  const [claiming, setClaiming] = useState(false);
+  const [claimMsg, setClaimMsg] = useState<{ text: string; type: "ok" | "err" } | null>(null);
 
   useEffect(() => {
     fetch("/api/settings").then(r => r.json()).then(data => setSettings(s => ({ ...s, ...data })));
@@ -40,8 +44,23 @@ export default function SettingsPage() {
     }).catch(() => {});
     fetch("/api/auth/me").then(r => r.json()).then(data => {
       setTwoFactorEnabled(!!data.twoFactorEnabled);
+      setIsAdmin(!!data.isAdmin);
+      setHasAdmin(!!data.hasAdmin);
     }).catch(() => {});
   }, []);
+
+  const claimAdmin = async () => {
+    setClaiming(true); setClaimMsg(null);
+    const res = await fetch("/api/admin/claim", { method: "POST" });
+    const data = await res.json();
+    setClaiming(false);
+    if (res.ok) {
+      // JWT was re-issued with isAdmin:true — navigate to admin panel
+      window.location.href = "/admin";
+    } else {
+      setClaimMsg({ text: data.error, type: "err" });
+    }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -295,6 +314,28 @@ export default function SettingsPage() {
           <p className={HINT}>Create a webhook in your Discord channel (Integrations → Webhooks). Chart snapshots will be posted there.</p>
         </div>
       </section>
+
+      {/* Claim Admin — only shown when no admin exists yet */}
+      {!isAdmin && !hasAdmin && (
+        <section className="rounded-xl border border-amber-500/30 dark:bg-amber-500/5 bg-amber-50 p-5 space-y-3">
+          <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-amber-400" /> Claim Admin Access
+          </h2>
+          <p className="text-sm dark:text-slate-400 text-slate-500">
+            No admin exists yet. As the first user, you can claim admin privileges to manage users and system settings.
+          </p>
+          {claimMsg && (
+            <p className={`text-sm rounded-lg px-3 py-2 ${claimMsg.type === "ok" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+              {claimMsg.text}
+            </p>
+          )}
+          <button onClick={claimAdmin} disabled={claiming}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium transition-colors disabled:opacity-50">
+            <ShieldCheck className="w-4 h-4" />
+            {claiming ? "Claiming…" : "Claim Admin"}
+          </button>
+        </section>
+      )}
 
       {/* Save */}
       <div className="flex items-center gap-3">

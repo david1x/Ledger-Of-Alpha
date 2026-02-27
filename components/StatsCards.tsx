@@ -1,14 +1,16 @@
 "use client";
-import { Trade } from "@/lib/types";
-import { TrendingUp, TrendingDown, Target, BarChart2 } from "lucide-react";
+import { Trade, QuoteMap } from "@/lib/types";
+import { TrendingUp, TrendingDown, Target, BarChart2, Activity } from "lucide-react";
 import clsx from "clsx";
 
 interface Props {
   trades: Trade[];
+  quotes?: QuoteMap;
 }
 
-export default function StatsCards({ trades }: Props) {
+export default function StatsCards({ trades, quotes }: Props) {
   const closed = trades.filter((t) => t.status === "closed");
+  const openTrades = trades.filter((t) => t.status === "open");
   const winners = closed.filter((t) => (t.pnl ?? 0) > 0);
   const losers = closed.filter((t) => (t.pnl ?? 0) < 0);
 
@@ -17,6 +19,12 @@ export default function StatsCards({ trades }: Props) {
   const avgWin = winners.length > 0 ? winners.reduce((s, t) => s + (t.pnl ?? 0), 0) / winners.length : 0;
   const avgLoss = losers.length > 0 ? losers.reduce((s, t) => s + (t.pnl ?? 0), 0) / losers.length : 0;
   const expectancy = winRate / 100 * avgWin + (1 - winRate / 100) * avgLoss;
+
+  const unrealized = openTrades.reduce((sum, t) => {
+    if (t.entry_price == null || t.shares == null || !quotes?.[t.symbol]) return sum;
+    return sum + (quotes[t.symbol] - t.entry_price) * t.shares * (t.direction === "long" ? 1 : -1);
+  }, 0);
+  const hasLive = openTrades.some(t => quotes?.[t.symbol] !== undefined);
 
   const stats = [
     {
@@ -48,7 +56,7 @@ export default function StatsCards({ trades }: Props) {
     },
     {
       label: "Open / Planned",
-      value: `${trades.filter((t) => t.status === "open").length} / ${trades.filter((t) => t.status === "planned").length}`,
+      value: `${openTrades.length} / ${trades.filter((t) => t.status === "planned").length}`,
       sub: `${trades.length} total trades`,
       icon: TrendingUp,
       color: "text-blue-400",
@@ -69,6 +77,22 @@ export default function StatsCards({ trades }: Props) {
           <div className="text-xs dark:text-slate-500 text-slate-400">{s.sub}</div>
         </div>
       ))}
+      {hasLive && (
+        <div className={clsx(
+          "rounded-xl border p-4 space-y-2",
+          unrealized >= 0 ? "dark:bg-emerald-500/10 bg-emerald-50 dark:border-emerald-500/20 border-emerald-200" : "dark:bg-red-500/10 bg-red-50 dark:border-red-500/20 border-red-200"
+        )}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">Unrealized P&L</span>
+            <Activity className={clsx("w-4 h-4", unrealized >= 0 ? "text-emerald-400" : "text-red-400")} />
+          </div>
+          <div className={clsx("text-2xl font-bold flex items-center gap-2", unrealized >= 0 ? "text-emerald-400" : "text-red-400")}>
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            {unrealized >= 0 ? "+" : ""}${unrealized.toFixed(2)}
+          </div>
+          <div className="text-xs dark:text-slate-500 text-slate-400">{openTrades.length} open position{openTrades.length !== 1 ? "s" : ""}</div>
+        </div>
+      )}
     </div>
   );
 }

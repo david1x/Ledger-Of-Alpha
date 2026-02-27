@@ -34,8 +34,15 @@ function TradingViewWidget({ symbol = "NASDAQ:AAPL", interval = "D" }: Props) {
       support_host: "https://www.tradingview.com",
       withdateranges: true,
       save_image: true,
-      enabled_features: ["use_localstorage_for_settings"],
-      disabled_features: ["show_object_tree", "right_bar_buttons_visibility"],
+      enabled_features: [
+        "use_localstorage_for_settings",
+        "side_toolbar_in_fullscreen_mode",
+        "countdown_visible",
+        "display_market_status",
+        "scales_context_menu",
+        "legend_context_menu",
+      ],
+      disabled_features: [],
     });
 
     container.current.appendChild(script);

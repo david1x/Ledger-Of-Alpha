@@ -29,6 +29,7 @@ export interface SessionPayload extends JWTPayload {
   emailVerified: boolean;
   twoFactorEnabled: boolean;
   twoFactorDone: boolean;
+  isAdmin: boolean;
 }
 
 export async function signJwt(
@@ -70,7 +71,23 @@ export async function getSessionUser(
     emailVerified: payload.emailVerified,
     twoFactorEnabled: payload.twoFactorEnabled,
     twoFactorDone: payload.twoFactorDone,
+    isAdmin: payload.isAdmin ?? false,
   };
+}
+
+/**
+ * Requires the request to carry a valid session from an admin user.
+ * Always re-checks the DB so a revoked admin can't use a stale JWT.
+ */
+export async function requireAdmin(req: NextRequest): Promise<SessionUser | null> {
+  const user = await getSessionUser(req);
+  if (!user) return null;
+  // Re-verify in DB to prevent stale JWT from granting admin after demotion
+  const { getDb } = await import("./db");
+  const db = getDb();
+  const row = db.prepare("SELECT is_admin FROM users WHERE id = ?").get(user.id) as { is_admin: number } | undefined;
+  if (!row?.is_admin) return null;
+  return user;
 }
 
 /** True when the request carries a guest cookie (not a real user session). */

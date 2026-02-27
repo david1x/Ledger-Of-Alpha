@@ -2,10 +2,11 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { Camera, Send, CheckCircle, AlertCircle, Plus, X, ExternalLink, Link, RotateCcw } from "lucide-react";
+import { Camera, Send, CheckCircle, AlertCircle, Plus, X, ExternalLink, Link, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
 import RiskCalculator from "@/components/RiskCalculator";
 import PositionSizer from "@/components/PositionSizer";
 import SetupChart, { type SetupChartHandle } from "@/components/SetupChart";
+import SymbolSearch from "@/components/SymbolSearch";
 
 const TradingViewWidget = dynamic(() => import("@/components/TradingViewWidget"), { ssr: false });
 
@@ -66,8 +67,8 @@ export default function PersistentChart() {
   const [discordMsg, setDiscordMsg] = useState("");
   const [countdown, setCountdown] = useState<null | 3 | 2 | 1>(null);
 
-  // Quick-add trade panel
-  const [showPanel, setShowPanel] = useState(false);
+  // Quick-add trade panel — open by default
+  const [showPanel, setShowPanel] = useState(true);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -455,7 +456,7 @@ export default function PersistentChart() {
         </button>
       </div>
 
-      {/* ── Chart area + optional trade panel ── */}
+      {/* ── Chart area + trade panel ── */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* Charts */}
@@ -468,53 +469,59 @@ export default function PersistentChart() {
               <TradingViewWidget key={resetKeys[tab.id] ?? 0} interval={tab.interval} />
             </div>
           ))}
-
-          {/* FAB — hidden when panel is open */}
-          {!showPanel && (
-            <button onClick={() => setShowPanel(true)}
-              className="absolute bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-emerald-500 hover:bg-emerald-400 shadow-lg text-white flex items-center justify-center transition-all hover:scale-110"
-              title="Add trade">
-              <Plus className="w-6 h-6" />
-            </button>
-          )}
         </div>
 
-        {/* ── Quick-add trade side panel ── */}
-        {showPanel && (
-          <div className="w-80 shrink-0 border-l dark:border-slate-800 border-slate-200 dark:bg-slate-900 bg-white flex flex-col">
-            {/* Panel header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b dark:border-slate-800 border-slate-200 shrink-0">
-              <span className="text-sm font-semibold dark:text-white text-slate-900">Add Trade</span>
-              <button onClick={() => setShowPanel(false)} className="dark:text-slate-400 text-slate-500 hover:text-red-400 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+        {/* ── Collapse/expand toggle strip ── */}
+        <button
+          onClick={() => setShowPanel(v => !v)}
+          title={showPanel ? "Collapse panel" : "Add Trade"}
+          className="relative flex flex-col items-center justify-center w-5 shrink-0 border-l dark:border-slate-800 border-slate-200 dark:bg-slate-900/60 bg-slate-50 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors z-10 gap-2"
+        >
+          {!showPanel && (
+            <span className="[writing-mode:vertical-rl] text-[9px] font-bold tracking-widest text-emerald-400 rotate-180 select-none">
+              ADD TRADE
+            </span>
+          )}
+          {showPanel
+            ? <ChevronRight className="w-3 h-3 dark:text-slate-500 text-slate-400 shrink-0" />
+            : <ChevronLeft  className="w-3 h-3 text-emerald-400 shrink-0" />
+          }
+        </button>
 
-            {/* Chart — pinned, never scrolls away */}
-            <div className="shrink-0">
-              <SetupChart
-                ref={setupChartRef}
-                symbol={form.symbol.trim().toUpperCase()}
-                entry={form.entry_price ? parseFloat(form.entry_price) : null}
-                stopLoss={form.stop_loss ? parseFloat(form.stop_loss) : null}
-                takeProfit={form.take_profit ? parseFloat(form.take_profit) : null}
-                direction={form.direction}
-                onEntryChange={p => setField("entry_price", String(p))}
-                onStopChange={p => setField("stop_loss", String(p))}
-                onTargetChange={p => setField("take_profit", String(p))}
-                height={220}
-              />
-            </div>
+        {/* ── Quick-add trade side panel — always in DOM, collapses via width ── */}
+        <div className={`shrink-0 overflow-hidden transition-[width] duration-200 dark:bg-slate-900 bg-white flex flex-col ${showPanel ? "w-[420px] border-l dark:border-slate-800 border-slate-200" : "w-0"}`}>
+          {/* Panel header */}
+          <div className="flex items-center px-4 py-3 border-b dark:border-slate-800 border-slate-200 shrink-0">
+            <span className="text-sm font-semibold dark:text-white text-slate-900">Add Trade</span>
+          </div>
 
-            {/* Form — scrolls independently below the pinned chart */}
-            <div className="flex flex-col gap-3 p-4 overflow-y-auto flex-1">
+          {/* Chart — pinned, never scrolls away */}
+          <div className="shrink-0">
+            <SetupChart
+              ref={setupChartRef}
+              symbol={form.symbol.trim().toUpperCase()}
+              entry={form.entry_price ? parseFloat(form.entry_price) : null}
+              stopLoss={form.stop_loss ? parseFloat(form.stop_loss) : null}
+              takeProfit={form.take_profit ? parseFloat(form.take_profit) : null}
+              direction={form.direction}
+              onEntryChange={p => setField("entry_price", String(p))}
+              onStopChange={p => setField("stop_loss", String(p))}
+              onTargetChange={p => setField("take_profit", String(p))}
+              height={220}
+            />
+          </div>
+
+          {/* Form — scrolls independently below the pinned chart */}
+          <div className="flex flex-col gap-3 p-4 overflow-y-auto flex-1">
               {/* Symbol + Direction inline */}
               <div className="flex gap-2">
                 <div className="flex-1 min-w-0">
                   <label className="text-xs dark:text-slate-400 text-slate-500 mb-1 block">Symbol</label>
-                  <input value={form.symbol} onChange={e => setField("symbol", e.target.value.toUpperCase())}
-                    placeholder="AAPL"
-                    className="w-full px-3 py-2 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  <SymbolSearch
+                    value={form.symbol}
+                    onChange={v => setField("symbol", v)}
+                    placeholder="Search symbol…"
+                  />
                 </div>
                 <div className="shrink-0">
                   <label className="text-xs dark:text-slate-400 text-slate-500 mb-1 block">Direction</label>
@@ -608,8 +615,8 @@ export default function PersistentChart() {
               />
             </div>
           </div>
-        )}
       </div>
     </div>
   );
 }
+

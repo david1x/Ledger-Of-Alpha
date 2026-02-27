@@ -8,6 +8,7 @@ export interface User {
   two_factor_secret: string | null;
   two_factor_enabled: number;      // 0 | 1
   two_factor_backup_codes: string | null; // JSON array of hashed codes
+  is_admin: number;                // 0 | 1
   created_at: string;
 }
 
@@ -19,6 +20,7 @@ export interface SessionUser {
   emailVerified: boolean;
   twoFactorEnabled: boolean;
   twoFactorDone: boolean;
+  isAdmin: boolean;
 }
 
 // ── Trade ─────────────────────────────────────────────────────────────────
@@ -71,3 +73,5 @@ export interface PositionSizeResult {
   maxLoss: number;
   riskPercent: number;
 }
+
+export type QuoteMap = Record<string, number>;

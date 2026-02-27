@@ -21,11 +21,7 @@ export async function middleware(req: NextRequest) {
 
   if (isPublic(pathname)) return NextResponse.next();
 
-  // Guest cookie — allow through (API routes return demo data for guests)
-  if (req.cookies.get("guest")?.value === "true") {
-    return NextResponse.next();
-  }
-
+  // Check real session first — a logged-in user overrides any stale guest cookie
   const token = req.cookies.get("session")?.value;
   if (token) {
     const payload = await verifyJwt(token);
@@ -36,8 +32,19 @@ export async function middleware(req: NextRequest) {
           return NextResponse.redirect(new URL("/verify-2fa", req.url));
         }
       }
+      // Admin-only routes (/api/admin/claim is exempt — it has its own "no admin exists" guard)
+      if ((pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) && pathname !== "/api/admin/claim") {
+        if (!payload.isAdmin) {
+          return NextResponse.redirect(new URL("/", req.url));
+        }
+      }
       return NextResponse.next();
     }
+  }
+
+  // Guest cookie — allow through (API routes return demo data for guests)
+  if (req.cookies.get("guest")?.value === "true") {
+    return NextResponse.next();
   }
 
   // No valid session → redirect to login, preserving intended destination

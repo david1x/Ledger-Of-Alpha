@@ -5,6 +5,8 @@ import Link from "next/link";
 import Logo from "@/components/Logo";
 import { Eye, EyeOff, LogIn, User } from "lucide-react";
 
+const UNVERIFIED_ERROR = "Please verify your email before signing in.";
+
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -14,6 +16,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  const [resendLoading, setResendLoading] = useState(false);
 
   useEffect(() => {
     if (params.get("verified") === "1") setInfo("Email verified! You can now sign in.");
@@ -43,6 +46,26 @@ function LoginForm() {
     }
   }
 
+  async function handleResend() {
+    setResendLoading(true);
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error ?? "Failed to send email. Check your SMTP settings.");
+        return;
+      }
+      setError("");
+      setInfo("Verification email sent! Check your inbox.");
+    } finally {
+      setResendLoading(false);
+    }
+  }
+
   async function continueAsGuest() {
     document.cookie = "guest=true; path=/; max-age=86400; SameSite=Lax";
     router.push("/");
@@ -64,7 +87,21 @@ function LoginForm() {
 
         <div className="dark:bg-slate-900 bg-white border dark:border-slate-800 border-slate-200 rounded-xl p-6 shadow-lg">
           {info && <p className="mb-4 text-sm text-emerald-400 bg-emerald-500/10 rounded-lg px-3 py-2">{info}</p>}
-          {error && <p className="mb-4 text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</p>}
+          {error && (
+            <div className="mb-4">
+              <p className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</p>
+              {error === UNVERIFIED_ERROR && email && (
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendLoading}
+                  className="mt-2 text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-50 underline underline-offset-2"
+                >
+                  {resendLoading ? "Sending…" : "Resend verification email"}
+                </button>
+              )}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

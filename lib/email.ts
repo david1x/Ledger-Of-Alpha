@@ -1,30 +1,72 @@
 import nodemailer from "nodemailer";
 
-function getTransport() {
+interface SmtpConfig {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+  from: string;
+}
+
+function getSmtpConfig(): SmtpConfig | null {
+  // DB settings take precedence over env vars (set via admin panel)
+  try {
+    const { getDb } = require("./db");
+    const db = getDb();
+    const get = (key: string): string =>
+      (db.prepare("SELECT value FROM settings WHERE user_id = '_system' AND key = ?").get(key) as { value: string } | undefined)?.value ?? "";
+    const host = get("smtp_host");
+    const user = get("smtp_user");
+    const pass = get("smtp_pass");
+    if (host && user && pass) {
+      return {
+        host,
+        port: parseInt(get("smtp_port") || "587", 10),
+        secure: get("smtp_secure") === "true",
+        user,
+        pass,
+        from: get("smtp_from") || "Ledger Of Alpha <noreply@ledgerofalpha.local>",
+      };
+    }
+  } catch {}
+
+  // Fall back to environment variables
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
-
-  // If SMTP isn't configured, return null — callers log to console instead.
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
-
-  return nodemailer.createTransport({
+  return {
     host: SMTP_HOST,
     port: parseInt(SMTP_PORT ?? "587", 10),
     secure: process.env.SMTP_SECURE === "true",
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
-  });
+    user: SMTP_USER,
+    pass: SMTP_PASS,
+    from: process.env.SMTP_FROM ?? "Ledger Of Alpha <noreply@ledgerofalpha.local>",
+  };
 }
 
-const FROM = process.env.SMTP_FROM ?? "Ledger Of Alpha <noreply@ledgerofalpha.local>";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+function getAppUrl(): string {
+  try {
+    const { getDb } = require("./db");
+    const db = getDb();
+    const row = db.prepare("SELECT value FROM settings WHERE user_id = '_system' AND key = 'app_url'").get() as { value: string } | undefined;
+    if (row?.value) return row.value;
+  } catch {}
+  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+}
 
 async function send(to: string, subject: string, html: string) {
-  const transport = getTransport();
-  if (!transport) {
-    // Dev fallback — print to console so dev workflow still works
+  const cfg = getSmtpConfig();
+  if (!cfg) {
     console.log(`\n📧 EMAIL (no SMTP configured)\nTo: ${to}\nSubject: ${subject}\n${html.replace(/<[^>]+>/g, "")}\n`);
     return;
   }
-  await transport.sendMail({ from: FROM, to, subject, html });
+  const transport = nodemailer.createTransport({
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.secure,
+    auth: { user: cfg.user, pass: cfg.pass },
+  });
+  await transport.sendMail({ from: cfg.from, to, subject, html });
 }
 
 // ── Email templates ────────────────────────────────────────────────────────
@@ -33,7 +75,7 @@ export async function sendVerificationEmail(
   name: string,
   token: string
 ): Promise<void> {
-  const url = `${APP_URL}/api/auth/verify-email?token=${token}`;
+  const url = `${getAppUrl()}/api/auth/verify-email?token=${token}`;
   await send(
     to,
     "Verify your Ledger Of Alpha account",
@@ -66,7 +108,7 @@ export async function sendPasswordResetEmail(
   name: string,
   token: string
 ): Promise<void> {
-  const url = `${APP_URL}/reset-password?token=${token}`;
+  const url = `${getAppUrl()}/reset-password?token=${token}`;
   await send(
     to,
     "Reset your Ledger Of Alpha password",

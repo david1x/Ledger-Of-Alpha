@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import Navbar from "@/components/Navbar";
+import PersistentChart from "@/components/PersistentChart";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,6 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="dark:bg-slate-950 bg-slate-50 dark:text-white text-slate-900 min-h-screen">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <Navbar />
+          <PersistentChart />
           <main className="pt-14 max-w-screen-2xl mx-auto px-4 py-6">
             {children}
           </main>

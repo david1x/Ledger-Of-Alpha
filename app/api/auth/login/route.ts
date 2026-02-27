@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
       emailVerified: true,
       twoFactorEnabled: !!user.two_factor_enabled,
       twoFactorDone: false,
+      isAdmin: !!user.is_admin,
     };
 
     if (user.two_factor_enabled) {
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
       const pending = await signJwt(basePayload, "5m");
       const res = NextResponse.json({ requires2fa: true });
       res.cookies.set("pending_2fa", pending, cookieOpts(5 * 60));
+      res.cookies.set("guest", "", cookieOpts(0));
       return res;
     }
 
@@ -57,6 +59,7 @@ export async function POST(req: NextRequest) {
     const session = await signJwt({ ...basePayload, twoFactorDone: true }, "7d");
     const res = NextResponse.json({ ok: true });
     res.cookies.set("session", session, cookieOpts(7 * 24 * 60 * 60));
+    res.cookies.set("guest", "", cookieOpts(0));
     return res;
   } catch (e) {
     console.error("login error:", e);
