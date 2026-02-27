@@ -4,13 +4,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
 import Logo from "./Logo";
-import { BarChart2, BookOpen, LineChart, Settings, TrendingUp, Layout, ChevronDown, LogOut, User } from "lucide-react";
+import { BookOpen, LineChart, Settings, TrendingUp, Layout, ChevronDown, LogOut, User, ShieldCheck } from "lucide-react";
 import clsx from "clsx";
 
 const NAV_LINKS = [
   { href: "/",        label: "Dashboard", icon: Layout },
   { href: "/trades",  label: "Trades",    icon: TrendingUp },
-  { href: "/planner", label: "Planner",   icon: BarChart2 },
   { href: "/journal", label: "Journal",   icon: BookOpen },
   { href: "/chart",   label: "Chart",     icon: LineChart },
   { href: "/settings",label: "Settings",  icon: Settings },
@@ -23,6 +22,7 @@ interface MeResponse {
   name?: string;
   email?: string | null;
   id?: string;
+  isAdmin?: boolean;
 }
 
 export default function Navbar() {
@@ -31,17 +31,15 @@ export default function Navbar() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const isAuthPage = AUTH_PATHS.includes(pathname);
 
-  // Hide on auth pages
-  if (AUTH_PATHS.includes(pathname)) return null;
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
+    if (isAuthPage) return;
     fetch("/api/auth/me").then(r => r.json()).then(setMe).catch(() => null);
-  }, [pathname]);
+  }, [pathname, isAuthPage]);
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
+    if (isAuthPage) return;
     function handleClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
@@ -49,7 +47,10 @@ export default function Navbar() {
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+  }, [isAuthPage]);
+
+  // Hide on auth pages (after all hooks are called)
+  if (isAuthPage) return null;
 
   async function handleSignOut() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -129,6 +130,12 @@ export default function Navbar() {
                     className="flex items-center gap-2 w-full px-3 py-2 text-sm dark:text-slate-300 text-slate-700 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors">
                     <User className="w-4 h-4" /> Account Settings
                   </Link>
+                  {me?.isAdmin && (
+                    <Link href="/admin" onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-sm text-emerald-400 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors">
+                      <ShieldCheck className="w-4 h-4" /> Admin Panel
+                    </Link>
+                  )}
                   <button onClick={handleSignOut}
                     className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors">
                     <LogOut className="w-4 h-4" /> Sign Out

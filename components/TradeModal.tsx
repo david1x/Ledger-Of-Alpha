@@ -4,6 +4,7 @@ import { Trade } from "@/lib/types";
 import SymbolSearch from "./SymbolSearch";
 import RiskCalculator from "./RiskCalculator";
 import PositionSizer from "./PositionSizer";
+import SetupChart from "./SetupChart";
 import { X } from "lucide-react";
 
 interface Props {
@@ -209,6 +210,17 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
 
           {/* Right: Calculators */}
           <div className="space-y-4">
+            <SetupChart
+              symbol={form.symbol ?? ""}
+              entry={form.entry_price ?? null}
+              stopLoss={form.stop_loss ?? null}
+              takeProfit={form.take_profit ?? null}
+              direction={form.direction ?? "long"}
+              onEntryChange={p => set("entry_price", p)}
+              onStopChange={p => set("stop_loss", p)}
+              onTargetChange={p => set("take_profit", p)}
+              height={260}
+            />
             <RiskCalculator
               entry={form.entry_price ?? null}
               stopLoss={form.stop_loss ?? null}
