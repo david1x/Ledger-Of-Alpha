@@ -2,7 +2,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { Camera, Send, CheckCircle, AlertCircle, Plus, X, ExternalLink, Link, RotateCcw, ChevronLeft, ChevronRight, Trash2, Pencil, List } from "lucide-react";
+import { Camera, Send, CheckCircle, AlertCircle, Plus, X, ExternalLink, Link, RotateCcw, ChevronLeft, ChevronRight, Trash2, Pencil, List, Download, Upload } from "lucide-react";
 import RiskCalculator from "@/components/RiskCalculator";
 import PositionSizer from "@/components/PositionSizer";
 import SetupChart, { type SetupChartHandle } from "@/components/SetupChart";
@@ -99,6 +99,9 @@ export default function PersistentChart() {
   const [showCustomAdd, setShowCustomAdd] = useState(false);
   const [customSymbol, setCustomSymbol] = useState("");
   const [customName, setCustomName] = useState("");
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [bulkInput, setBulkInput] = useState("");
+  const wlFileInputRef = useRef<HTMLInputElement>(null);
 
 
   const chartRef = useRef<HTMLDivElement>(null);
@@ -233,6 +236,50 @@ export default function PersistentChart() {
       setWatchlists(next); saveWatchlists(next);
     }
     setEditingWlName(false);
+  };
+
+  const exportWatchlist = () => {
+    const symbols = activeWatchlist.symbols.map(s => s.symbol).join(", ");
+    const blob = new Blob([symbols], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${activeWatchlist.name.replace(/\s+/g, "-").toLowerCase()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importBulkSymbols = (text: string) => {
+    const symbols = text
+      .split(/[,\n]+/)
+      .map(s => s.trim().toUpperCase())
+      .filter(s => s.length > 0 && s.length <= 20);
+    if (symbols.length === 0) return;
+
+    setWatchlists(prev => {
+      const wl = prev.find(w => w.id === activeWlId);
+      if (!wl) return prev;
+      const existing = new Set(wl.symbols.map(s => s.symbol));
+      const toAdd = symbols.filter(s => !existing.has(s));
+      if (toAdd.length === 0) return prev;
+      const next = prev.map(w =>
+        w.id === activeWlId
+          ? { ...w, symbols: [...w.symbols, ...toAdd.map(s => ({ symbol: s, name: s }))] }
+          : w
+      );
+      saveWatchlists(next);
+      return next;
+    });
+    setBulkInput("");
+    setShowBulkImport(false);
+  };
+
+  const handleWlFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    const text = await file.text();
+    importBulkSymbols(text);
   };
 
   const selectSymbol = (symbol: string) => {
@@ -624,6 +671,21 @@ export default function PersistentChart() {
             >
               <Trash2 className="w-3 h-3" />
             </button>
+            <button
+              onClick={exportWatchlist}
+              title="Export watchlist"
+              disabled={activeWatchlist.symbols.length === 0}
+              className="p-1 rounded dark:text-slate-400 text-slate-500 hover:text-emerald-400 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0 disabled:opacity-30 disabled:pointer-events-none"
+            >
+              <Download className="w-3 h-3" />
+            </button>
+            <button
+              onClick={() => setShowBulkImport(v => !v)}
+              title="Import symbols"
+              className="p-1 rounded dark:text-slate-400 text-slate-500 hover:text-emerald-400 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0"
+            >
+              <Upload className="w-3 h-3" />
+            </button>
             <button onClick={() => setShowWatchlist(false)} title="Close" className="hidden sm:block p-1 ml-1 rounded hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0">
               <X className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
             </button>
@@ -676,6 +738,42 @@ export default function PersistentChart() {
               </div>
             )}
           </div>
+
+          {/* Bulk import panel */}
+          {showBulkImport && (
+            <div className="px-2 py-2 border-b dark:border-slate-800 border-slate-200 shrink-0 space-y-1.5">
+              <p className="text-[10px] dark:text-slate-400 text-slate-500">Paste symbols separated by commas or upload a file:</p>
+              <textarea
+                value={bulkInput}
+                onChange={e => setBulkInput(e.target.value)}
+                placeholder="AAPL, MSFT, TSLA, NVDA..."
+                rows={3}
+                className="w-full px-2 py-1.5 text-xs rounded border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
+              />
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => importBulkSymbols(bulkInput)}
+                  disabled={!bulkInput.trim()}
+                  className="flex-1 py-1.5 text-xs font-medium rounded bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-40"
+                >
+                  Add Symbols
+                </button>
+                <button
+                  onClick={() => wlFileInputRef.current?.click()}
+                  className="px-3 py-1.5 text-xs font-medium rounded border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors"
+                >
+                  Upload File
+                </button>
+                <input
+                  ref={wlFileInputRef}
+                  type="file"
+                  accept=".txt,.csv"
+                  onChange={handleWlFileImport}
+                  className="hidden"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Symbol list */}
           <div className="flex-1 overflow-y-auto">
