@@ -20,23 +20,27 @@
 
 ### Dashboard
 ![Dashboard](docs/screenshots/01-dashboard.png)
-*Stats cards, cumulative P&L equity curve, and recent trades — all with live demo data on first load.*
+*Total P&L, win rate, avg win/loss, expectancy stats. Unrealized P&L for open positions. Interactive equity curve and recent trades table.*
 
 ### Trade Log
 ![Trade Log](docs/screenshots/02-trades.png)
-*Filter by symbol, status, or direction. Export as CSV/JSON or import trades from file. Full P&L coloring throughout.*
+*20 trades with full P&L coloring, status filters, symbol search, column picker. Export/import as CSV or JSON.*
+
+### Trade Log — Symbol Hover
+![Trade Hover](docs/screenshots/07-trade-hover.png)
+*Hover any symbol to see a live mini candlestick chart with entry, stop, and target levels overlaid.*
 
 ### Trade Journal
 ![Journal](docs/screenshots/03-journal.png)
-*Card-based view with expandable mini candlestick charts, trade notes, tags, potential P&L, and R:R ratio.*
+*Card-based review with notes, tags, expandable mini charts, potential P&L, and R:R ratio per trade.*
 
-### Chart — TradingView + Add Trade Panel
+### Chart — TradingView + Watchlist + Add Trade
 ![Chart](docs/screenshots/04-chart.png)
-*Full-screen TradingView Advanced Chart with a collapsible Add Trade sidebar. Plan your setup, capture it, and post to Discord in one click.*
+*Full-screen TradingView chart with multi-tab support, resizable watchlist sidebar with sector grouping, and collapsible Add Trade panel with risk calculator.*
 
 ### Settings
 ![Settings](docs/screenshots/05-settings.png)
-*Configure account size, risk %, FMP API key, Discord webhook, and data management (export/import).*
+*Account size, risk %, commission per trade, FMP API key, Discord webhook, and data management (export/import).*
 
 ### Login
 ![Login](docs/screenshots/06-login.png)
@@ -89,14 +93,16 @@
 - Full-screen **TradingView Advanced Chart** embed (dark/light theme sync)
 - Multi-tab support — open multiple charts, rename tabs, persist across sessions
 - Interval switcher: 1m · 5m · 15m · 1h · 4h · 1D · 1W
+- **Watchlist sidebar** — resizable, with sector grouping, drag-to-reorder, filter, import/export, and collapsible sections
 - **Add Trade panel** — collapsible sidebar with:
   - Interactive mini-chart (click to set entry / stop / target, drag to reposition)
   - Live RiskCalculator and PositionSizer as you type
+  - Per-trade account size, risk %, and commission fields
   - Save as Planned or **Save + Share to Discord** in one click
 - **Discord snapshot** — screen capture with 3-second countdown, or paste a TradingView snapshot link
 
 ### ⚙️ Settings
-- Account size and risk-per-trade percentage
+- Account size, risk-per-trade percentage, and commission per trade
 - Financial Modeling Prep (FMP) API key + on-demand symbol list refresh
 - Discord webhook URL for chart snapshot delivery
 - **Data Management** — export/import trades directly from settings
@@ -130,12 +136,6 @@
 
 ## 🚀 Getting Started
 
-### Prerequisites
-- Node.js 18+
-- npm
-
-### Installation
-
 ```bash
 git clone https://github.com/david1x/ledger-of-alpha.git
 cd ledger-of-alpha
@@ -143,32 +143,21 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-The SQLite database is created automatically at `data/ledger-of-alpha.db` on the first API call — no setup required.
+Open [http://localhost:3000](http://localhost:3000). The SQLite database is created automatically — no setup required.
 
 > **Try it instantly** — click **Continue as Guest** on the login page to explore with pre-loaded demo trades. No account needed.
-
-### Configuration
-
-All configuration is done inside the app at **Settings → ⚙️**.
-
-| Setting | Required | Description |
-|---|---|---|
-| Account Size | Yes | Your trading account balance in USD |
-| Risk Per Trade | Yes | Percentage of account risked per trade (default 1%) |
-| FMP API Key | Optional | Enables live symbol search. Get a free key at [financialmodelingprep.com](https://financialmodelingprep.com) |
-| Discord Webhook | Optional | Paste a webhook URL to enable chart-to-Discord snapshots |
 
 ### Docker
 
 ```bash
 cp docker-compose.example.yml docker-compose.yml
 # Edit docker-compose.yml — set JWT_SECRET and SMTP credentials
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The SQLite database is persisted in `./data/`.
+The SQLite database is persisted in `./data/`.
+
+For detailed setup instructions (environment variables, SMTP configuration, admin setup, troubleshooting), see **[GETTING-STARTED.md](GETTING-STARTED.md)**.
 
 ---
 
@@ -222,26 +211,45 @@ ledger-of-alpha/
 
 ```sql
 CREATE TABLE trades (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  symbol      TEXT NOT NULL,
-  direction   TEXT NOT NULL,   -- 'long' | 'short'
-  status      TEXT NOT NULL,   -- 'planned' | 'open' | 'closed'
-  entry_price REAL,
-  stop_loss   REAL,
-  take_profit REAL,
-  exit_price  REAL,
-  shares      REAL,
-  entry_date  TEXT,
-  exit_date   TEXT,
-  pnl         REAL,
-  notes       TEXT,
-  tags        TEXT,
-  created_at  TEXT DEFAULT (datetime('now'))
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id        TEXT,              -- FK to users.id (enforced at app layer)
+  symbol         TEXT NOT NULL,
+  direction      TEXT NOT NULL,     -- 'long' | 'short'
+  status         TEXT NOT NULL,     -- 'planned' | 'open' | 'closed'
+  entry_price    REAL,
+  stop_loss      REAL,
+  take_profit    REAL,
+  exit_price     REAL,
+  shares         REAL,
+  entry_date     TEXT,
+  exit_date      TEXT,
+  pnl            REAL,
+  notes          TEXT,
+  tags           TEXT,
+  account_size   REAL,             -- snapshot at time of trade
+  commission     REAL,
+  risk_per_trade REAL,
+  created_at     TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE settings (
-  key   TEXT PRIMARY KEY,
-  value TEXT
+  user_id TEXT NOT NULL,            -- '_system' for global settings
+  key     TEXT NOT NULL,
+  value   TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (user_id, key)
+);
+
+CREATE TABLE users (
+  id                     TEXT PRIMARY KEY,
+  email                  TEXT UNIQUE NOT NULL,
+  name                   TEXT NOT NULL,
+  password_hash          TEXT NOT NULL,
+  email_verified         INTEGER NOT NULL DEFAULT 0,
+  two_factor_secret      TEXT,
+  two_factor_enabled     INTEGER NOT NULL DEFAULT 0,
+  two_factor_backup_codes TEXT,
+  is_admin               INTEGER NOT NULL DEFAULT 0,
+  created_at             TEXT DEFAULT (datetime('now'))
 );
 ```
 

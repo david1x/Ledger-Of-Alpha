@@ -16,7 +16,6 @@ export async function GET(req: NextRequest) {
   const user = await getSessionUser(req);
   const guest = isGuest(req);
   if (!user && !guest) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (guest) return NextResponse.json([]);
 
   const { searchParams } = new URL(req.url);
   const symbol = (searchParams.get("symbol") ?? "").trim().toUpperCase();
