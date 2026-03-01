@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { hashPassword, generateToken, hashToken } from "@/lib/auth";
 import { sendVerificationEmail } from "@/lib/email";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 5 registrations per hour per IP
+  const limited = rateLimit(req, "register", 5, 60 * 60 * 1000);
+  if (limited) return limited;
+
   try {
     const { name, email, password, confirmPassword } = await req.json();
 

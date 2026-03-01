@@ -68,6 +68,7 @@ export async function GET(req: NextRequest) {
         .all(`${q}%`, `%${q}%`)
     );
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    console.error("symbols API error:", e);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

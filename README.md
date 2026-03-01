@@ -104,6 +104,10 @@
 - Email verification on signup
 - **Guest mode** — explore the app with realistic demo data, no account required
 - **Admin panel** — manage users, toggle admin rights, configure SMTP
+- **Rate limiting** — per-IP throttling on auth and API endpoints
+- **Security headers** — CSP, HSTS, X-Frame-Options via middleware
+- **Input validation** — server-side trade data sanitization and type checking
+- **Error sanitization** — internal details never leaked to clients
 
 ---
 
@@ -131,7 +135,7 @@
 
 ```bash
 git clone https://github.com/david1x/ledger-of-alpha.git
-cd ledger-of-alpha/tradeviz
+cd ledger-of-alpha
 npm install
 npm run dev
 ```
@@ -153,12 +157,22 @@ All configuration is done inside the app at **Settings → ⚙️**.
 | FMP API Key | Optional | Enables live symbol search. Get a free key at [financialmodelingprep.com](https://financialmodelingprep.com) |
 | Discord Webhook | Optional | Paste a webhook URL to enable chart-to-Discord snapshots |
 
+### Docker
+
+```bash
+cp docker-compose.example.yml docker-compose.yml
+# Edit docker-compose.yml — set JWT_SECRET and SMTP credentials
+docker-compose up -d --build
+```
+
+Open [http://localhost:3000](http://localhost:3000). The SQLite database is persisted in `./data/`.
+
 ---
 
 ## 📁 Project Structure
 
 ```
-tradeviz/
+ledger-of-alpha/
 ├── app/
 │   ├── page.tsx              # Dashboard
 │   ├── trades/page.tsx       # Full trade log
@@ -190,6 +204,8 @@ tradeviz/
 ├── lib/
 │   ├── db.ts                 # SQLite init + schema migrations
 │   ├── auth.ts               # JWT, bcrypt, admin guard
+│   ├── rate-limit.ts         # Per-IP rate limiting
+│   ├── validate-trade.ts     # Server-side trade input validation
 │   └── demo-data.ts          # Realistic fake trades for guest mode
 └── data/
     └── ledger-of-alpha.db    # Auto-created, gitignored

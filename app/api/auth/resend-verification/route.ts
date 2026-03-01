@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { generateToken, hashToken } from "@/lib/auth";
 import { sendVerificationEmail } from "@/lib/email";
+import { rateLimit } from "@/lib/rate-limit";
 import type { User } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 3 resends per hour per IP
+  const limited = rateLimit(req, "resend-verification", 3, 60 * 60 * 1000);
+  if (limited) return limited;
+
   try {
     const { email } = await req.json();
     if (!email) {

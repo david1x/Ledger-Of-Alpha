@@ -56,11 +56,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (!res.ok) {
-      return NextResponse.json({ error: `Discord error: ${await res.text()}` }, { status: 502 });
+      console.error("Discord webhook error:", await res.text());
+      return NextResponse.json({ error: "Discord webhook request failed." }, { status: 502 });
     }
 
     return NextResponse.json({ success: true });
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    console.error("discord API error:", e);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

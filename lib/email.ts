@@ -69,6 +69,11 @@ async function send(to: string, subject: string, html: string) {
   await transport.sendMail({ from: cfg.from, to, subject, html });
 }
 
+/** Escape HTML special characters to prevent XSS in email templates. */
+function escHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 // ── Email templates ────────────────────────────────────────────────────────
 export async function sendVerificationEmail(
   to: string,
@@ -79,7 +84,7 @@ export async function sendVerificationEmail(
   await send(
     to,
     "Verify your Ledger Of Alpha account",
-    `<p>Hi ${name},</p>
+    `<p>Hi ${escHtml(name)},</p>
      <p>Click the link below to verify your email address. The link expires in 24 hours.</p>
      <p><a href="${url}" style="background:#10b981;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">Verify Email</a></p>
      <p>Or paste this URL: ${url}</p>
@@ -95,7 +100,7 @@ export async function sendOtpEmail(
   await send(
     to,
     "Your Ledger Of Alpha login code",
-    `<p>Hi ${name},</p>
+    `<p>Hi ${escHtml(name)},</p>
      <p>Your one-time login code is:</p>
      <p style="font-size:2rem;font-weight:bold;letter-spacing:0.3em;color:#10b981;">${otp}</p>
      <p>This code expires in <strong>10 minutes</strong>. Do not share it with anyone.</p>
@@ -112,7 +117,7 @@ export async function sendPasswordResetEmail(
   await send(
     to,
     "Reset your Ledger Of Alpha password",
-    `<p>Hi ${name},</p>
+    `<p>Hi ${escHtml(name)},</p>
      <p>Click the link below to reset your password. The link expires in 1 hour.</p>
      <p><a href="${url}" style="background:#10b981;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">Reset Password</a></p>
      <p>Or paste this URL: ${url}</p>

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { verifyPassword, signJwt } from "@/lib/auth";
+import { verifyPassword, signJwt, DUMMY_HASH } from "@/lib/auth";
+import { rateLimit } from "@/lib/rate-limit";
 import type { User } from "@/lib/types";
 
 function cookieOpts(maxAge: number) {
   return {
     httpOnly: true,
-    sameSite: "lax" as const,
+    sameSite: "strict" as const,
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge,
@@ -14,6 +15,10 @@ function cookieOpts(maxAge: number) {
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 5 attempts per 15 minutes per IP
+  const limited = rateLimit(req, "login", 5, 15 * 60 * 1000);
+  if (limited) return limited;
+
   try {
     const { email, password } = await req.json();
     if (!email || !password) {
@@ -25,7 +30,10 @@ export async function POST(req: NextRequest) {
       .prepare("SELECT * FROM users WHERE email = ?")
       .get(email.toLowerCase()) as User | undefined;
 
-    if (!user || !(await verifyPassword(password, user.password_hash))) {
+    // Always run bcrypt to prevent timing-based email enumeration
+    const passwordValid = await verifyPassword(password, user?.password_hash ?? DUMMY_HASH);
+
+    if (!user || !passwordValid) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
 

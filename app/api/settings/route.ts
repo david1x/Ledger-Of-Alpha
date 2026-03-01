@@ -30,7 +30,8 @@ export async function GET(req: NextRequest) {
     const db = getDb();
     return NextResponse.json(getUserSettings(db, user.id));
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    console.error("settings API error:", e);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -59,6 +60,7 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(getUserSettings(db, user.id));
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    console.error("settings API error:", e);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

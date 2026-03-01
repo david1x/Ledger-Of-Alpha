@@ -37,10 +37,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Invalid code. Make sure your authenticator is synced." }, { status: 400 });
       }
 
-      // Generate 8 backup codes
-      const rawCodes = Array.from({ length: 8 }, () =>
-        Math.random().toString(36).slice(2, 8).toUpperCase()
-      );
+      // Generate 8 backup codes using cryptographically secure random
+      const rawCodes = Array.from({ length: 8 }, () => {
+        const bytes = new Uint8Array(4);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes).map(b => b.toString(36).padStart(2, "0")).join("").slice(0, 6).toUpperCase();
+      });
       const hashedCodes = await Promise.all(rawCodes.map(c => hashPassword(c)));
 
       db.prepare(`

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser, isGuest } from "@/lib/auth";
 import { DEMO_TRADES } from "@/lib/demo-data";
+import { validateTradeFields } from "@/lib/validate-trade";
 
 export async function GET(req: NextRequest) {
   if (isGuest(req)) {
@@ -37,7 +38,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(db.prepare(query).all(...params));
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    console.error("trades API error:", e);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -63,7 +65,8 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ deleted: result.changes });
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    console.error("trades API error:", e);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -78,6 +81,12 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
     const body = await req.json();
+
+    const validationError = validateTradeFields(body);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+
     const {
       symbol, direction, status = "planned",
       entry_price, stop_loss, take_profit,
@@ -108,6 +117,7 @@ export async function POST(req: NextRequest) {
     const trade = db.prepare("SELECT * FROM trades WHERE id = ?").get(result.lastInsertRowid);
     return NextResponse.json(trade, { status: 201 });
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    console.error("trades API error:", e);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

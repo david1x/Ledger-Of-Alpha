@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { verifyJwt, generateOtp, hashToken } from "@/lib/auth";
 import { sendOtpEmail } from "@/lib/email";
+import { rateLimit } from "@/lib/rate-limit";
 import type { User } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 3 OTP requests per 5 minutes per IP
+  const limited = rateLimit(req, "email-otp", 3, 5 * 60 * 1000);
+  if (limited) return limited;
+
   try {
     const pending = req.cookies.get("pending_2fa")?.value;
     if (!pending) return NextResponse.json({ error: "No pending session." }, { status: 401 });

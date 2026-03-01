@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser, isGuest } from "@/lib/auth";
 import { DEMO_TRADES } from "@/lib/demo-data";
+import { validateTradeFields, pickTradeFields } from "@/lib/validate-trade";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,7 +22,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!trade) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(trade);
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    console.error("trades/[id] API error:", e);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -36,14 +38,22 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params;
     const db = getDb();
-    const body = await req.json();
+    const rawBody = await req.json();
+
+    // Only allow known trade fields — prevents mass assignment
+    const safeBody = pickTradeFields(rawBody);
+
+    const validationError = validateTradeFields(safeBody);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
 
     const existing = db
       .prepare("SELECT * FROM trades WHERE id = ? AND user_id = ?")
       .get(id, user.id) as Record<string, unknown> | undefined;
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const merged = { ...existing, ...body };
+    const merged = { ...existing, ...safeBody };
 
     let pnl = merged.pnl;
     if (merged.status === "closed" && merged.entry_price && merged.exit_price && merged.shares) {
@@ -71,7 +81,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return NextResponse.json(db.prepare("SELECT * FROM trades WHERE id = ?").get(id));
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    console.error("trades/[id] API error:", e);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -90,6 +101,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (result.changes === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    console.error("trades/[id] API error:", e);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

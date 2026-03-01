@@ -65,6 +65,12 @@ async function shot(page, name, url, { waitFor, beforeShot, width = 1280, height
 
   await shot(page, "03-journal", "/journal", {
     waitFor: "[class*='grid']",
+    beforeShot: async (p) => {
+      // Mini charts are open by default — scroll down slightly to show a card with chart
+      await p.waitForTimeout(800);
+      await p.evaluate(() => window.scrollBy(0, 100));
+      await p.waitForTimeout(600);
+    },
   });
 
   // Chart page — wait for toolbar, then open Add Trade panel

@@ -69,9 +69,7 @@ services:
 #  Backup the database:
 #    cp -r ./data ./data-backup-$(date +%Y%m%d)
 #
-#  The first user to register becomes a regular user.
-#  There's no admin panel yet — manage users directly via SQLite if needed:
-#    docker-compose exec app sh
-#    sqlite3 /app/data/ledger-of-alpha.db
+#  The first registered user can claim admin at /admin.
+#  Admin panel: manage users, toggle admin rights, configure SMTP.
 #
 # ─────────────────────────────────────────────────────────────────────────────
