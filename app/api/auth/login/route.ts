@@ -15,15 +15,15 @@ function cookieOpts(maxAge: number) {
 }
 
 export async function POST(req: NextRequest) {
-  // Rate limit: 5 attempts per 15 minutes per IP
-  const limited = rateLimit(req, "login", 5, 15 * 60 * 1000);
-  if (limited) return limited;
-
   try {
     const { email, password } = await req.json();
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
     }
+
+    // Rate limit: 10 attempts per 15 minutes per email address
+    const limited = rateLimit(req, "login", 10, 15 * 60 * 1000, email.toLowerCase());
+    if (limited) return limited;
 
     const db = getDb();
     const user = db

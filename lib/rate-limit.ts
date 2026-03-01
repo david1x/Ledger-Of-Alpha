@@ -34,10 +34,12 @@ export function rateLimit(
   /** Max requests allowed in the window */
   max: number,
   /** Window size in milliseconds */
-  windowMs: number
+  windowMs: number,
+  /** Optional extra key to scope the limit (e.g. email) instead of just IP */
+  extraKey?: string
 ): NextResponse | null {
   const ip = getIp(req);
-  const key = `${namespace}:${ip}`;
+  const key = extraKey ? `${namespace}:${extraKey}` : `${namespace}:${ip}`;
   const now = Date.now();
 
   let entry = store.get(key);
