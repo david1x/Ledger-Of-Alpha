@@ -123,6 +123,33 @@ function runMigrations(db: Database.Database) {
     markMigration(db, "002_trades_user_id");
   }
 
+  // ── 003: settings per-user ────────────────────────────────────────────
+  // IMPORTANT: must run before 005 which inserts into settings(user_id, key, value)
+  if (!hasMigration(db, "003_settings_per_user")) {
+    // Check if settings still has the old single-PK structure
+    const pkCols = (db.pragma("table_info(settings)") as { name: string; pk: number }[])
+      .filter(c => c.pk > 0)
+      .map(c => c.name);
+
+    if (!pkCols.includes("user_id")) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS settings_new (
+          user_id TEXT NOT NULL,
+          key     TEXT NOT NULL,
+          value   TEXT NOT NULL DEFAULT '',
+          PRIMARY KEY (user_id, key)
+        );
+
+        INSERT OR IGNORE INTO settings_new (user_id, key, value)
+          SELECT '_system', key, value FROM settings;
+
+        DROP TABLE settings;
+        ALTER TABLE settings_new RENAME TO settings;
+      `);
+    }
+    markMigration(db, "003_settings_per_user");
+  }
+
   // ── 004: admin flag on users ──────────────────────────────────────────
   if (!hasMigration(db, "004_admin_flag")) {
     const cols = (db.pragma("table_info(users)") as { name: string }[]).map(c => c.name);
@@ -172,31 +199,5 @@ function runMigrations(db: Database.Database) {
     if (!cols.includes("risk_per_trade")) {
       db.exec(`ALTER TABLE trades ADD COLUMN risk_per_trade REAL;`);
     }
-  }
-
-  // ── 003: settings per-user ────────────────────────────────────────────
-  if (!hasMigration(db, "003_settings_per_user")) {
-    // Check if settings still has the old single-PK structure
-    const pkCols = (db.pragma("table_info(settings)") as { name: string; pk: number }[])
-      .filter(c => c.pk > 0)
-      .map(c => c.name);
-
-    if (!pkCols.includes("user_id")) {
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS settings_new (
-          user_id TEXT NOT NULL,
-          key     TEXT NOT NULL,
-          value   TEXT NOT NULL DEFAULT '',
-          PRIMARY KEY (user_id, key)
-        );
-
-        INSERT OR IGNORE INTO settings_new (user_id, key, value)
-          SELECT '_system', key, value FROM settings;
-
-        DROP TABLE settings;
-        ALTER TABLE settings_new RENAME TO settings;
-      `);
-    }
-    markMigration(db, "003_settings_per_user");
   }
 }

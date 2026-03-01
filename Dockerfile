@@ -15,6 +15,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Dummy JWT_SECRET for build only — Next.js pre-renders pages during build
+# which triggers the auth module's production check. The real secret is
+# injected at runtime via environment variables.
+ENV JWT_SECRET="build-time-placeholder-not-used-at-runtime-ok"
+
 # next.config.ts must have output: "standalone" for this to work
 RUN npm run build
 
@@ -23,7 +28,7 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=3002
 ENV HOSTNAME=0.0.0.0
 
 # Non-root user for security
@@ -39,6 +44,6 @@ RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 
 USER nextjs
 
-EXPOSE 3000
+EXPOSE 3002
 
 CMD ["node", "server.js"]

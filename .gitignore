@@ -14,6 +14,9 @@ data/
 .env.*.local
 # .env.example IS committed — it has no secrets, only docs
 
+# docker-compose.yml contains real secrets — only the example is committed
+docker-compose.yml
+
 # TypeScript build info
 tsconfig.tsbuildinfo
 next-env.d.ts
