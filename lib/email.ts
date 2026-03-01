@@ -9,6 +9,11 @@ interface SmtpConfig {
   from: string;
 }
 
+/** Returns true if SMTP is configured (via DB or env vars). */
+export function isSmtpConfigured(): boolean {
+  return getSmtpConfig() !== null;
+}
+
 function getSmtpConfig(): SmtpConfig | null {
   // DB settings take precedence over env vars (set via admin panel)
   try {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { hashPassword, generateToken, hashToken } from "@/lib/auth";
-import { sendVerificationEmail } from "@/lib/email";
+import { sendVerificationEmail, isSmtpConfigured } from "@/lib/email";
 import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
@@ -34,10 +34,12 @@ export async function POST(req: NextRequest) {
     const id = crypto.randomUUID();
     const password_hash = await hashPassword(password);
 
+    const smtpAvailable = isSmtpConfigured();
+
     db.prepare(`
       INSERT INTO users (id, email, name, password_hash, email_verified)
-      VALUES (?, ?, ?, ?, 0)
-    `).run(id, email.toLowerCase(), name.trim(), password_hash);
+      VALUES (?, ?, ?, ?, ?)
+    `).run(id, email.toLowerCase(), name.trim(), password_hash, smtpAvailable ? 0 : 1);
 
     // Seed default settings for this user
     const defaults = [
@@ -53,19 +55,23 @@ export async function POST(req: NextRequest) {
       insertSetting.run(id, key, value);
     }
 
-    // Email verification token (raw sent in email, hash stored in DB)
-    const rawToken = generateToken();
-    const tokenHash = await hashToken(rawToken);
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    if (smtpAvailable) {
+      // Email verification token (raw sent in email, hash stored in DB)
+      const rawToken = generateToken();
+      const tokenHash = await hashToken(rawToken);
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-    db.prepare(`
-      INSERT INTO email_tokens (id, user_id, email, token_hash, type, expires_at)
-      VALUES (?, ?, ?, ?, 'verify_email', ?)
-    `).run(crypto.randomUUID(), id, email.toLowerCase(), tokenHash, expiresAt);
+      db.prepare(`
+        INSERT INTO email_tokens (id, user_id, email, token_hash, type, expires_at)
+        VALUES (?, ?, ?, ?, 'verify_email', ?)
+      `).run(crypto.randomUUID(), id, email.toLowerCase(), tokenHash, expiresAt);
 
-    await sendVerificationEmail(email, name.trim(), rawToken);
+      await sendVerificationEmail(email, name.trim(), rawToken);
 
-    return NextResponse.json({ message: "Account created. Check your email to verify." }, { status: 201 });
+      return NextResponse.json({ message: "Account created. Check your email to verify." }, { status: 201 });
+    }
+
+    return NextResponse.json({ message: "Account created. You can now sign in." }, { status: 201 });
   } catch (e) {
     console.error("register error:", e);
     return NextResponse.json({ error: "Registration failed." }, { status: 500 });
