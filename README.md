@@ -24,11 +24,11 @@
 
 ### Trade Log
 ![Trade Log](docs/screenshots/02-trades.png)
-*Filter by symbol, status (planned / open / closed), or direction. Full P&L coloring throughout.*
+*Filter by symbol, status, or direction. Export as CSV/JSON or import trades from file. Full P&L coloring throughout.*
 
 ### Trade Journal
 ![Journal](docs/screenshots/03-journal.png)
-*Card-based view with trade notes, tags, entry/stop/target, and P&L at a glance.*
+*Card-based view with expandable mini candlestick charts, trade notes, tags, potential P&L, and R:R ratio.*
 
 ### Chart — TradingView + Add Trade Panel
 ![Chart](docs/screenshots/04-chart.png)
@@ -36,7 +36,7 @@
 
 ### Settings
 ![Settings](docs/screenshots/05-settings.png)
-*Configure account size, risk %, FMP API key, and Discord webhook.*
+*Configure account size, risk %, FMP API key, Discord webhook, and data management (export/import).*
 
 ### Login
 ![Login](docs/screenshots/06-login.png)
@@ -72,6 +72,8 @@
 - P&L coloring, live unrealized P&L for open positions (refreshes every 60s via Yahoo Finance)
 - Edit and delete any trade without leaving the page
 - Hover any symbol to preview a mini candlestick chart with trade levels
+- **Export** trades as CSV or JSON for backup and analysis
+- **Import** trades from CSV or JSON files with validation and error reporting
 - Mobile: card-per-trade layout; Desktop: full sortable table
 
 ### 📓 Trade Journal
@@ -97,6 +99,7 @@
 - Account size and risk-per-trade percentage
 - Financial Modeling Prep (FMP) API key + on-demand symbol list refresh
 - Discord webhook URL for chart snapshot delivery
+- **Data Management** — export/import trades directly from settings
 
 ### 🔐 Auth & Security
 - JWT sessions with email/password login
@@ -184,6 +187,7 @@ ledger-of-alpha/
 │   └── api/
 │       ├── trades/           # GET + POST trades
 │       ├── trades/[id]/      # GET + PUT + DELETE single trade
+│       ├── trades/import/    # POST bulk import
 │       ├── settings/         # GET + PUT settings
 │       ├── symbols/          # GET symbols (FMP cache)
 │       ├── quotes/           # Live prices (Yahoo Finance)
@@ -206,6 +210,7 @@ ledger-of-alpha/
 │   ├── auth.ts               # JWT, bcrypt, admin guard
 │   ├── rate-limit.ts         # Per-IP rate limiting
 │   ├── validate-trade.ts     # Server-side trade input validation
+│   ├── csv.ts                # CSV export/import utilities
 │   └── demo-data.ts          # Realistic fake trades for guest mode
 └── data/
     └── ledger-of-alpha.db    # Auto-created, gitignored
