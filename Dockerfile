@@ -34,6 +34,9 @@ ENV HOSTNAME=0.0.0.0
 # Non-root user for security
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
+# su-exec allows the entrypoint to fix volume permissions then drop to nextjs
+RUN apk add --no-cache su-exec
+
 # Copy standalone build output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
@@ -42,8 +45,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 # Create the data directory (SQLite lives here, mounted as a volume)
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 
-USER nextjs
+# Entrypoint fixes volume permissions then drops to nextjs user
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 3002
 
-CMD ["node", "server.js"]
+CMD ["/app/entrypoint.sh"]
