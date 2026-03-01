@@ -1,12 +1,27 @@
 "use client";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { Camera, Send, CheckCircle, AlertCircle, Plus, X, ExternalLink, Link, RotateCcw, ChevronLeft, ChevronRight, Trash2, Pencil, List, Download, Upload } from "lucide-react";
+import { Camera, Send, CheckCircle, AlertCircle, Plus, X, ExternalLink, Link, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, Trash2, Pencil, List, Download, Upload, MoreHorizontal, GripVertical, FolderPlus } from "lucide-react";
 import RiskCalculator from "@/components/RiskCalculator";
 import PositionSizer from "@/components/PositionSizer";
 import SetupChart, { type SetupChartHandle } from "@/components/SetupChart";
 import SymbolSearch from "@/components/SymbolSearch";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const TradingViewWidget = dynamic(() => import("@/components/TradingViewWidget"), { ssr: false });
 
@@ -22,10 +37,22 @@ const INTERVALS = [
 
 interface Tab { id: string; label: string; interval: string; symbol?: string; }
 interface WatchlistSymbol { symbol: string; name: string; }
-interface Watchlist { id: string; name: string; symbols: WatchlistSymbol[]; }
+interface WatchlistSector { type: "sector"; id: string; name: string; collapsed: boolean; }
+type WatchlistItem = WatchlistSymbol | WatchlistSector;
+function isSector(item: WatchlistItem): item is WatchlistSector { return "type" in item && item.type === "sector"; }
+function itemId(item: WatchlistItem): string { return isSector(item) ? `sector-${item.id}` : item.symbol; }
+
+interface Watchlist { id: string; name: string; items: WatchlistItem[]; }
+
+// Backwards compat: migrate old format
+interface LegacyWatchlist { id: string; name: string; symbols?: WatchlistSymbol[]; items?: WatchlistItem[]; }
+function migrateWatchlist(w: LegacyWatchlist): Watchlist {
+  if (w.items) return w as Watchlist;
+  return { id: w.id, name: w.name, items: w.symbols ?? [] };
+}
 
 const DEFAULT_TABS: Tab[] = [{ id: "1", label: "Chart 1", interval: "D" }];
-const DEFAULT_WATCHLISTS: Watchlist[] = [{ id: "1", name: "Watchlist 1", symbols: [] }];
+const DEFAULT_WATCHLISTS: Watchlist[] = [{ id: "1", name: "Watchlist 1", items: [] }];
 
 const EMPTY_FORM = {
   symbol: "", direction: "long" as "long" | "short",
@@ -34,20 +61,114 @@ const EMPTY_FORM = {
   commission: "", risk_percent: "",
 };
 
+// ── Sortable row components ──────────────────────────────────────────────────
+
+function SortableSymbolRow({ item, onSelect, onRemove, hidden: isHidden }: {
+  item: WatchlistSymbol; onSelect: (s: string) => void; onRemove: (s: string) => void; hidden: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.symbol });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center justify-between px-2 py-1.5 cursor-pointer hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors group ${isHidden ? "hidden" : ""}`}
+      onClick={() => onSelect(item.symbol)}
+    >
+      <div className="flex items-center gap-1 min-w-0">
+        <button {...attributes} {...listeners} className="p-0.5 cursor-grab active:cursor-grabbing dark:text-slate-600 text-slate-300 hover:dark:text-slate-400 hover:text-slate-500 shrink-0" onClick={e => e.stopPropagation()}>
+          <GripVertical className="w-3 h-3" />
+        </button>
+        <div className="min-w-0">
+          <div className="text-xs font-semibold dark:text-white text-slate-900">{item.symbol}</div>
+          <div className="text-[10px] dark:text-slate-400 text-slate-500 truncate">{item.name}</div>
+        </div>
+      </div>
+      <button
+        onClick={e => { e.stopPropagation(); onRemove(item.symbol); }}
+        className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 dark:text-slate-500 text-slate-400 transition-all shrink-0"
+      >
+        <X className="w-3 h-3" />
+      </button>
+    </div>
+  );
+}
+
+function SortableSectorRow({ item, onToggle, onRename, onDelete, hidden: isHidden }: {
+  item: WatchlistSector; onToggle: () => void; onRename: (name: string) => void; onDelete: () => void; hidden: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `sector-${item.id}` });
+  const [editing, setEditing] = useState(false);
+  const [nameInput, setNameInput] = useState(item.name);
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  const commit = () => {
+    const trimmed = nameInput.trim();
+    if (trimmed && trimmed !== item.name) onRename(trimmed);
+    setEditing(false);
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-1 px-2 py-1.5 dark:bg-slate-800/50 bg-slate-100/50 border-b dark:border-slate-700/50 border-slate-200/50 group ${isHidden ? "hidden" : ""}`}
+    >
+      <button {...attributes} {...listeners} className="p-0.5 cursor-grab active:cursor-grabbing dark:text-slate-600 text-slate-300 hover:dark:text-slate-400 hover:text-slate-500 shrink-0" onClick={e => e.stopPropagation()}>
+        <GripVertical className="w-3 h-3" />
+      </button>
+      <button onClick={onToggle} className="p-0.5 dark:text-slate-400 text-slate-500 shrink-0">
+        <ChevronDown className={`w-3 h-3 transition-transform ${item.collapsed ? "-rotate-90" : ""}`} />
+      </button>
+      {editing ? (
+        <input
+          autoFocus
+          value={nameInput}
+          onChange={e => setNameInput(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") setEditing(false); }}
+          className="flex-1 min-w-0 px-1 py-0.5 text-xs font-bold rounded border dark:border-slate-600 border-slate-300 dark:bg-slate-700 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          onClick={e => e.stopPropagation()}
+        />
+      ) : (
+        <span
+          onDoubleClick={() => { setNameInput(item.name); setEditing(true); }}
+          className="flex-1 text-xs font-bold dark:text-slate-300 text-slate-700 truncate cursor-default select-none"
+        >
+          {item.name}
+        </span>
+      )}
+      <button
+        onClick={onDelete}
+        className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-red-400 dark:text-slate-500 text-slate-400 transition-all shrink-0"
+      >
+        <X className="w-3 h-3" />
+      </button>
+    </div>
+  );
+}
+
+// ── Main component ───────────────────────────────────────────────────────────
 
 function buildSetupMessage(
   symbol: string, direction: string,
   entry: number, stop: number, target: number | null
 ): string {
-  const dir = direction === "long" ? "📈 LONG" : "📉 SHORT";
+  const dir = direction === "long" ? "\u{1F4C8} LONG" : "\u{1F4C9} SHORT";
   const riskPct = ((Math.abs(entry - stop) / entry) * 100).toFixed(1);
   const lines = [
-    `📊 **${symbol} ${dir}**`,
-    `Entry $${entry.toFixed(2)} · Stop $${stop.toFixed(2)} (${riskPct}% risk)`,
+    `\u{1F4CA} **${symbol} ${dir}**`,
+    `Entry $${entry.toFixed(2)} \u00B7 Stop $${stop.toFixed(2)} (${riskPct}% risk)`,
   ];
   if (target) {
     const rr = (Math.abs(target - entry) / Math.abs(entry - stop)).toFixed(1);
-    lines.push(`T/P $${target.toFixed(2)} · R:R 1:${rr}`);
+    lines.push(`T/P $${target.toFixed(2)} \u00B7 R:R 1:${rr}`);
   }
   return lines.join("\n");
 }
@@ -88,6 +209,7 @@ export default function PersistentChart() {
 
   // Watchlist
   const nextWlId = useRef(2);
+  const nextSectorId = useRef(1);
   const [watchlists, setWatchlists] = useState<Watchlist[]>(DEFAULT_WATCHLISTS);
   const [activeWlId, setActiveWlId] = useState("1");
   const [showWatchlist, setShowWatchlist] = useState(() =>
@@ -102,13 +224,24 @@ export default function PersistentChart() {
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [bulkInput, setBulkInput] = useState("");
   const wlFileInputRef = useRef<HTMLInputElement>(null);
-
+  const [wlToolbarExpanded, setWlToolbarExpanded] = useState(false);
+  const [wlFilter, setWlFilter] = useState("");
+  const [wlWidth, setWlWidth] = useState(220);
+  const [panelWidth, setPanelWidth] = useState(420);
+  const [isResizing, setIsResizing] = useState(false);
 
   const chartRef = useRef<HTMLDivElement>(null);
   const setupChartRef = useRef<SetupChartHandle>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Separate save timers to avoid cancellation bugs
+  const saveTabsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveWlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeTab = tabs.find(t => t.id === activeId) ?? tabs[0];
+
+  // dnd-kit sensor
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
 
   // ── Load settings + tabs ─────────────────────────────────────────────────
   useEffect(() => {
@@ -131,14 +264,34 @@ export default function PersistentChart() {
         }
         if (data.watchlists) {
           try {
-            const saved: Watchlist[] = JSON.parse(data.watchlists);
+            const saved: LegacyWatchlist[] = JSON.parse(data.watchlists);
             if (Array.isArray(saved) && saved.length > 0) {
-              const maxId = Math.max(...saved.map(w => parseInt(w.id) || 0));
+              const migrated = saved.map(migrateWatchlist);
+              const maxId = Math.max(...migrated.map(w => parseInt(w.id) || 0));
               nextWlId.current = maxId + 1;
-              setWatchlists(saved);
-              setActiveWlId(saved[0].id);
+              // Compute max sector id
+              let maxSectorId = 0;
+              for (const wl of migrated) {
+                for (const item of wl.items) {
+                  if (isSector(item)) {
+                    const sid = parseInt(item.id) || 0;
+                    if (sid > maxSectorId) maxSectorId = sid;
+                  }
+                }
+              }
+              nextSectorId.current = maxSectorId + 1;
+              setWatchlists(migrated);
+              setActiveWlId(migrated[0].id);
             }
           } catch { /* ignore */ }
+        }
+        if (data.watchlist_width) {
+          const w = parseInt(data.watchlist_width);
+          if (w >= 160 && w <= 400) setWlWidth(w);
+        }
+        if (data.panel_width) {
+          const w = parseInt(data.panel_width);
+          if (w >= 300 && w <= 600) setPanelWidth(w);
         }
       })
       .catch(() => {})
@@ -148,8 +301,8 @@ export default function PersistentChart() {
 
   // ── Tab save ─────────────────────────────────────────────────────────────
   const saveTabs = useCallback((newTabs: Tab[]) => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
+    if (saveTabsTimer.current) clearTimeout(saveTabsTimer.current);
+    saveTabsTimer.current = setTimeout(() => {
       fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -159,14 +312,30 @@ export default function PersistentChart() {
   }, []);
 
   const saveWatchlists = useCallback((next: Watchlist[]) => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
+    if (saveWlTimer.current) clearTimeout(saveWlTimer.current);
+    saveWlTimer.current = setTimeout(() => {
       fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ watchlists: JSON.stringify(next) }),
       }).catch(() => {});
     }, 600);
+  }, []);
+
+  const saveWlWidth = useCallback((w: number) => {
+    fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ watchlist_width: String(w) }),
+    }).catch(() => {});
+  }, []);
+
+  const savePanelWidth = useCallback((w: number) => {
+    fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ panel_width: String(w) }),
+    }).catch(() => {});
   }, []);
 
   const addTab = () => {
@@ -198,9 +367,10 @@ export default function PersistentChart() {
 
   const addToWatchlist = (symbol: string, name: string) => {
     setWatchlists(prev => {
-      if (prev.find(w => w.id === activeWlId)?.symbols.some(s => s.symbol === symbol)) return prev;
+      const wl = prev.find(w => w.id === activeWlId);
+      if (wl?.items.some(s => !isSector(s) && s.symbol === symbol)) return prev;
       const next = prev.map(w =>
-        w.id === activeWlId ? { ...w, symbols: [...w.symbols, { symbol, name }] } : w
+        w.id === activeWlId ? { ...w, items: [...w.items, { symbol, name }] } : w
       );
       saveWatchlists(next);
       return next;
@@ -210,7 +380,7 @@ export default function PersistentChart() {
   const removeFromWatchlist = (symbol: string) => {
     setWatchlists(prev => {
       const next = prev.map(w =>
-        w.id === activeWlId ? { ...w, symbols: w.symbols.filter(s => s.symbol !== symbol) } : w
+        w.id === activeWlId ? { ...w, items: w.items.filter(s => isSector(s) || s.symbol !== symbol) } : w
       );
       saveWatchlists(next);
       return next;
@@ -219,7 +389,7 @@ export default function PersistentChart() {
 
   const createWatchlist = () => {
     const id = String(nextWlId.current++);
-    const next = [...watchlists, { id, name: `Watchlist ${id}`, symbols: [] }];
+    const next = [...watchlists, { id, name: `Watchlist ${id}`, items: [] }];
     setWatchlists(next); setActiveWlId(id); saveWatchlists(next);
   };
 
@@ -239,7 +409,7 @@ export default function PersistentChart() {
   };
 
   const exportWatchlist = () => {
-    const symbols = activeWatchlist.symbols.map(s => s.symbol).join(", ");
+    const symbols = activeWatchlist.items.filter((s): s is WatchlistSymbol => !isSector(s)).map(s => s.symbol).join(", ");
     const blob = new Blob([symbols], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -259,12 +429,12 @@ export default function PersistentChart() {
     setWatchlists(prev => {
       const wl = prev.find(w => w.id === activeWlId);
       if (!wl) return prev;
-      const existing = new Set(wl.symbols.map(s => s.symbol));
+      const existing = new Set(wl.items.filter((s): s is WatchlistSymbol => !isSector(s)).map(s => s.symbol));
       const toAdd = symbols.filter(s => !existing.has(s));
       if (toAdd.length === 0) return prev;
       const next = prev.map(w =>
         w.id === activeWlId
-          ? { ...w, symbols: [...w.symbols, ...toAdd.map(s => ({ symbol: s, name: s }))] }
+          ? { ...w, items: [...w.items, ...toAdd.map(s => ({ symbol: s, name: s }))] }
           : w
       );
       saveWatchlists(next);
@@ -281,6 +451,137 @@ export default function PersistentChart() {
     const text = await file.text();
     importBulkSymbols(text);
   };
+
+  // ── Sector helpers ──────────────────────────────────────────────────────
+  const addSector = () => {
+    const id = String(nextSectorId.current++);
+    setWatchlists(prev => {
+      const next = prev.map(w =>
+        w.id === activeWlId ? { ...w, items: [{ type: "sector" as const, id, name: "New Sector", collapsed: false }, ...w.items] } : w
+      );
+      saveWatchlists(next);
+      return next;
+    });
+  };
+
+  const toggleSectorCollapse = (sectorId: string) => {
+    setWatchlists(prev => {
+      const next = prev.map(w =>
+        w.id === activeWlId
+          ? { ...w, items: w.items.map(item => isSector(item) && item.id === sectorId ? { ...item, collapsed: !item.collapsed } : item) }
+          : w
+      );
+      saveWatchlists(next);
+      return next;
+    });
+  };
+
+  const renameSector = (sectorId: string, name: string) => {
+    setWatchlists(prev => {
+      const next = prev.map(w =>
+        w.id === activeWlId
+          ? { ...w, items: w.items.map(item => isSector(item) && item.id === sectorId ? { ...item, name } : item) }
+          : w
+      );
+      saveWatchlists(next);
+      return next;
+    });
+  };
+
+  const deleteSector = (sectorId: string) => {
+    setWatchlists(prev => {
+      const next = prev.map(w =>
+        w.id === activeWlId
+          ? { ...w, items: w.items.filter(item => !(isSector(item) && item.id === sectorId)) }
+          : w
+      );
+      saveWatchlists(next);
+      return next;
+    });
+  };
+
+  // ── Visible items (handles sector collapse + filter) ──────────────────
+  const visibleItems = useMemo(() => {
+    const items = activeWatchlist.items;
+    const filterLower = wlFilter.toLowerCase().trim();
+
+    // Track which items are hidden
+    const hidden = new Set<number>();
+    let currentSectorCollapsed = false;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (isSector(item)) {
+        currentSectorCollapsed = item.collapsed;
+        // Filter sectors by name if filtering
+        if (filterLower && !item.name.toLowerCase().includes(filterLower)) {
+          hidden.add(i);
+        }
+      } else {
+        // Hide if sector is collapsed
+        if (currentSectorCollapsed) hidden.add(i);
+        // Hide if doesn't match filter
+        if (filterLower && !item.symbol.toLowerCase().includes(filterLower) && !item.name.toLowerCase().includes(filterLower)) {
+          hidden.add(i);
+        }
+      }
+    }
+
+    return items.map((item, i) => ({ item, hidden: hidden.has(i) }));
+  }, [activeWatchlist.items, wlFilter]);
+
+  // ── Drag-and-drop ─────────────────────────────────────────────────────
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const items = activeWatchlist.items;
+    const oldIndex = items.findIndex(item => itemId(item) === active.id);
+    const newIndex = items.findIndex(item => itemId(item) === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(items, oldIndex, newIndex);
+    const next = watchlists.map(w =>
+      w.id === activeWlId ? { ...w, items: reordered } : w
+    );
+    setWatchlists(next);
+    saveWatchlists(next);
+  };
+
+  // ── Generic resize helper (works over iframes via overlay) ──────────────
+  const startResize = useCallback((e: React.MouseEvent, side: "left" | "right") => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = side === "left" ? wlWidth : panelWidth;
+    const min = side === "left" ? 160 : 300;
+    const max = side === "left" ? 400 : 600;
+    // direction: for the watchlist (left), dragging right = wider; for trade panel (right), dragging left = wider
+    const dir = side === "left" ? 1 : -1;
+
+    setIsResizing(true);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+
+    const onMove = (ev: MouseEvent) => {
+      const delta = (ev.clientX - startX) * dir;
+      const newW = Math.max(min, Math.min(max, startWidth + delta));
+      if (side === "left") setWlWidth(newW);
+      else setPanelWidth(newW);
+    };
+
+    const onUp = () => {
+      setIsResizing(false);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      if (side === "left") setWlWidth(w => { saveWlWidth(w); return w; });
+      else setPanelWidth(w => { savePanelWidth(w); return w; });
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [wlWidth, panelWidth, saveWlWidth, savePanelWidth]);
 
   const selectSymbol = (symbol: string) => {
     setField("symbol", symbol);
@@ -483,11 +784,16 @@ export default function PersistentChart() {
 
   const discordBusy = countdown !== null || discordStatus === "capturing" || discordStatus === "sending";
 
+  const symbolCount = activeWatchlist.items.filter(s => !isSector(s)).length;
+
   return (
     <div
       className="fixed left-0 right-0 bottom-0 flex-col"
       style={{ top: "56px", display: isChart ? "flex" : "none" }}
     >
+
+      {/* Transparent overlay during resize to prevent iframes from stealing mouse events */}
+      {isResizing && <div className="fixed inset-0 z-50" style={{ cursor: "col-resize" }} />}
 
       {/* ── Tab bar ── */}
       <div className="flex items-center border-b dark:border-slate-800 border-slate-200 dark:bg-slate-950 bg-white shrink-0">
@@ -541,7 +847,7 @@ export default function PersistentChart() {
           <RotateCcw className="w-3 h-3" />
         </button>
 
-        <a href="https://www.tradingview.com/chart/" target="_blank" rel="noopener noreferrer"
+        <a href={`https://www.tradingview.com/chart/?symbol=${activeTab.symbol || ""}`} target="_blank" rel="noopener noreferrer"
           className="flex items-center gap-1 px-2.5 py-1 rounded border dark:border-slate-700 border-slate-200 dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 text-xs font-medium transition-colors whitespace-nowrap">
           <ExternalLink className="w-3 h-3" /><span className="hidden sm:inline">Open in TradingView</span>
         </a>
@@ -586,7 +892,7 @@ export default function PersistentChart() {
           </span>
         )}
 
-        {/* Single → Discord button */}
+        {/* Single -> Discord button */}
         <button
           onClick={discordMode === "link" ? sendTvLink : captureAndSend}
           disabled={discordBusy || (discordMode === "link" && !isTvLink)}
@@ -602,7 +908,7 @@ export default function PersistentChart() {
           )}
           <span>
             {countdown !== null ? `${countdown}… move mouse away` :
-              discordMode === "link" ? "Send Link → Discord" : "Capture → Discord"}
+              discordMode === "link" ? "Send Link \u2192 Discord" : "Capture \u2192 Discord"}
           </span>
         </button>
       </div>
@@ -611,11 +917,14 @@ export default function PersistentChart() {
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* ── Watchlist sidebar ── */}
-        <div className={
-          showWatchlist
-            ? "fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col overflow-hidden dark:bg-slate-900 bg-white sm:relative sm:inset-auto sm:z-auto sm:shrink-0 sm:w-[220px] sm:border-r dark:border-slate-800 border-slate-200 sm:transition-[width] sm:duration-200"
-            : "hidden sm:flex sm:flex-col sm:shrink-0 sm:w-0 sm:overflow-hidden sm:transition-[width] sm:duration-200 dark:bg-slate-900 bg-white"
-        }>
+        <div
+          className={
+            showWatchlist
+              ? "fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col overflow-hidden dark:bg-slate-900 bg-white sm:relative sm:inset-auto sm:z-auto sm:shrink-0 sm:border-r dark:border-slate-800 border-slate-200"
+              : "hidden sm:flex sm:flex-col sm:shrink-0 sm:w-0 sm:overflow-hidden sm:transition-[width] sm:duration-200 dark:bg-slate-900 bg-white"
+          }
+          style={showWatchlist ? { width: undefined, ...(typeof window !== "undefined" && window.innerWidth >= 640 ? { width: wlWidth } : {}) } : undefined}
+        >
           {/* Mobile close bar */}
           <div className="sm:hidden flex items-center justify-between px-4 py-3 border-b dark:border-slate-800 border-slate-200 shrink-0">
             <span className="text-sm font-semibold dark:text-white text-slate-900">Watchlist</span>
@@ -627,7 +936,7 @@ export default function PersistentChart() {
             </button>
           </div>
 
-          {/* Header: watchlist selector + controls */}
+          {/* Header Row 1: watchlist dropdown + ... toggle + close */}
           <div className="flex items-center gap-1 px-2 py-2 border-b dark:border-slate-800 border-slate-200 shrink-0">
             {editingWlName ? (
               <input
@@ -650,46 +959,66 @@ export default function PersistentChart() {
               </select>
             )}
             <button
-              onClick={() => { setWlNameInput(activeWatchlist.name); setEditingWlName(true); }}
-              title="Rename watchlist"
-              className="p-1 rounded dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0"
+              onClick={() => setWlToolbarExpanded(v => !v)}
+              title="More actions"
+              className={`p-1 rounded dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0 ${wlToolbarExpanded ? "dark:bg-slate-800 bg-slate-100" : ""}`}
             >
-              <Pencil className="w-3 h-3" />
+              <MoreHorizontal className="w-3.5 h-3.5" />
             </button>
-            <button
-              onClick={createWatchlist}
-              title="New watchlist"
-              className="p-1 rounded dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={deleteActiveWatchlist}
-              title="Delete watchlist"
-              disabled={watchlists.length === 1}
-              className="p-1 rounded dark:text-slate-400 text-slate-500 hover:text-red-400 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0 disabled:opacity-30 disabled:pointer-events-none"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
-            <button
-              onClick={exportWatchlist}
-              title="Export watchlist"
-              disabled={activeWatchlist.symbols.length === 0}
-              className="p-1 rounded dark:text-slate-400 text-slate-500 hover:text-emerald-400 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0 disabled:opacity-30 disabled:pointer-events-none"
-            >
-              <Download className="w-3 h-3" />
-            </button>
-            <button
-              onClick={() => setShowBulkImport(v => !v)}
-              title="Import symbols"
-              className="p-1 rounded dark:text-slate-400 text-slate-500 hover:text-emerald-400 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0"
-            >
-              <Upload className="w-3 h-3" />
-            </button>
-            <button onClick={() => setShowWatchlist(false)} title="Close" className="hidden sm:block p-1 ml-1 rounded hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0">
+            <button onClick={() => setShowWatchlist(false)} title="Close" className="hidden sm:block p-1 rounded hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0">
               <X className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
             </button>
           </div>
+
+          {/* Header Row 2: collapsible toolbar */}
+          {wlToolbarExpanded && (
+            <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 border-b dark:border-slate-800 border-slate-200 shrink-0">
+              <button
+                onClick={() => { setWlNameInput(activeWatchlist.name); setEditingWlName(true); setWlToolbarExpanded(false); }}
+                title="Rename watchlist"
+                className="p-1 rounded dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => { createWatchlist(); setWlToolbarExpanded(false); }}
+                title="New watchlist"
+                className="p-1 rounded dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={deleteActiveWatchlist}
+                title="Delete watchlist"
+                disabled={watchlists.length === 1}
+                className="p-1 rounded dark:text-slate-400 text-slate-500 hover:text-red-400 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+              <button
+                onClick={exportWatchlist}
+                title="Export watchlist"
+                disabled={symbolCount === 0}
+                className="p-1 rounded dark:text-slate-400 text-slate-500 hover:text-emerald-400 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <Download className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => { setShowBulkImport(v => !v); setWlToolbarExpanded(false); }}
+                title="Import symbols"
+                className="p-1 rounded dark:text-slate-400 text-slate-500 hover:text-emerald-400 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0"
+              >
+                <Upload className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => { addSector(); setWlToolbarExpanded(false); }}
+                title="Add sector group"
+                className="p-1 rounded dark:text-slate-400 text-slate-500 hover:text-amber-400 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0"
+              >
+                <FolderPlus className="w-3 h-3" />
+              </button>
+            </div>
+          )}
 
           {/* Symbol search / add */}
           <div className="px-2 py-2 border-b dark:border-slate-800 border-slate-200 shrink-0">
@@ -697,7 +1026,7 @@ export default function PersistentChart() {
               value={wlSearch}
               onChange={setWlSearch}
               onSelectFull={({ symbol, name }) => { addToWatchlist(symbol, name); setWlSearch(""); }}
-              placeholder="Add symbol…"
+              placeholder="Add symbol"
             />
             <button
               onClick={() => setShowCustomAdd(v => !v)}
@@ -775,34 +1104,60 @@ export default function PersistentChart() {
             </div>
           )}
 
-          {/* Symbol list */}
+          {/* Filter input */}
+          <div className="px-2 py-1.5 border-b dark:border-slate-800 border-slate-200 shrink-0">
+            <input
+              type="text"
+              value={wlFilter}
+              onChange={e => setWlFilter(e.target.value)}
+              placeholder="Filter list"
+              className="w-full px-2 py-1 text-xs rounded border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+          </div>
+
+          {/* Symbol / sector list with drag-and-drop */}
           <div className="flex-1 overflow-y-auto">
-            {activeWatchlist.symbols.length === 0 ? (
+            {activeWatchlist.items.length === 0 ? (
               <p className="px-3 py-5 text-xs dark:text-slate-500 text-slate-400 text-center">
                 Search above to add symbols
               </p>
             ) : (
-              activeWatchlist.symbols.map(s => (
-                <div
-                  key={s.symbol}
-                  onClick={() => selectSymbol(s.symbol)}
-                  className="flex items-center justify-between px-3 py-2 cursor-pointer hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors group"
-                >
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold dark:text-white text-slate-900">{s.symbol}</div>
-                    <div className="text-[10px] dark:text-slate-400 text-slate-500 truncate">{s.name}</div>
-                  </div>
-                  <button
-                    onClick={e => { e.stopPropagation(); removeFromWatchlist(s.symbol); }}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 dark:text-slate-500 text-slate-400 transition-all shrink-0"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={activeWatchlist.items.map(itemId)} strategy={verticalListSortingStrategy}>
+                  {visibleItems.map(({ item, hidden: isHidden }) =>
+                    isSector(item) ? (
+                      <SortableSectorRow
+                        key={`sector-${item.id}`}
+                        item={item}
+                        onToggle={() => toggleSectorCollapse(item.id)}
+                        onRename={(name) => renameSector(item.id, name)}
+                        onDelete={() => deleteSector(item.id)}
+                        hidden={isHidden}
+                      />
+                    ) : (
+                      <SortableSymbolRow
+                        key={item.symbol}
+                        item={item}
+                        onSelect={selectSymbol}
+                        onRemove={removeFromWatchlist}
+                        hidden={isHidden}
+                      />
+                    )
+                  )}
+                </SortableContext>
+              </DndContext>
             )}
           </div>
         </div>
+
+        {/* ── Watchlist resize handle (desktop only) ── */}
+        {showWatchlist && (
+          <div
+            onMouseDown={e => startResize(e, "left")}
+            className="hidden sm:block w-1 cursor-col-resize hover:bg-emerald-500/30 active:bg-emerald-500/50 transition-colors shrink-0 z-10"
+            style={{ marginLeft: -2, marginRight: -2 }}
+          />
+        )}
 
         {/* ── Watchlist collapse/expand toggle strip ── */}
         <button
@@ -850,12 +1205,24 @@ export default function PersistentChart() {
           }
         </button>
 
+        {/* ── Trade panel resize handle (desktop only) ── */}
+        {showPanel && (
+          <div
+            onMouseDown={e => startResize(e, "right")}
+            className="hidden sm:block w-1 cursor-col-resize hover:bg-emerald-500/30 active:bg-emerald-500/50 transition-colors shrink-0 z-10"
+            style={{ marginLeft: -2, marginRight: -2 }}
+          />
+        )}
+
         {/* ── Quick-add trade side panel ── */}
-        <div className={
-          showPanel
-            ? "fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col overflow-hidden dark:bg-slate-900 bg-white sm:relative sm:inset-auto sm:z-auto sm:shrink-0 sm:w-[420px] sm:border-l dark:border-slate-800 border-slate-200 sm:transition-[width] sm:duration-200"
-            : "hidden sm:flex sm:flex-col sm:shrink-0 sm:w-0 sm:overflow-hidden sm:transition-[width] sm:duration-200 dark:bg-slate-900 bg-white"
-        }>
+        <div
+          className={
+            showPanel
+              ? "fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col overflow-hidden dark:bg-slate-900 bg-white sm:relative sm:inset-auto sm:z-auto sm:shrink-0 sm:border-l dark:border-slate-800 border-slate-200"
+              : "hidden sm:flex sm:flex-col sm:shrink-0 sm:w-0 sm:overflow-hidden sm:transition-[width] sm:duration-200 dark:bg-slate-900 bg-white"
+          }
+          style={showPanel ? { width: typeof window !== "undefined" && window.innerWidth >= 640 ? panelWidth : undefined } : undefined}
+        >
           {/* Panel header */}
           <div className="flex items-center justify-between px-4 py-3 border-b dark:border-slate-800 border-slate-200 shrink-0">
             <span className="text-sm font-semibold dark:text-white text-slate-900">Add Trade</span>
@@ -1035,4 +1402,3 @@ export default function PersistentChart() {
     </div>
   );
 }
-
