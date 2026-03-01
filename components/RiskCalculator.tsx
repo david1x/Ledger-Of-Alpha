@@ -8,29 +8,38 @@ interface Props {
   takeProfit: number | null;
   shares: number | null;
   direction: "long" | "short";
+  commission?: number;
 }
 
-export default function RiskCalculator({ entry, stopLoss, takeProfit, shares, direction }: Props) {
+export default function RiskCalculator({ entry, stopLoss, takeProfit, shares, direction, commission = 0 }: Props) {
   const calc = useMemo(() => {
     if (!entry || !stopLoss) return null;
 
-    const mult = direction === "long" ? 1 : -1;
     const stopDist = Math.abs(entry - stopLoss);
+
+    // Trailing stop: stop is on the profit side of entry
+    const isTrailing = direction === "long" ? stopLoss > entry : stopLoss < entry;
+
     const targetDist = takeProfit ? Math.abs(takeProfit - entry) : null;
 
     const riskPerShare = stopDist;
     const rewardPerShare = targetDist ?? null;
-    const rrRatio = rewardPerShare ? rewardPerShare / riskPerShare : null;
 
-    const totalRisk = shares ? riskPerShare * shares : null;
+    // When trailing, risk is 0 (profit locked) — R:R doesn't apply the same way
+    const effectiveRisk = isTrailing ? 0 : riskPerShare;
+    const rrRatio = !isTrailing && rewardPerShare ? rewardPerShare / riskPerShare : null;
+
+    const totalRisk = shares ? effectiveRisk * shares : null;
     const totalReward = shares && rewardPerShare ? rewardPerShare * shares : null;
 
+    // Locked-in profit when trailing
+    const lockedProfit = isTrailing ? stopDist : 0;
+    const totalLockedProfit = shares && isTrailing ? lockedProfit * shares : null;
+
     const breakEven = direction === "long"
-      ? entry + (entry * 0.001) // approx 0.1% commission
+      ? entry + (entry * 0.001)
       : entry - (entry * 0.001);
 
-    // Check direction validity
-    const validStop = direction === "long" ? stopLoss < entry : stopLoss > entry;
     const validTarget = takeProfit
       ? (direction === "long" ? takeProfit > entry : takeProfit < entry)
       : true;
@@ -44,9 +53,10 @@ export default function RiskCalculator({ entry, stopLoss, takeProfit, shares, di
       totalRisk,
       totalReward,
       breakEven,
-      validStop,
       validTarget,
-      mult,
+      isTrailing,
+      lockedProfit,
+      totalLockedProfit,
     };
   }, [entry, stopLoss, takeProfit, shares, direction]);
 
@@ -64,17 +74,40 @@ export default function RiskCalculator({ entry, stopLoss, takeProfit, shares, di
 
   return (
     <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-slate-50 p-4 space-y-3">
-      <h3 className="text-xs font-semibold uppercase tracking-wider dark:text-slate-400 text-slate-500">Risk Analysis</h3>
+      <div className="flex items-center gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider dark:text-slate-400 text-slate-500">Risk Analysis</h3>
+        {calc.isTrailing && (
+          <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
+            Trailing Stop
+          </span>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <Stat label="Stop Distance" value={`$${calc.stopDist.toFixed(2)}/sh`} warn={!calc.validStop} warnMsg="Stop wrong side" />
+        {calc.isTrailing ? (
+          <Stat
+            label="Locked Profit"
+            value={calc.totalLockedProfit ? `+$${calc.totalLockedProfit.toFixed(2)}` : `$${calc.lockedProfit.toFixed(2)}/sh`}
+            className="text-emerald-400"
+          />
+        ) : (
+          <Stat label="Stop Distance" value={`$${calc.stopDist.toFixed(2)}/sh`} />
+        )}
         <Stat label="Target Distance" value={calc.targetDist ? `$${calc.targetDist.toFixed(2)}/sh` : "—"} warn={!calc.validTarget} warnMsg="Target wrong side" />
 
-        <Stat
-          label="Risk / Trade"
-          value={calc.totalRisk ? `-$${calc.totalRisk.toFixed(2)}` : `$${calc.riskPerShare.toFixed(2)}/sh`}
-          className="text-red-400"
-        />
+        {calc.isTrailing ? (
+          <Stat
+            label="Risk / Trade"
+            value="$0.00 (profit locked)"
+            className="text-emerald-400"
+          />
+        ) : (
+          <Stat
+            label="Risk / Trade"
+            value={calc.totalRisk ? `-$${calc.totalRisk.toFixed(2)}` : `$${calc.riskPerShare.toFixed(2)}/sh`}
+            className="text-red-400"
+          />
+        )}
         <Stat
           label="Reward / Trade"
           value={calc.totalReward ? `+$${calc.totalReward.toFixed(2)}` : calc.rewardPerShare ? `$${calc.rewardPerShare.toFixed(2)}/sh` : "—"}
@@ -82,18 +115,35 @@ export default function RiskCalculator({ entry, stopLoss, takeProfit, shares, di
         />
 
         <div className="col-span-2 flex items-center justify-between rounded-lg dark:bg-slate-900/60 bg-white border dark:border-slate-700 border-slate-200 p-3">
-          <span className="text-xs dark:text-slate-400 text-slate-500 font-medium">Risk:Reward Ratio</span>
-          <span className={clsx("text-xl font-bold", rrColor)}>
-            {calc.rrRatio ? `1 : ${calc.rrRatio.toFixed(2)}` : "—"}
+          <span className="text-xs dark:text-slate-400 text-slate-500 font-medium">
+            {calc.isTrailing ? "Status" : "Risk:Reward Ratio"}
+          </span>
+          <span className={clsx("text-xl font-bold", calc.isTrailing ? "text-emerald-400" : rrColor)}>
+            {calc.isTrailing ? "Risk-Free" : calc.rrRatio ? `1 : ${calc.rrRatio.toFixed(2)}` : "—"}
           </span>
         </div>
 
         <Stat label="Break Even" value={`$${calc.breakEven.toFixed(2)}`} className="dark:text-slate-300 text-slate-600" />
-        <Stat
-          label="R:R Rating"
-          value={calc.rrRatio ? (calc.rrRatio >= 2 ? "Excellent" : calc.rrRatio >= 1.5 ? "Good" : calc.rrRatio >= 1 ? "Fair" : "Poor") : "—"}
-          className={rrColor}
-        />
+        {calc.isTrailing ? (
+          <Stat label="Minimum P&L" value={calc.totalLockedProfit ? `+$${calc.totalLockedProfit.toFixed(2)}` : `+$${calc.lockedProfit.toFixed(2)}/sh`} className="text-emerald-400" />
+        ) : (
+          <Stat
+            label="R:R Rating"
+            value={calc.rrRatio ? (calc.rrRatio >= 2 ? "Excellent" : calc.rrRatio >= 1.5 ? "Good" : calc.rrRatio >= 1 ? "Fair" : "Poor") : "—"}
+            className={rrColor}
+          />
+        )}
+
+        {commission > 0 && shares && (
+          <>
+            <Stat label="Commission" value={`-$${(commission * 2).toFixed(2)}`} className="text-orange-400" />
+            <Stat
+              label="Net P&L (at target)"
+              value={calc.totalReward != null ? `$${(calc.totalReward - commission * 2).toFixed(2)}` : "—"}
+              className={calc.totalReward != null && calc.totalReward - commission * 2 >= 0 ? "text-emerald-400" : "text-red-400"}
+            />
+          </>
+        )}
       </div>
     </div>
   );

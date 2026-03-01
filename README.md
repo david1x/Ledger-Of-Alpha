@@ -71,11 +71,16 @@
 - Full trade history with live filters: symbol search, status (planned / open / closed), direction (long / short)
 - P&L coloring, live unrealized P&L for open positions (refreshes every 60s via Yahoo Finance)
 - Edit and delete any trade without leaving the page
+- Hover any symbol to preview a mini candlestick chart with trade levels
 - Mobile: card-per-trade layout; Desktop: full sortable table
 
 ### 📓 Trade Journal
 - Card-based view of every trade with full notes, tags, symbol, and P&L
 - Filter between "all trades" and "trades with notes"
+- Expandable mini candlestick chart per card with entry/stop/target price lines
+- Potential P&L and R:R ratio displayed per card
+- Global chart toggle to show/hide all mini charts at once
+- Always-visible "Select All" checkbox with inline bulk delete
 - Clean reading layout for post-trade review
 
 ### 📈 Chart Page
@@ -125,7 +130,7 @@
 ### Installation
 
 ```bash
-git clone https://github.com/your-username/ledger-of-alpha.git
+git clone https://github.com/david1x/ledger-of-alpha.git
 cd ledger-of-alpha/tradeviz
 npm install
 npm run dev
@@ -176,6 +181,7 @@ tradeviz/
 │   ├── Logo.tsx
 │   ├── PersistentChart.tsx   # Chart page shell (tabs, toolbar, panel)
 │   ├── SetupChart.tsx        # Interactive mini-chart (click/drag price levels)
+│   ├── MiniChart.tsx         # Read-only mini chart (journal cards, hover popover)
 │   ├── TradeTable.tsx        # Trade log table + mobile card view
 │   ├── TradeModal.tsx        # Edit/view trade modal
 │   ├── RiskCalculator.tsx    # Live risk metrics

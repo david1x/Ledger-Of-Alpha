@@ -10,6 +10,7 @@ interface Props {
   direction: "long" | "short";
   manualShares?: number | null;
   onApplyShares?: (shares: number) => void;
+  commission?: number;
 }
 
 export default function PositionSizer({
@@ -20,6 +21,7 @@ export default function PositionSizer({
   direction,
   manualShares,
   onApplyShares,
+  commission = 0,
 }: Props) {
   const result = useMemo(() => {
     if (!entry || !stopLoss || !accountSize || !riskPercent) return null;
@@ -28,7 +30,8 @@ export default function PositionSizer({
     if (stopDist === 0) return null;
 
     const dollarRisk = (accountSize * riskPercent) / 100;
-    const recommendedShares = Math.floor(dollarRisk / stopDist);
+    const adjustedRisk = Math.max(dollarRisk - commission * 2, 0);
+    const recommendedShares = Math.floor(adjustedRisk / stopDist);
 
     // Stats for the recommended share count
     const recPositionValue = recommendedShares * entry;

@@ -48,7 +48,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     let pnl = merged.pnl;
     if (merged.status === "closed" && merged.entry_price && merged.exit_price && merged.shares) {
       const multiplier = merged.direction === "long" ? 1 : -1;
-      pnl = (merged.exit_price as number - merged.entry_price as number) * (merged.shares as number) * multiplier;
+      const gross = (merged.exit_price as number - (merged.entry_price as number)) * (merged.shares as number) * multiplier;
+      const comm = (merged.commission as number) ?? 0;
+      pnl = gross - (comm * 2);
     }
 
     db.prepare(`
@@ -56,13 +58,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         symbol = ?, direction = ?, status = ?,
         entry_price = ?, stop_loss = ?, take_profit = ?,
         exit_price = ?, shares = ?, entry_date = ?, exit_date = ?,
-        pnl = ?, notes = ?, tags = ?
+        pnl = ?, notes = ?, tags = ?, account_size = ?, commission = ?, risk_per_trade = ?
       WHERE id = ? AND user_id = ?
     `).run(
       String(merged.symbol).toUpperCase(), merged.direction, merged.status,
       merged.entry_price ?? null, merged.stop_loss ?? null, merged.take_profit ?? null,
       merged.exit_price ?? null, merged.shares ?? null, merged.entry_date ?? null,
       merged.exit_date ?? null, pnl ?? null, merged.notes ?? null, merged.tags ?? null,
+      merged.account_size ?? null, merged.commission ?? null, merged.risk_per_trade ?? null,
       id, user.id,
     );
 

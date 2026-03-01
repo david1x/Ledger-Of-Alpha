@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 interface Props {
   value: string;
   onChange: (symbol: string) => void;
+  onSelectFull?: (result: { symbol: string; name: string }) => void;
   placeholder?: string;
 }
 
@@ -20,7 +21,7 @@ function fmtCap(cap: number) {
   return `$${(cap / 1e6).toFixed(0)}M`;
 }
 
-export default function SymbolSearch({ value, onChange, placeholder = "Search symbol..." }: Props) {
+export default function SymbolSearch({ value, onChange, onSelectFull, placeholder = "Search symbol..." }: Props) {
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<SymbolOption[]>([]);
   const [open, setOpen] = useState(false);
@@ -63,6 +64,7 @@ export default function SymbolSearch({ value, onChange, placeholder = "Search sy
   const select = (s: SymbolOption) => {
     setQuery(s.symbol);
     onChange(s.symbol);
+    onSelectFull?.({ symbol: s.symbol, name: s.name });
     setOpen(false);
   };
 

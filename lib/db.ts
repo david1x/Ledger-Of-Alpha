@@ -65,7 +65,8 @@ function initSchema(db: Database.Database) {
       ('discord_webhook', ''),
       ('fmp_api_key', ''),
       ('account_size', '10000'),
-      ('risk_per_trade', '1');
+      ('risk_per_trade', '1'),
+      ('commission_per_trade', '0');
   `);
 }
 
@@ -148,6 +149,29 @@ function runMigrations(db: Database.Database) {
       insertSetting.run(key, value);
     }
     markMigration(db, "005_system_smtp_settings");
+  }
+
+  // ── 006: per-trade account_size & commission ─────────────────────────
+  if (!hasMigration(db, "006_trade_commission")) {
+    const cols = (db.pragma("table_info(trades)") as { name: string }[]).map(c => c.name);
+    if (!cols.includes("account_size")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN account_size REAL;`);
+    }
+    if (!cols.includes("commission")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN commission REAL;`);
+    }
+    if (!cols.includes("risk_per_trade")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN risk_per_trade REAL;`);
+    }
+    markMigration(db, "006_trade_commission");
+  }
+
+  // ── 006b: backfill risk_per_trade if 006 ran before it was added ────────
+  {
+    const cols = (db.pragma("table_info(trades)") as { name: string }[]).map(c => c.name);
+    if (!cols.includes("risk_per_trade")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN risk_per_trade REAL;`);
+    }
   }
 
   // ── 003: settings per-user ────────────────────────────────────────────

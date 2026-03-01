@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
 import Logo from "./Logo";
-import { BookOpen, LineChart, Settings, TrendingUp, Layout, ChevronDown, LogOut, User, ShieldCheck } from "lucide-react";
+import { BookOpen, LineChart, Settings, TrendingUp, Layout, ChevronDown, LogOut, User, ShieldCheck, Menu, X } from "lucide-react";
 import clsx from "clsx";
 
 const NAV_LINKS = [
@@ -30,6 +30,7 @@ export default function Navbar() {
   const router = useRouter();
   const [me, setMe] = useState<MeResponse | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const isAuthPage = AUTH_PATHS.includes(pathname);
 
@@ -37,6 +38,10 @@ export default function Navbar() {
     if (isAuthPage) return;
     fetch("/api/auth/me").then(r => r.json()).then(setMe).catch(() => null);
   }, [pathname, isAuthPage]);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (isAuthPage) return;
@@ -72,8 +77,8 @@ export default function Navbar() {
           <span className="hidden sm:inline dark:text-white text-slate-900">Of Alpha</span>
         </Link>
 
-        {/* Nav links */}
-        <div className="flex items-center gap-1">
+        {/* Desktop nav links */}
+        <div className="hidden sm:flex items-center gap-1">
           {NAV_LINKS.map(({ href, label, icon: Icon }) => {
             const active = pathname === href;
             return (
@@ -85,19 +90,28 @@ export default function Navbar() {
                     : "dark:text-slate-400 text-slate-600 hover:dark:text-white hover:text-slate-900 hover:dark:bg-slate-800/40 hover:bg-slate-100"
                 )}>
                 <Icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{label}</span>
+                <span>{label}</span>
               </Link>
             );
           })}
         </div>
+
+        {/* Mobile hamburger */}
+        <button
+          className="sm:hidden p-2 rounded-lg dark:text-slate-400 text-slate-600 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
+          onClick={() => setMobileMenuOpen(v => !v)}
+          aria-label="Menu"
+        >
+          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
 
         {/* Right side */}
         <div className="flex items-center gap-2">
           <ThemeToggle />
 
           {me?.guest ? (
-            /* Guest badge */
-            <div className="flex items-center gap-2">
+            /* Guest badge — hidden on mobile (hamburger menu handles it) */
+            <div className="hidden sm:flex items-center gap-2">
               <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700/50 dark:text-slate-400 text-slate-500 border dark:border-slate-700 border-slate-300">
                 Guest
               </span>
@@ -146,6 +160,62 @@ export default function Navbar() {
           ) : null}
         </div>
       </div>
+
+      {/* Mobile menu dropdown */}
+      {mobileMenuOpen && (
+        <div className="sm:hidden fixed top-14 left-0 right-0 z-40 dark:bg-slate-900 bg-white border-b dark:border-slate-800 border-slate-200 shadow-xl">
+          {/* Nav links */}
+          {NAV_LINKS.map(({ href, label, icon: Icon }) => {
+            const active = pathname === href;
+            return (
+              <Link key={href} href={href} onClick={() => setMobileMenuOpen(false)}
+                className={clsx(
+                  "flex items-center gap-3 px-5 py-3.5 text-sm font-medium transition-colors border-b dark:border-slate-800/60 border-slate-100",
+                  active
+                    ? "bg-emerald-500/10 text-emerald-400"
+                    : "dark:text-slate-300 text-slate-700 hover:dark:bg-slate-800 hover:bg-slate-50"
+                )}>
+                <Icon className="w-4 h-4" />
+                {label}
+              </Link>
+            );
+          })}
+
+          {/* User section */}
+          {me?.name && (
+            <>
+              <div className="px-5 py-3 dark:bg-slate-800/40 bg-slate-50 border-b dark:border-slate-800 border-slate-200">
+                <p className="text-xs font-semibold dark:text-white text-slate-900 truncate">{me.name}</p>
+                <p className="text-xs dark:text-slate-400 text-slate-500 truncate mt-0.5">{me.email}</p>
+              </div>
+              <Link href="/settings" onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-5 py-3.5 text-sm dark:text-slate-300 text-slate-700 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors border-b dark:border-slate-800/60 border-slate-100">
+                <User className="w-4 h-4" /> Account Settings
+              </Link>
+              {me?.isAdmin && (
+                <Link href="/admin" onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 px-5 py-3.5 text-sm text-emerald-400 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors border-b dark:border-slate-800/60 border-slate-100">
+                  <ShieldCheck className="w-4 h-4" /> Admin Panel
+                </Link>
+              )}
+              <button onClick={() => { handleSignOut(); setMobileMenuOpen(false); }}
+                className="flex items-center gap-3 w-full px-5 py-3.5 text-sm text-red-400 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors">
+                <LogOut className="w-4 h-4" /> Sign Out
+              </button>
+            </>
+          )}
+
+          {me?.guest && (
+            <div className="flex items-center gap-3 px-5 py-4">
+              <span className="text-sm dark:text-slate-400 text-slate-500">Browsing as guest</span>
+              <Link href="/register" onClick={() => setMobileMenuOpen(false)}
+                className="ml-auto text-sm px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors">
+                Sign Up
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
     </nav>
   );
 }

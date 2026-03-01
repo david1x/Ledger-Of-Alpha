@@ -2,7 +2,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { Camera, Send, CheckCircle, AlertCircle, Plus, X, ExternalLink, Link, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
+import { Camera, Send, CheckCircle, AlertCircle, Plus, X, ExternalLink, Link, RotateCcw, ChevronLeft, ChevronRight, Trash2, Pencil, List } from "lucide-react";
 import RiskCalculator from "@/components/RiskCalculator";
 import PositionSizer from "@/components/PositionSizer";
 import SetupChart, { type SetupChartHandle } from "@/components/SetupChart";
@@ -20,14 +20,18 @@ const INTERVALS = [
   { label: "1W", value: "W" },
 ];
 
-interface Tab { id: string; label: string; interval: string; }
+interface Tab { id: string; label: string; interval: string; symbol?: string; }
+interface WatchlistSymbol { symbol: string; name: string; }
+interface Watchlist { id: string; name: string; symbols: WatchlistSymbol[]; }
 
 const DEFAULT_TABS: Tab[] = [{ id: "1", label: "Chart 1", interval: "D" }];
+const DEFAULT_WATCHLISTS: Watchlist[] = [{ id: "1", name: "Watchlist 1", symbols: [] }];
 
 const EMPTY_FORM = {
   symbol: "", direction: "long" as "long" | "short",
   status: "planned" as "planned" | "open" | "closed",
   entry_price: "", stop_loss: "", take_profit: "", shares: "", notes: "",
+  commission: "", risk_percent: "",
 };
 
 
@@ -77,19 +81,25 @@ export default function PersistentChart() {
   const [shareStatus, setShareStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [accountSize, setAccountSize] = useState(10000);
   const [riskPercent, setRiskPercent] = useState(1);
+  const [commission, setCommission] = useState(0);
 
   const [resetKeys, setResetKeys] = useState<Record<string, number>>({});
   const resetActiveTab = () => setResetKeys(prev => ({ ...prev, [activeId]: (prev[activeId] ?? 0) + 1 }));
 
-  // Detect mobile for panel overlay vs sidebar behavior
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth < 640 : false
+  // Watchlist
+  const nextWlId = useRef(2);
+  const [watchlists, setWatchlists] = useState<Watchlist[]>(DEFAULT_WATCHLISTS);
+  const [activeWlId, setActiveWlId] = useState("1");
+  const [showWatchlist, setShowWatchlist] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 640 : true
   );
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 640);
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
+  const [editingWlName, setEditingWlName] = useState(false);
+  const [wlNameInput, setWlNameInput] = useState("");
+  const [wlSearch, setWlSearch] = useState("");
+  const [showCustomAdd, setShowCustomAdd] = useState(false);
+  const [customSymbol, setCustomSymbol] = useState("");
+  const [customName, setCustomName] = useState("");
+
 
   const chartRef = useRef<HTMLDivElement>(null);
   const setupChartRef = useRef<SetupChartHandle>(null);
@@ -104,6 +114,7 @@ export default function PersistentChart() {
       .then((data: Record<string, string>) => {
         if (data.account_size) setAccountSize(parseFloat(data.account_size));
         if (data.risk_per_trade) setRiskPercent(parseFloat(data.risk_per_trade));
+        if (data.commission_per_trade) setCommission(parseFloat(data.commission_per_trade));
         if (data.chart_tabs) {
           try {
             const saved: Tab[] = JSON.parse(data.chart_tabs);
@@ -112,6 +123,17 @@ export default function PersistentChart() {
               nextId.current = maxId + 1;
               setTabs(saved);
               setActiveId(saved[0].id);
+            }
+          } catch { /* ignore */ }
+        }
+        if (data.watchlists) {
+          try {
+            const saved: Watchlist[] = JSON.parse(data.watchlists);
+            if (Array.isArray(saved) && saved.length > 0) {
+              const maxId = Math.max(...saved.map(w => parseInt(w.id) || 0));
+              nextWlId.current = maxId + 1;
+              setWatchlists(saved);
+              setActiveWlId(saved[0].id);
             }
           } catch { /* ignore */ }
         }
@@ -129,6 +151,17 @@ export default function PersistentChart() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chart_tabs: JSON.stringify(newTabs) }),
+      }).catch(() => {});
+    }, 600);
+  }, []);
+
+  const saveWatchlists = useCallback((next: Watchlist[]) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ watchlists: JSON.stringify(next) }),
       }).catch(() => {});
     }, 600);
   }, []);
@@ -155,6 +188,61 @@ export default function PersistentChart() {
       saveTabs(next);
       return next;
     });
+  };
+
+  // ── Watchlist helpers ─────────────────────────────────────────────────────
+  const activeWatchlist = watchlists.find(w => w.id === activeWlId) ?? watchlists[0];
+
+  const addToWatchlist = (symbol: string, name: string) => {
+    setWatchlists(prev => {
+      if (prev.find(w => w.id === activeWlId)?.symbols.some(s => s.symbol === symbol)) return prev;
+      const next = prev.map(w =>
+        w.id === activeWlId ? { ...w, symbols: [...w.symbols, { symbol, name }] } : w
+      );
+      saveWatchlists(next);
+      return next;
+    });
+  };
+
+  const removeFromWatchlist = (symbol: string) => {
+    setWatchlists(prev => {
+      const next = prev.map(w =>
+        w.id === activeWlId ? { ...w, symbols: w.symbols.filter(s => s.symbol !== symbol) } : w
+      );
+      saveWatchlists(next);
+      return next;
+    });
+  };
+
+  const createWatchlist = () => {
+    const id = String(nextWlId.current++);
+    const next = [...watchlists, { id, name: `Watchlist ${id}`, symbols: [] }];
+    setWatchlists(next); setActiveWlId(id); saveWatchlists(next);
+  };
+
+  const deleteActiveWatchlist = () => {
+    if (watchlists.length === 1) return;
+    const next = watchlists.filter(w => w.id !== activeWlId);
+    setWatchlists(next); setActiveWlId(next[0].id); saveWatchlists(next);
+  };
+
+  const commitWlRename = () => {
+    const trimmed = wlNameInput.trim();
+    if (trimmed) {
+      const next = watchlists.map(w => w.id === activeWlId ? { ...w, name: trimmed } : w);
+      setWatchlists(next); saveWatchlists(next);
+    }
+    setEditingWlName(false);
+  };
+
+  const selectSymbol = (symbol: string) => {
+    setField("symbol", symbol);
+    setTabs(prev => {
+      const next = prev.map(t => t.id === activeId ? { ...t, symbol } : t);
+      saveTabs(next);
+      return next;
+    });
+    setResetKeys(k => ({ ...k, [activeId]: (k[activeId] ?? 0) + 1 }));
   };
 
   const startRename = (tab: Tab, e: React.MouseEvent) => {
@@ -272,6 +360,8 @@ export default function PersistentChart() {
           shares: form.shares ? parseFloat(form.shares) : null,
           notes: form.notes || null,
           entry_date: new Date().toISOString().slice(0, 10),
+          commission: form.commission ? parseFloat(form.commission) : commission || null,
+          risk_per_trade: form.risk_percent ? parseFloat(form.risk_percent) : null,
         }),
       });
       if (res.ok) { setForm(EMPTY_FORM); setShowPanel(false); }
@@ -300,6 +390,8 @@ export default function PersistentChart() {
           stop_loss: stop,
           take_profit: form.take_profit ? parseFloat(form.take_profit) : null,
           shares: form.shares ? parseFloat(form.shares) : null,
+          commission: form.commission ? parseFloat(form.commission) : commission || null,
+          risk_per_trade: form.risk_percent ? parseFloat(form.risk_percent) : null,
           notes: form.notes || null,
           entry_date: new Date().toISOString().slice(0, 10),
         }),
@@ -468,8 +560,168 @@ export default function PersistentChart() {
         </button>
       </div>
 
-      {/* ── Chart area + trade panel ── */}
+      {/* ── Chart area + watchlist + trade panel ── */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
+
+        {/* ── Watchlist sidebar ── */}
+        <div className={
+          showWatchlist
+            ? "fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col overflow-hidden dark:bg-slate-900 bg-white sm:relative sm:inset-auto sm:z-auto sm:shrink-0 sm:w-[220px] sm:border-r dark:border-slate-800 border-slate-200 sm:transition-[width] sm:duration-200"
+            : "hidden sm:flex sm:flex-col sm:shrink-0 sm:w-0 sm:overflow-hidden sm:transition-[width] sm:duration-200 dark:bg-slate-900 bg-white"
+        }>
+          {/* Mobile close bar */}
+          <div className="sm:hidden flex items-center justify-between px-4 py-3 border-b dark:border-slate-800 border-slate-200 shrink-0">
+            <span className="text-sm font-semibold dark:text-white text-slate-900">Watchlist</span>
+            <button
+              onClick={() => setShowWatchlist(false)}
+              className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
+            >
+              <X className="w-4 h-4 dark:text-slate-400 text-slate-500" />
+            </button>
+          </div>
+
+          {/* Header: watchlist selector + controls */}
+          <div className="flex items-center gap-1 px-2 py-2 border-b dark:border-slate-800 border-slate-200 shrink-0">
+            {editingWlName ? (
+              <input
+                autoFocus
+                value={wlNameInput}
+                onChange={e => setWlNameInput(e.target.value)}
+                onBlur={commitWlRename}
+                onKeyDown={e => { if (e.key === "Enter") commitWlRename(); if (e.key === "Escape") setEditingWlName(false); }}
+                className="flex-1 min-w-0 px-1.5 py-1 text-xs rounded border dark:border-slate-600 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            ) : (
+              <select
+                value={activeWlId}
+                onChange={e => setActiveWlId(e.target.value)}
+                className="flex-1 min-w-0 px-1.5 py-1 text-xs rounded border dark:border-slate-700 border-slate-200 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+              >
+                {watchlists.map(w => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+            )}
+            <button
+              onClick={() => { setWlNameInput(activeWatchlist.name); setEditingWlName(true); }}
+              title="Rename watchlist"
+              className="p-1 rounded dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0"
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+            <button
+              onClick={createWatchlist}
+              title="New watchlist"
+              className="p-1 rounded dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={deleteActiveWatchlist}
+              title="Delete watchlist"
+              disabled={watchlists.length === 1}
+              className="p-1 rounded dark:text-slate-400 text-slate-500 hover:text-red-400 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0 disabled:opacity-30 disabled:pointer-events-none"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+            <button onClick={() => setShowWatchlist(false)} title="Close" className="hidden sm:block p-1 ml-1 rounded hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors shrink-0">
+              <X className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+            </button>
+          </div>
+
+          {/* Symbol search / add */}
+          <div className="px-2 py-2 border-b dark:border-slate-800 border-slate-200 shrink-0">
+            <SymbolSearch
+              value={wlSearch}
+              onChange={setWlSearch}
+              onSelectFull={({ symbol, name }) => { addToWatchlist(symbol, name); setWlSearch(""); }}
+              placeholder="Add symbol…"
+            />
+            <button
+              onClick={() => setShowCustomAdd(v => !v)}
+              className="mt-1.5 text-[10px] dark:text-slate-500 text-slate-400 hover:text-emerald-400 transition-colors"
+            >
+              {showCustomAdd ? "Cancel" : "+ Add custom symbol"}
+            </button>
+            {showCustomAdd && (
+              <div className="mt-1.5 flex flex-col gap-1.5">
+                <input
+                  type="text"
+                  value={customSymbol}
+                  onChange={e => setCustomSymbol(e.target.value.toUpperCase())}
+                  placeholder="Symbol (e.g. BTC)"
+                  className="w-full px-2 py-1.5 text-xs rounded border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+                <input
+                  type="text"
+                  value={customName}
+                  onChange={e => setCustomName(e.target.value)}
+                  placeholder="Name (optional)"
+                  className="w-full px-2 py-1.5 text-xs rounded border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+                <button
+                  onClick={() => {
+                    const sym = customSymbol.trim();
+                    if (!sym) return;
+                    addToWatchlist(sym, customName.trim() || sym);
+                    setCustomSymbol("");
+                    setCustomName("");
+                    setShowCustomAdd(false);
+                  }}
+                  disabled={!customSymbol.trim()}
+                  className="w-full py-1.5 text-xs font-medium rounded bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-40"
+                >
+                  Add to Watchlist
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Symbol list */}
+          <div className="flex-1 overflow-y-auto">
+            {activeWatchlist.symbols.length === 0 ? (
+              <p className="px-3 py-5 text-xs dark:text-slate-500 text-slate-400 text-center">
+                Search above to add symbols
+              </p>
+            ) : (
+              activeWatchlist.symbols.map(s => (
+                <div
+                  key={s.symbol}
+                  onClick={() => selectSymbol(s.symbol)}
+                  className="flex items-center justify-between px-3 py-2 cursor-pointer hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors group"
+                >
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold dark:text-white text-slate-900">{s.symbol}</div>
+                    <div className="text-[10px] dark:text-slate-400 text-slate-500 truncate">{s.name}</div>
+                  </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); removeFromWatchlist(s.symbol); }}
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 dark:text-slate-500 text-slate-400 transition-all shrink-0"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* ── Watchlist collapse/expand toggle strip ── */}
+        <button
+          onClick={() => setShowWatchlist(v => !v)}
+          title={showWatchlist ? "Collapse watchlist" : "Watchlist"}
+          className="hidden sm:flex relative flex-col items-center justify-center w-5 shrink-0 border-r dark:border-slate-800 border-slate-200 dark:bg-slate-900/60 bg-slate-50 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors z-10 gap-2"
+        >
+          {!showWatchlist && (
+            <span className="[writing-mode:vertical-rl] text-[9px] font-bold tracking-widest text-emerald-400 rotate-180 select-none">
+              WATCHLIST
+            </span>
+          )}
+          {showWatchlist
+            ? <ChevronLeft className="w-3 h-3 dark:text-slate-500 text-slate-400 shrink-0" />
+            : <ChevronRight className="w-3 h-3 text-emerald-400 shrink-0" />
+          }
+        </button>
 
         {/* Charts */}
         <div className="relative flex-1 min-h-0">
@@ -478,7 +730,7 @@ export default function PersistentChart() {
               ref={tab.id === activeId ? chartRef : undefined}
               className={`absolute inset-0 ${tab.id !== activeId ? "invisible pointer-events-none" : ""}`}
             >
-              <TradingViewWidget key={resetKeys[tab.id] ?? 0} interval={tab.interval} />
+              <TradingViewWidget key={resetKeys[tab.id] ?? 0} interval={tab.interval} symbol={tab.symbol || undefined} />
             </div>
           ))}
         </div>
@@ -501,25 +753,20 @@ export default function PersistentChart() {
         </button>
 
         {/* ── Quick-add trade side panel ── */}
-        {/* Mobile: fixed overlay when open; Desktop: collapsing right sidebar */}
         <div className={
-          isMobile
-            ? showPanel
-              ? "fixed inset-0 z-50 dark:bg-slate-900 bg-white flex flex-col overflow-hidden"
-              : "hidden"
-            : `shrink-0 overflow-hidden transition-[width] duration-200 dark:bg-slate-900 bg-white flex flex-col ${showPanel ? "w-[420px] border-l dark:border-slate-800 border-slate-200" : "w-0"}`
+          showPanel
+            ? "fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col overflow-hidden dark:bg-slate-900 bg-white sm:relative sm:inset-auto sm:z-auto sm:shrink-0 sm:w-[420px] sm:border-l dark:border-slate-800 border-slate-200 sm:transition-[width] sm:duration-200"
+            : "hidden sm:flex sm:flex-col sm:shrink-0 sm:w-0 sm:overflow-hidden sm:transition-[width] sm:duration-200 dark:bg-slate-900 bg-white"
         }>
           {/* Panel header */}
           <div className="flex items-center justify-between px-4 py-3 border-b dark:border-slate-800 border-slate-200 shrink-0">
             <span className="text-sm font-semibold dark:text-white text-slate-900">Add Trade</span>
-            {isMobile && (
-              <button
-                onClick={() => setShowPanel(false)}
-                className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
-              >
-                <X className="w-4 h-4 dark:text-slate-400 text-slate-500" />
-              </button>
-            )}
+            <button
+              onClick={() => setShowPanel(false)}
+              className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
+            >
+              <X className="w-4 h-4 dark:text-slate-400 text-slate-500" />
+            </button>
           </div>
 
           {/* Chart — pinned, never scrolls away */}
@@ -583,6 +830,26 @@ export default function PersistentChart() {
                     />
                   </div>
                 ))}
+                <div>
+                  <label className="text-xs dark:text-slate-400 text-slate-500 mb-1 block">Risk (%)</label>
+                  <input
+                    type="number" step="0.1"
+                    value={form.risk_percent}
+                    onChange={e => setField("risk_percent", e.target.value)}
+                    placeholder={`Default: ${riskPercent}%`}
+                    className="w-full px-3 py-2 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs dark:text-slate-400 text-slate-500 mb-1 block">Commission ($)</label>
+                  <input
+                    type="number" step="0.01"
+                    value={form.commission}
+                    onChange={e => setField("commission", e.target.value)}
+                    placeholder={commission ? `Default: $${commission}` : "0.00"}
+                    className="w-full px-3 py-2 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
               </div>
 
               {/* Status */}
@@ -630,30 +897,43 @@ export default function PersistentChart() {
                 takeProfit={form.take_profit ? parseFloat(form.take_profit) : null}
                 shares={form.shares ? parseFloat(form.shares) : null}
                 direction={form.direction}
+                commission={form.commission ? parseFloat(form.commission) : commission}
               />
               <PositionSizer
                 accountSize={accountSize}
-                riskPercent={riskPercent}
+                riskPercent={form.risk_percent ? parseFloat(form.risk_percent) : riskPercent}
                 entry={form.entry_price ? parseFloat(form.entry_price) : null}
                 stopLoss={form.stop_loss ? parseFloat(form.stop_loss) : null}
                 direction={form.direction}
                 manualShares={form.shares ? parseFloat(form.shares) : null}
                 onApplyShares={(s) => setField("shares", String(s))}
+                commission={form.commission ? parseFloat(form.commission) : commission}
               />
             </div>
           </div>
       </div>
 
-      {/* ── Mobile FAB — shown when panel is closed on mobile ── */}
-      {!showPanel && (
-        <button
-          onClick={() => setShowPanel(true)}
-          className="sm:hidden fixed bottom-6 right-4 z-40 flex items-center gap-2 px-4 py-3 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium shadow-lg shadow-emerald-500/20 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Trade
-        </button>
-      )}
+      {/* ── Mobile FABs — each button shown when its own panel is closed ── */}
+      <div className="sm:hidden fixed bottom-6 right-4 z-40 flex flex-col items-end gap-3 pointer-events-none">
+        {!showWatchlist && (
+          <button
+            onClick={() => setShowWatchlist(true)}
+            className="pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-full dark:bg-slate-700 bg-slate-800 hover:bg-slate-600 text-white text-sm font-medium shadow-lg transition-colors"
+          >
+            <List className="w-4 h-4" />
+            Watchlist
+          </button>
+        )}
+        {!showPanel && (
+          <button
+            onClick={() => setShowPanel(true)}
+            className="pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium shadow-lg shadow-emerald-500/20 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Trade
+          </button>
+        )}
+      </div>
     </div>
   );
 }

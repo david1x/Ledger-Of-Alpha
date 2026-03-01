@@ -5,7 +5,7 @@ import SymbolSearch from "./SymbolSearch";
 import RiskCalculator from "./RiskCalculator";
 import PositionSizer from "./PositionSizer";
 import SetupChart from "./SetupChart";
-import { X } from "lucide-react";
+import { X, ChevronDown, ChevronUp } from "lucide-react";
 
 interface Props {
   trade?: Trade | null;
@@ -36,6 +36,8 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
   const [error, setError] = useState("");
   const [accountSize, setAccountSize] = useState(accountSizeProp ?? 10000);
   const [riskPercent, setRiskPercent] = useState(riskPercentProp ?? 1);
+  const [defaultCommission, setDefaultCommission] = useState(0);
+  const [showTradeSettings, setShowTradeSettings] = useState(false);
 
   // Always fetch settings so the modal is correct even when parent didn't pass them
   useEffect(() => {
@@ -44,6 +46,7 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
       .then((s) => {
         if (!accountSizeProp && s.account_size) setAccountSize(parseFloat(s.account_size));
         if (!riskPercentProp && s.risk_per_trade) setRiskPercent(parseFloat(s.risk_per_trade));
+        if (s.commission_per_trade) setDefaultCommission(parseFloat(s.commission_per_trade));
       })
       .catch(() => {});
   }, [accountSizeProp, riskPercentProp]);
@@ -89,7 +92,7 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b dark:border-slate-700 border-slate-200">
@@ -183,6 +186,58 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
               </div>
             </div>
 
+            {/* Trade Settings (per-trade overrides) */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowTradeSettings(v => !v)}
+                className="flex items-center gap-1.5 text-xs font-medium dark:text-slate-400 text-slate-500 hover:dark:text-slate-300 hover:text-slate-700 transition-colors"
+              >
+                {showTradeSettings ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                Trade Settings
+              </button>
+              {showTradeSettings && (
+                <div className="grid grid-cols-3 gap-3 mt-2">
+                  <div>
+                    <label className={LABEL}>Account Size ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={form.account_size ?? ""}
+                      onChange={(e) => set("account_size", e.target.value === "" ? null : parseFloat(e.target.value))}
+                      placeholder={String(accountSize)}
+                      className={INPUT}
+                    />
+                    <p className="text-[10px] dark:text-slate-500 text-slate-400 mt-0.5">Leave blank for default</p>
+                  </div>
+                  <div>
+                    <label className={LABEL}>Risk (%)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={form.risk_per_trade ?? ""}
+                      onChange={(e) => set("risk_per_trade", e.target.value === "" ? null : parseFloat(e.target.value))}
+                      placeholder={String(riskPercent)}
+                      className={INPUT}
+                    />
+                    <p className="text-[10px] dark:text-slate-500 text-slate-400 mt-0.5">Leave blank for default</p>
+                  </div>
+                  <div>
+                    <label className={LABEL}>Commission ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={form.commission ?? ""}
+                      onChange={(e) => set("commission", e.target.value === "" ? null : parseFloat(e.target.value))}
+                      placeholder={String(defaultCommission)}
+                      className={INPUT}
+                    />
+                    <p className="text-[10px] dark:text-slate-500 text-slate-400 mt-0.5">Per side (×2 round trip)</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Tags */}
             <div>
               <label className={LABEL}>Tags (comma-separated)</label>
@@ -227,15 +282,17 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
               takeProfit={form.take_profit ?? null}
               shares={form.shares ?? null}
               direction={form.direction ?? "long"}
+              commission={form.commission ?? defaultCommission}
             />
             <PositionSizer
-              accountSize={accountSize}
-              riskPercent={riskPercent}
+              accountSize={form.account_size ?? accountSize}
+              riskPercent={form.risk_per_trade ?? riskPercent}
               entry={form.entry_price ?? null}
               stopLoss={form.stop_loss ?? null}
               direction={form.direction ?? "long"}
               manualShares={form.shares ?? null}
               onApplyShares={(s) => set("shares", s)}
+              commission={form.commission ?? defaultCommission}
             />
           </div>
         </div>

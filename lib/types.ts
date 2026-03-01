@@ -42,6 +42,9 @@ export interface Trade {
   pnl: number | null;
   notes: string | null;
   tags: string | null;
+  account_size?: number | null;
+  commission?: number | null;
+  risk_per_trade?: number | null;
   created_at: string;
 }
 
@@ -50,6 +53,7 @@ export interface Settings {
   fmp_api_key: string;
   account_size: string;
   risk_per_trade: string;
+  commission_per_trade: string;
 }
 
 export interface StockSymbol {

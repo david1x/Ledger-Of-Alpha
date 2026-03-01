@@ -7,6 +7,7 @@ interface Settings {
   fmp_api_key: string;
   account_size: string;
   risk_per_trade: string;
+  commission_per_trade: string;
 }
 
 interface TwoFactorSetup {
@@ -16,7 +17,7 @@ interface TwoFactorSetup {
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>({
-    discord_webhook: "", fmp_api_key: "", account_size: "10000", risk_per_trade: "1",
+    discord_webhook: "", fmp_api_key: "", account_size: "10000", risk_per_trade: "1", commission_per_trade: "0",
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -144,7 +145,7 @@ export default function SettingsPage() {
         <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
           <DollarSign className="w-4 h-4 text-emerald-400" /> Account Settings
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className={LABEL}>Account Size ($)</label>
             <input type="number" value={settings.account_size}
@@ -156,6 +157,12 @@ export default function SettingsPage() {
             <input type="number" step="0.1" value={settings.risk_per_trade}
               onChange={e => setSettings(s => ({ ...s, risk_per_trade: e.target.value }))} className={INPUT} />
             <p className={HINT}>Max % of account to risk per trade</p>
+          </div>
+          <div>
+            <label className={LABEL}>Commission ($)</label>
+            <input type="number" step="0.01" value={settings.commission_per_trade}
+              onChange={e => setSettings(s => ({ ...s, commission_per_trade: e.target.value }))} className={INPUT} />
+            <p className={HINT}>Flat commission per trade (×2 round trip)</p>
           </div>
         </div>
       </section>

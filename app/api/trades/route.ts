@@ -41,6 +41,32 @@ export async function GET(req: NextRequest) {
   }
 }
 
+export async function DELETE(req: NextRequest) {
+  if (isGuest(req)) {
+    return NextResponse.json({ error: "Guests cannot delete trades." }, { status: 403 });
+  }
+
+  const user = await getSessionUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const { ids } = await req.json();
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: "ids array required" }, { status: 400 });
+    }
+
+    const db = getDb();
+    const placeholders = ids.map(() => "?").join(",");
+    const result = db.prepare(
+      `DELETE FROM trades WHERE id IN (${placeholders}) AND user_id = ?`
+    ).run(...ids, user.id);
+
+    return NextResponse.json({ deleted: result.changes });
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   if (isGuest(req)) {
     return NextResponse.json({ error: "Guests cannot save trades. Please create an account." }, { status: 403 });
@@ -56,24 +82,27 @@ export async function POST(req: NextRequest) {
       symbol, direction, status = "planned",
       entry_price, stop_loss, take_profit,
       exit_price, shares, entry_date, exit_date,
-      notes, tags,
+      notes, tags, account_size, commission, risk_per_trade,
     } = body;
 
     let pnl: number | null = null;
     if (status === "closed" && entry_price && exit_price && shares) {
       const multiplier = direction === "long" ? 1 : -1;
-      pnl = (exit_price - entry_price) * shares * multiplier;
+      const gross = (exit_price - entry_price) * shares * multiplier;
+      const comm = commission ?? 0;
+      pnl = gross - (comm * 2);
     }
 
     const result = db.prepare(`
       INSERT INTO trades (symbol, direction, status, entry_price, stop_loss, take_profit,
-        exit_price, shares, entry_date, exit_date, pnl, notes, tags, user_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        exit_price, shares, entry_date, exit_date, pnl, notes, tags, user_id, account_size, commission, risk_per_trade)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       symbol?.toUpperCase(), direction, status,
       entry_price ?? null, stop_loss ?? null, take_profit ?? null,
       exit_price ?? null, shares ?? null, entry_date ?? null, exit_date ?? null,
       pnl, notes ?? null, tags ?? null, user.id,
+      account_size ?? null, commission ?? null, risk_per_trade ?? null,
     );
 
     const trade = db.prepare("SELECT * FROM trades WHERE id = ?").get(result.lastInsertRowid);
