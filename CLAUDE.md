@@ -23,6 +23,7 @@ Next.js 15 (App Router), TypeScript, Tailwind CSS v3, better-sqlite3, recharts, 
 - `components/PersistentChart.tsx` — Chart page shell (~1100 lines). Contains watchlist sidebar, TradingView widget, Add Trade panel, Discord integration, tab system. This is the largest and most complex component.
 - `components/SetupChart.tsx` — Interactive lightweight-charts candlestick chart for trade setup
 - `components/MiniChart.tsx` — Read-only mini chart for journal cards and trade hover
+- `components/Tooltip.tsx` — Reusable hover tooltip with auto-positioning (used across StatsCards and Dashboard)
 - `lib/db.ts` — Database initialization + inline migrations (no separate migration files)
 - `lib/auth.ts` — JWT auth (via `jose`), 2FA (TOTP), requireAdmin helper
 - `middleware.ts` — Route protection (JWT session + guest cookie), admin guards, 2FA enforcement
@@ -51,6 +52,14 @@ All API routes live under `app/api/`. Key patterns:
 - Sidebar resize uses a transparent overlay div during drag to prevent TradingView iframe from stealing mouse events
 - Both sidebars (watchlist + trade panel) are resizable with persisted widths (`watchlist_width`, `panel_width` settings)
 - Sectors are inserted at the TOP of the items list (user preference)
+
+### Dynamic Account Balance
+- `account_size` setting stores the **starting balance** (default $10,000)
+- **Current balance** is computed client-side as `startingBalance + totalRealizedPnl` — no DB changes needed
+- Dashboard has a collapsible **Account Overview** banner (collapsed + hidden by default) showing current balance, starting balance, and total P&L with percentage
+- **Eye toggle** hides/reveals all monetary values across the banner and StatsCards (privacy mode)
+- PositionSizer (chart page + trade modal) uses `currentBalance` for position sizing
+- Settings page labels `account_size` as "Starting Balance" and shows computed current balance below
 
 ### Settings Persistence
 All UI state is persisted via `/api/settings` as JSON strings:

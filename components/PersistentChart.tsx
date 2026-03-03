@@ -1,8 +1,8 @@
 "use client";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
-import { usePathname } from "next/navigation";
-import { Camera, Send, CheckCircle, AlertCircle, Plus, X, ExternalLink, Link, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, Trash2, Pencil, List, Download, Upload, MoreHorizontal, GripVertical, FolderPlus } from "lucide-react";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { Camera, Send, CheckCircle, AlertCircle, Plus, X, ExternalLink, Link, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Pencil, List, Download, Upload, MoreHorizontal, GripVertical, FolderPlus } from "lucide-react";
 import RiskCalculator from "@/components/RiskCalculator";
 import PositionSizer from "@/components/PositionSizer";
 import SetupChart, { type SetupChartHandle } from "@/components/SetupChart";
@@ -57,8 +57,10 @@ const DEFAULT_WATCHLISTS: Watchlist[] = [{ id: "1", name: "Watchlist 1", items: 
 const EMPTY_FORM = {
   symbol: "", direction: "long" as "long" | "short",
   status: "planned" as "planned" | "open" | "closed",
-  entry_price: "", stop_loss: "", take_profit: "", shares: "", notes: "",
-  commission: "", risk_percent: "",
+  entry_price: "", stop_loss: "", take_profit: "", exit_price: "",
+  shares: "", notes: "", tags: "",
+  commission: "", risk_percent: "", account_size: "",
+  entry_date: "", exit_date: "",
 };
 
 // ── Sortable row components ──────────────────────────────────────────────────
@@ -175,6 +177,8 @@ function buildSetupMessage(
 
 export default function PersistentChart() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const chartRouter = useRouter();
   const isChart = pathname === "/chart";
 
   const nextId = useRef(2);
@@ -200,7 +204,9 @@ export default function PersistentChart() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [shareStatus, setShareStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [showTradeSettings, setShowTradeSettings] = useState(false);
   const [accountSize, setAccountSize] = useState(10000);
+  const [totalPnl, setTotalPnl] = useState(0);
   const [riskPercent, setRiskPercent] = useState(1);
   const [commission, setCommission] = useState(0);
 
@@ -245,6 +251,13 @@ export default function PersistentChart() {
 
   // ── Load settings + tabs ─────────────────────────────────────────────────
   useEffect(() => {
+    fetch("/api/trades").then(r => r.json()).then(trades => {
+      if (Array.isArray(trades)) {
+        const pnl = trades.filter((t: { status: string; pnl?: number }) => t.status === "closed")
+          .reduce((sum: number, t: { pnl?: number }) => sum + (t.pnl ?? 0), 0);
+        setTotalPnl(pnl);
+      }
+    }).catch(() => {});
     fetch("/api/settings")
       .then(r => r.json())
       .then((data: Record<string, string>) => {
@@ -593,6 +606,40 @@ export default function PersistentChart() {
     setResetKeys(k => ({ ...k, [activeId]: (k[activeId] ?? 0) + 1 }));
   };
 
+  // ── Handle URL search params (from trade links on other pages) ──
+  const lastParamsStr = useRef("");
+  useEffect(() => {
+    if (!loaded) return;
+    const symbol = searchParams.get("symbol");
+    if (!symbol) return;
+    // Skip if we already processed this exact set of params
+    const paramsStr = searchParams.toString();
+    if (paramsStr === lastParamsStr.current) return;
+    lastParamsStr.current = paramsStr;
+
+    selectSymbol(symbol);
+
+    const entry = searchParams.get("entry");
+    const stop = searchParams.get("stop");
+    const target = searchParams.get("target");
+    const direction = searchParams.get("direction");
+    const status = searchParams.get("status");
+
+    setForm(prev => ({
+      ...prev,
+      symbol,
+      entry_price: entry ?? "",
+      stop_loss: stop ?? "",
+      take_profit: target ?? "",
+      direction: (direction === "long" || direction === "short") ? direction : prev.direction,
+      status: (status === "planned" || status === "open" || status === "closed") ? status : prev.status,
+    }));
+    setShowPanel(true);
+
+    // Clear URL params to avoid re-triggering on refresh
+    chartRouter.replace("/chart", { scroll: false });
+  }, [loaded, searchParams]);
+
   const startRename = (tab: Tab, e: React.MouseEvent) => {
     e.stopPropagation(); setEditingId(tab.id); setEditLabel(tab.label);
   };
@@ -705,11 +752,15 @@ export default function PersistentChart() {
           entry_price: form.entry_price ? parseFloat(form.entry_price) : null,
           stop_loss: form.stop_loss ? parseFloat(form.stop_loss) : null,
           take_profit: form.take_profit ? parseFloat(form.take_profit) : null,
+          exit_price: form.exit_price ? parseFloat(form.exit_price) : null,
           shares: form.shares ? parseFloat(form.shares) : null,
           notes: form.notes || null,
-          entry_date: new Date().toISOString().slice(0, 10),
+          tags: form.tags || null,
+          entry_date: form.entry_date || new Date().toISOString().slice(0, 10),
+          exit_date: form.exit_date || null,
           commission: form.commission ? parseFloat(form.commission) : commission || null,
           risk_per_trade: form.risk_percent ? parseFloat(form.risk_percent) : null,
+          account_size: form.account_size ? parseFloat(form.account_size) : null,
         }),
       });
       if (res.ok) { setForm(EMPTY_FORM); setShowPanel(false); }
@@ -737,11 +788,15 @@ export default function PersistentChart() {
           entry_price: entry,
           stop_loss: stop,
           take_profit: form.take_profit ? parseFloat(form.take_profit) : null,
+          exit_price: form.exit_price ? parseFloat(form.exit_price) : null,
           shares: form.shares ? parseFloat(form.shares) : null,
           commission: form.commission ? parseFloat(form.commission) : commission || null,
           risk_per_trade: form.risk_percent ? parseFloat(form.risk_percent) : null,
+          account_size: form.account_size ? parseFloat(form.account_size) : null,
           notes: form.notes || null,
-          entry_date: new Date().toISOString().slice(0, 10),
+          tags: form.tags || null,
+          entry_date: form.entry_date || new Date().toISOString().slice(0, 10),
+          exit_date: form.exit_date || null,
         }),
       });
       if (!res.ok) {
@@ -1283,6 +1338,7 @@ export default function PersistentChart() {
                   { key: "entry_price", label: "Entry" },
                   { key: "stop_loss",   label: "Stop Loss" },
                   { key: "take_profit", label: "Take Profit" },
+                  { key: "exit_price",  label: "Exit Price" },
                   { key: "shares",      label: "Shares" },
                 ].map(({ key, label }) => (
                   <div key={key}>
@@ -1295,26 +1351,6 @@ export default function PersistentChart() {
                     />
                   </div>
                 ))}
-                <div>
-                  <label className="text-xs dark:text-slate-400 text-slate-500 mb-1 block">Risk (%)</label>
-                  <input
-                    type="number" step="0.1"
-                    value={form.risk_percent}
-                    onChange={e => setField("risk_percent", e.target.value)}
-                    placeholder={`Default: ${riskPercent}%`}
-                    className="w-full px-3 py-2 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs dark:text-slate-400 text-slate-500 mb-1 block">Commission ($)</label>
-                  <input
-                    type="number" step="0.01"
-                    value={form.commission}
-                    onChange={e => setField("commission", e.target.value)}
-                    placeholder={commission ? `Default: $${commission}` : "0.00"}
-                    className="w-full px-3 py-2 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
               </div>
 
               {/* Status */}
@@ -1330,6 +1366,86 @@ export default function PersistentChart() {
                       }`}>{s}</button>
                   ))}
                 </div>
+              </div>
+
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs dark:text-slate-400 text-slate-500 mb-1 block">Entry Date</label>
+                  <input
+                    type="date"
+                    value={form.entry_date}
+                    onChange={e => setField("entry_date", e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs dark:text-slate-400 text-slate-500 mb-1 block">Exit Date</label>
+                  <input
+                    type="date"
+                    value={form.exit_date}
+                    onChange={e => setField("exit_date", e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Trade Settings (collapsible per-trade overrides) */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowTradeSettings(v => !v)}
+                  className="flex items-center gap-1.5 text-xs font-medium dark:text-slate-400 text-slate-500 hover:dark:text-slate-300 hover:text-slate-700 transition-colors"
+                >
+                  {showTradeSettings ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  Trade Settings
+                </button>
+                {showTradeSettings && (
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    <div>
+                      <label className="text-xs dark:text-slate-400 text-slate-500 mb-1 block">Account ($)</label>
+                      <input
+                        type="number" step="0.01"
+                        value={form.account_size}
+                        onChange={e => setField("account_size", e.target.value)}
+                        placeholder={String(accountSize)}
+                        className="w-full px-3 py-2 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs dark:text-slate-400 text-slate-500 mb-1 block">Risk (%)</label>
+                      <input
+                        type="number" step="0.1"
+                        value={form.risk_percent}
+                        onChange={e => setField("risk_percent", e.target.value)}
+                        placeholder={`${riskPercent}%`}
+                        className="w-full px-3 py-2 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs dark:text-slate-400 text-slate-500 mb-1 block">Comm ($)</label>
+                      <input
+                        type="number" step="0.01"
+                        value={form.commission}
+                        onChange={e => setField("commission", e.target.value)}
+                        placeholder={commission ? `$${commission}` : "0.00"}
+                        className="w-full px-3 py-2 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Tags */}
+              <div>
+                <label className="text-xs dark:text-slate-400 text-slate-500 mb-1 block">Tags</label>
+                <input
+                  type="text"
+                  value={form.tags}
+                  onChange={e => setField("tags", e.target.value)}
+                  placeholder="breakout, earnings, swing"
+                  className="w-full px-3 py-2 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
               </div>
 
               {/* Notes */}
@@ -1365,7 +1481,7 @@ export default function PersistentChart() {
                 commission={form.commission ? parseFloat(form.commission) : commission}
               />
               <PositionSizer
-                accountSize={accountSize}
+                accountSize={form.account_size ? parseFloat(form.account_size) : accountSize + totalPnl}
                 riskPercent={form.risk_percent ? parseFloat(form.risk_percent) : riskPercent}
                 entry={form.entry_price ? parseFloat(form.entry_price) : null}
                 stopLoss={form.stop_loss ? parseFloat(form.stop_loss) : null}

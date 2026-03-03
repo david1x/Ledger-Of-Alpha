@@ -2,13 +2,15 @@
 import { Trade, QuoteMap } from "@/lib/types";
 import { TrendingUp, TrendingDown, Target, BarChart2, Activity } from "lucide-react";
 import clsx from "clsx";
+import Tooltip from "./Tooltip";
 
 interface Props {
   trades: Trade[];
   quotes?: QuoteMap;
+  hidden?: boolean;
 }
 
-export default function StatsCards({ trades, quotes }: Props) {
+export default function StatsCards({ trades, quotes, hidden }: Props) {
   const closed = trades.filter((t) => t.status === "closed");
   const openTrades = trades.filter((t) => t.status === "open");
   const winners = closed.filter((t) => (t.pnl ?? 0) > 0);
@@ -26,10 +28,13 @@ export default function StatsCards({ trades, quotes }: Props) {
   }, 0);
   const hasLive = openTrades.some(t => quotes?.[t.symbol] !== undefined);
 
+  const mask = "••••••";
+
   const stats = [
     {
       label: "Total P&L",
-      value: `${totalPnl >= 0 ? "+" : ""}$${totalPnl.toFixed(2)}`,
+      tooltip: "Sum of realized profit & loss from all closed trades",
+      value: hidden ? mask : `${totalPnl >= 0 ? "+" : ""}$${totalPnl.toFixed(2)}`,
       sub: `${closed.length} closed trades`,
       icon: totalPnl >= 0 ? TrendingUp : TrendingDown,
       color: totalPnl >= 0 ? "text-emerald-400" : "text-red-400",
@@ -38,8 +43,9 @@ export default function StatsCards({ trades, quotes }: Props) {
     },
     {
       label: "Win Rate",
-      value: `${winRate.toFixed(1)}%`,
-      sub: `${winners.length}W / ${losers.length}L`,
+      tooltip: "Percentage of closed trades that were profitable",
+      value: hidden ? mask : `${winRate.toFixed(1)}%`,
+      sub: hidden ? "—" : `${winners.length}W / ${losers.length}L`,
       icon: Target,
       color: winRate >= 50 ? "text-emerald-400" : "text-yellow-400",
       bg: "dark:bg-slate-800/50 bg-slate-50",
@@ -47,8 +53,10 @@ export default function StatsCards({ trades, quotes }: Props) {
     },
     {
       label: "Avg Win / Loss",
-      value: `$${avgWin.toFixed(0)} / $${Math.abs(avgLoss).toFixed(0)}`,
-      sub: `Expectancy: $${expectancy.toFixed(2)}`,
+      tooltip: "Average profit on winners vs average loss on losers",
+      value: hidden ? mask : `$${avgWin.toFixed(0)} / $${Math.abs(avgLoss).toFixed(0)}`,
+      sub: hidden ? "—" : `Expectancy: $${expectancy.toFixed(2)}`,
+      subTooltip: "Average $ expected per trade based on your win rate and avg win/loss",
       icon: BarChart2,
       color: "dark:text-slate-200 text-slate-700",
       bg: "dark:bg-slate-800/50 bg-slate-50",
@@ -56,6 +64,7 @@ export default function StatsCards({ trades, quotes }: Props) {
     },
     {
       label: "Open / Planned",
+      tooltip: "Active positions vs trades you've planned but not yet entered",
       value: `${openTrades.length} / ${trades.filter((t) => t.status === "planned").length}`,
       sub: `${trades.length} total trades`,
       icon: TrendingUp,
@@ -70,11 +79,17 @@ export default function StatsCards({ trades, quotes }: Props) {
       {stats.map((s) => (
         <div key={s.label} className={clsx("rounded-xl border p-4 space-y-2", s.bg, s.border)}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">{s.label}</span>
+            <span className="text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              {s.label}
+              <Tooltip text={s.tooltip} />
+            </span>
             <s.icon className={clsx("w-4 h-4", s.color)} />
           </div>
           <div className={clsx("text-2xl font-bold", s.color)}>{s.value}</div>
-          <div className="text-xs dark:text-slate-500 text-slate-400">{s.sub}</div>
+          <div className="text-xs dark:text-slate-500 text-slate-400 flex items-center gap-1">
+            {s.sub}
+            {"subTooltip" in s && s.subTooltip && <Tooltip text={s.subTooltip} />}
+          </div>
         </div>
       ))}
       {hasLive && (
@@ -83,12 +98,15 @@ export default function StatsCards({ trades, quotes }: Props) {
           unrealized >= 0 ? "dark:bg-emerald-500/10 bg-emerald-50 dark:border-emerald-500/20 border-emerald-200" : "dark:bg-red-500/10 bg-red-50 dark:border-red-500/20 border-red-200"
         )}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">Unrealized P&L</span>
+            <span className="text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              Unrealized P&L
+              <Tooltip text="Paper profit/loss on open positions based on live prices" />
+            </span>
             <Activity className={clsx("w-4 h-4", unrealized >= 0 ? "text-emerald-400" : "text-red-400")} />
           </div>
           <div className={clsx("text-2xl font-bold flex items-center gap-2", unrealized >= 0 ? "text-emerald-400" : "text-red-400")}>
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            {unrealized >= 0 ? "+" : ""}${unrealized.toFixed(2)}
+            {hidden ? mask : `${unrealized >= 0 ? "+" : ""}$${unrealized.toFixed(2)}`}
           </div>
           <div className="text-xs dark:text-slate-500 text-slate-400">{openTrades.length} open position{openTrades.length !== 1 ? "s" : ""}</div>
         </div>

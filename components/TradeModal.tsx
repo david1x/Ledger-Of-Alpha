@@ -44,7 +44,19 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
     fetch("/api/settings")
       .then((r) => r.json())
       .then((s) => {
-        if (!accountSizeProp && s.account_size) setAccountSize(parseFloat(s.account_size));
+        if (!accountSizeProp && s.account_size) {
+          const startBal = parseFloat(s.account_size);
+          // Fetch trades to compute current balance
+          fetch("/api/trades").then(r => r.json()).then(trades => {
+            if (Array.isArray(trades)) {
+              const totalPnl = trades.filter((t: { status: string; pnl?: number }) => t.status === "closed")
+                .reduce((sum: number, t: { pnl?: number }) => sum + (t.pnl ?? 0), 0);
+              setAccountSize(startBal + totalPnl);
+            } else {
+              setAccountSize(startBal);
+            }
+          }).catch(() => setAccountSize(startBal));
+        }
         if (!riskPercentProp && s.risk_per_trade) setRiskPercent(parseFloat(s.risk_per_trade));
         if (s.commission_per_trade) setDefaultCommission(parseFloat(s.commission_per_trade));
       })

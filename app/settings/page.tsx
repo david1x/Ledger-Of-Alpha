@@ -41,9 +41,21 @@ export default function SettingsPage() {
   const [claimMsg, setClaimMsg] = useState<{ text: string; type: "ok" | "err" } | null>(null);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
   const [importing, setImporting] = useState(false);
+  const [currentBalance, setCurrentBalance] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("/api/settings").then(r => r.json()).then(data => setSettings(s => ({ ...s, ...data })));
+    fetch("/api/settings").then(r => r.json()).then(data => {
+      setSettings(s => ({ ...s, ...data }));
+      // Fetch trades to compute current balance
+      fetch("/api/trades").then(r => r.json()).then(trades => {
+        if (Array.isArray(trades)) {
+          const totalPnl = trades.filter((t: { status: string; pnl?: number }) => t.status === "closed")
+            .reduce((sum: number, t: { pnl?: number }) => sum + (t.pnl ?? 0), 0);
+          const startBal = parseFloat(data.account_size || "10000");
+          setCurrentBalance(startBal + totalPnl);
+        }
+      }).catch(() => {});
+    });
     fetch("/api/symbols?q=").then(r => r.json()).then(data => {
       if (Array.isArray(data)) setSymbolCount(data.length);
     }).catch(() => {});
@@ -229,10 +241,15 @@ export default function SettingsPage() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className={LABEL}>Account Size ($)</label>
+            <label className={LABEL}>Starting Balance ($)</label>
             <input type="number" value={settings.account_size}
               onChange={e => setSettings(s => ({ ...s, account_size: e.target.value }))} className={INPUT} />
-            <p className={HINT}>Your total trading capital</p>
+            <p className={HINT}>Your initial trading capital</p>
+            {currentBalance != null && (
+              <p className={`text-xs mt-1.5 font-medium ${currentBalance >= parseFloat(settings.account_size || "10000") ? "text-emerald-400" : "text-red-400"}`}>
+                Current Balance: ${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            )}
           </div>
           <div>
             <label className={LABEL}>Risk Per Trade (%)</label>
