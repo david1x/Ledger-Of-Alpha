@@ -419,10 +419,10 @@ export default function Navbar() {
           {expanded ? <ChevronsLeft className="w-3.5 h-3.5" /> : <ChevronsRight className="w-3.5 h-3.5" />}
         </button>
 
-        <div className="flex flex-col h-full w-full overflow-hidden">
+        <div className="flex flex-col h-full w-full">
           {/* Sidebar Logo */}
           <div className={clsx(
-            "h-16 flex items-center shrink-0 border-b dark:border-slate-800/50 border-slate-100/50",
+            "h-16 flex items-center shrink-0 border-b dark:border-slate-800/50 border-slate-100/50 overflow-hidden",
             showLabels ? "px-5" : "justify-center px-0"
           )}>
             <Link href="/" className="flex items-center gap-2.5 font-bold tracking-tight">
