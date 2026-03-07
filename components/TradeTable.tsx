@@ -36,6 +36,7 @@ export const ALL_COLUMNS = [
   { key: "commission", label: "Commission",  default: false },
   { key: "risk",       label: "Risk %",      default: false },
   { key: "date",       label: "Date",       default: true },
+  { key: "notes",      label: "Notes",      default: false },
 ] as const;
 
 export type ColumnKey = (typeof ALL_COLUMNS)[number]["key"];
@@ -160,7 +161,13 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
   // Symbol hover popover state
   const [hoverTrade, setHoverTrade] = useState<Trade | null>(null);
   const [hoverPos, setHoverPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  
+  // Notes hover state
+  const [hoverNote, setHoverNote] = useState<string | null>(null);
+  const [notePos, setNotePos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+
   const hoverTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const noteTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -177,6 +184,21 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
   const handleSymbolLeave = useCallback(() => {
     clearTimeout(hoverTimeout.current);
     setHoverTrade(null);
+  }, []);
+
+  const handleNoteEnter = useCallback((e: React.MouseEvent<HTMLTableCellElement>, note: string) => {
+    if (!note || note.length < 20) return;
+    clearTimeout(noteTimeout.current);
+    const rect = e.currentTarget.getBoundingClientRect();
+    noteTimeout.current = setTimeout(() => {
+      setNotePos({ top: rect.bottom + 4, left: rect.left });
+      setHoverNote(note);
+    }, 400);
+  }, []);
+
+  const handleNoteLeave = useCallback(() => {
+    clearTimeout(noteTimeout.current);
+    setHoverNote(null);
   }, []);
 
   if (rows.length === 0) {
@@ -476,6 +498,15 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                         {t.entry_date ?? t.created_at.slice(0, 10)}
                       </td>
                     )}
+                    {show("notes") && (
+                      <td 
+                        className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs max-w-[150px] truncate cursor-help"
+                        onMouseEnter={(e) => handleNoteEnter(e, t.notes || "")}
+                        onMouseLeave={handleNoteLeave}
+                      >
+                        {t.notes || "—"}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
@@ -547,6 +578,28 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
             takeProfit={hoverTrade.take_profit}
             height={180}
           />
+        </div>,
+        document.body
+      )}
+      {/* Notes hover popover */}
+      {mounted && hoverNote && createPortal(
+        <div
+          className="fixed z-[60] rounded-xl dark:bg-slate-900 bg-white shadow-2xl border dark:border-slate-700 border-slate-200 p-4 overflow-hidden"
+          style={{ 
+            top: notePos.top, 
+            left: Math.min(notePos.left, typeof window !== "undefined" ? window.innerWidth - 340 : notePos.left), 
+            width: 320 
+          }}
+          onMouseEnter={() => clearTimeout(noteTimeout.current)}
+          onMouseLeave={handleNoteLeave}
+        >
+          <div className="flex items-center gap-2 mb-2 pb-2 border-b dark:border-slate-800 border-slate-100">
+            <Pencil className="w-3 h-3 text-emerald-400" />
+            <span className="text-[10px] font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Trade Note</span>
+          </div>
+          <div className="text-xs dark:text-slate-300 text-slate-600 leading-relaxed whitespace-pre-wrap max-h-[300px] overflow-y-auto scrollbar-thin">
+            {hoverNote}
+          </div>
         </div>,
         document.body
       )}

@@ -8,6 +8,7 @@ import TradeModal from "@/components/TradeModal";
 import MiniChart from "@/components/MiniChart";
 import clsx from "clsx";
 import TradeTable from "@/components/TradeTable";
+import Logo from "@/components/Logo";
 
 type ViewMode = "cards" | "list" | "review";
 
@@ -216,26 +217,46 @@ export default function JournalPage() {
       <div className="rounded-xl border dark:border-slate-800 border-slate-200 dark:bg-slate-900/50 bg-white p-3 space-y-3">
         <div className="flex items-center flex-wrap gap-3">
           {/* Select All */}
-          <div className="flex items-center gap-2 px-3 h-9 rounded-lg dark:bg-slate-800/50 bg-slate-50 border dark:border-slate-700/50 border-slate-200">
-            <input
-              type="checkbox"
-              checked={displayed.length > 0 && selected.size === displayed.length}
-              onChange={toggleAll}
-              className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
-            />
-            <span className="text-xs font-medium dark:text-slate-400 text-slate-500 whitespace-nowrap">
+          <button 
+            onClick={toggleAll}
+            className={clsx(
+              "flex items-center gap-2 px-3 h-9 rounded-lg border transition-all duration-200",
+              selected.size > 0 
+                ? "dark:bg-emerald-500/10 bg-emerald-50 border-emerald-500/50" 
+                : "dark:bg-slate-800/50 bg-slate-50 dark:border-slate-700/50 border-slate-200 hover:border-slate-400"
+            )}
+          >
+            <div className={clsx(
+              "w-4 h-4 rounded border flex items-center justify-center transition-colors",
+              displayed.length > 0 && selected.size === displayed.length
+                ? "bg-emerald-500 border-emerald-500"
+                : selected.size > 0
+                  ? "bg-emerald-500/50 border-emerald-500"
+                  : "dark:border-slate-600 border-slate-300"
+            )}>
+              {displayed.length > 0 && selected.size === displayed.length && (
+                <div className="w-2 h-2 bg-white rounded-sm" />
+              )}
+              {selected.size > 0 && selected.size < displayed.length && (
+                <div className="w-2 h-0.5 bg-white rounded-full" />
+              )}
+            </div>
+            <span className={clsx(
+              "text-xs font-bold whitespace-nowrap",
+              selected.size > 0 ? "text-emerald-400" : "dark:text-slate-400 text-slate-500"
+            )}>
               {selected.size > 0 ? `${selected.size} Selected` : "Select All"}
             </span>
             {selected.size > 0 && (
-              <button
-                onClick={handleBulkDelete}
+              <div 
+                onClick={(e) => { e.stopPropagation(); handleBulkDelete(); }}
                 className="ml-2 p-1 rounded hover:bg-red-500/20 text-red-400 transition-colors"
                 title="Delete Selected"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              </div>
             )}
-          </div>
+          </button>
 
           <div className="h-6 w-px dark:bg-slate-800 bg-slate-200 mx-1 hidden sm:block" />
 
@@ -301,6 +322,7 @@ export default function JournalPage() {
         <div className="rounded-xl dark:bg-slate-900 bg-white border dark:border-slate-800 border-slate-200 overflow-hidden">
           <TradeTable
             trades={displayed}
+            visibleColumns={["symbol", "direction", "status", "entry", "stop", "target", "pnl", "date", "notes"]}
             onEdit={(t) => { setEditTrade(t); setShowModal(true); }}
             onDelete={(id) => {
               if (confirm("Delete this trade?")) {
@@ -353,8 +375,8 @@ export default function JournalPage() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-xl dark:bg-emerald-500/10 bg-emerald-50 flex items-center justify-center font-bold text-emerald-400">
-                      {selectedTrade.symbol[0].toUpperCase()}
+                    <div className="h-12 w-12 rounded-xl dark:bg-emerald-500/10 bg-emerald-50 flex items-center justify-center">
+                      <Logo className="w-7 h-7" />
                     </div>
                     <div>
                       <div className="flex items-center gap-3">
