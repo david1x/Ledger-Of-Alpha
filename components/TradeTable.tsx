@@ -56,6 +56,8 @@ interface Props {
   // External selection control
   selectedIds?: Set<number>;
   onToggleSelect?: (id: number) => void;
+  onSelectAll?: (ids: number[]) => void;
+  allSelected?: boolean;
   selectable?: boolean;
 }
 
@@ -173,15 +175,12 @@ export default function TradeTable({
 
   const toggleAll = () => {
     const allIds = rows.map(t => t.id);
-    const allSelected = allIds.every(id => selected.has(id));
+    const currentlyAllSelected = allIds.every(id => selected.has(id));
     
-    if (onToggleSelect) {
-      // This is a limitation of the current prop-based toggleOne pattern
-      // For toggleAll to work correctly with external state, we'd need a onSelectAll prop
-      // But for JournalPage, toggleAll is already handled by the management bar.
-      // We'll just support the internal one for now or just the individual ones.
+    if (onSelectAll) {
+      onSelectAll(currentlyAllSelected ? [] : allIds);
     } else {
-      if (allSelected) setInternalSelected(new Set());
+      if (currentlyAllSelected) setInternalSelected(new Set());
       else setInternalSelected(new Set(allIds));
     }
   };

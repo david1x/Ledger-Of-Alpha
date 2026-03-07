@@ -362,6 +362,8 @@ export default function JournalPage() {
             }}
             selectedIds={selected}
             onToggleSelect={toggleOne}
+            onSelectAll={(ids) => setSelected(new Set(ids))}
+            selectable={selected.size > 0}
           />
         </div>
       ) : viewMode === "review" ? (
