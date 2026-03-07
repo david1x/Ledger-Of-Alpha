@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <Navbar />
           <Suspense><PersistentChart /></Suspense>
-          <main className="sidebar-push pt-14 px-6 py-6">
+          <main className="sidebar-push px-6 py-6 max-sm:pt-20">
             {children}
           </main>
           <footer className="sidebar-push border-t dark:border-slate-800 border-slate-200 py-4">

@@ -9,7 +9,7 @@ import AlertModal from "./AlertModal";
 import {
   BookOpen, LineChart, Settings, TrendingUp, Layout, ChevronDown,
   LogOut, User, ShieldCheck, Menu, X, ExternalLink, Bell, Trash2,
-  Power, Clock, Pencil, ChevronsLeft, ChevronsRight,
+  Power, Clock, Pencil, ChevronsLeft, ChevronsRight, Eye, EyeOff,
 } from "lucide-react";
 import clsx from "clsx";
 import type { Alert } from "@/lib/types";
@@ -24,8 +24,11 @@ interface AlertToast {
 }
 
 function playAlertSound() {
+  if (typeof window === "undefined") return;
   try {
-    const ctx = new AudioContext();
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
     const play = (freq: number, start: number, dur: number) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -40,7 +43,7 @@ function playAlertSound() {
     };
     play(880, 0, 0.15);
     play(1100, 0.18, 0.2);
-  } catch { /* AudioContext not available */ }
+  } catch { /* silent */ }
 }
 
 const NAV_LINKS = [
@@ -264,6 +267,40 @@ export default function Navbar() {
     loadAlerts();
   }
 
+  const [hidden, setHidden] = useState(false);
+
+  // ── Privacy persistence ──
+  useEffect(() => {
+    fetch("/api/settings")
+      .then(r => r.json())
+      .then(data => {
+        const isHidden = data.privacy_mode === "hidden";
+        setHidden(isHidden);
+        localStorage.setItem("privacy_hidden", String(isHidden));
+      })
+      .catch(() => {});
+      
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "privacy_hidden") setHidden(e.newValue === "true");
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  const toggleHidden = async () => {
+    const next = !hidden;
+    setHidden(next);
+    localStorage.setItem("privacy_hidden", String(next));
+    window.dispatchEvent(new StorageEvent("storage", { key: "privacy_hidden", newValue: String(next) }));
+    
+    // Persist to DB
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ privacy_mode: next ? "hidden" : "revealed" }),
+    });
+  };
+
   const initials = me?.name
     ? me.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()
     : "?";
@@ -301,6 +338,34 @@ export default function Navbar() {
           </Link>
         );
       })}
+      
+      {/* Alerts in main menu */}
+      {me && !me.guest && (
+        <Link
+          href="/alerts"
+          onClick={() => setMobileOpen(false)}
+          className={clsx(
+            "flex items-center py-3 text-sm font-medium transition-colors whitespace-nowrap w-full relative",
+            showLabels ? "gap-3 pl-5 pr-4" : "justify-center px-0",
+            pathname === "/alerts"
+              ? "bg-emerald-500/10 text-emerald-400 border-r-2 border-emerald-400"
+              : "dark:text-slate-400 text-slate-600 hover:dark:text-white hover:text-slate-900 hover:dark:bg-slate-800/50 hover:bg-slate-100"
+          )}
+          title={!showLabels ? "Alerts" : undefined}
+        >
+          <Bell className="w-5 h-5 shrink-0" />
+          {showLabels && <span>Alerts</span>}
+          {unreadCount > 0 && (
+            <span className={clsx(
+              "absolute rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center",
+              showLabels ? "right-4 w-4 h-4" : "top-2 right-2 w-3.5 h-3.5"
+            )}>
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </Link>
+      )}
+
       <a
         href="https://www.tradingview.com"
         target="_blank"
@@ -314,291 +379,153 @@ export default function Navbar() {
         <ExternalLink className="w-5 h-5 shrink-0" />
         {showLabels && <span>TradingView</span>}
       </a>
-      {me?.isAdmin && (
-        <Link href="/settings?tab=admin-users" onClick={() => setMobileOpen(false)}
-          className={clsx(
-            "flex items-center py-3 text-sm font-medium text-emerald-400 hover:dark:bg-slate-800/50 hover:bg-slate-100 transition-colors whitespace-nowrap",
-            showLabels ? "gap-3 pl-5 pr-4" : "justify-center px-0",
-          )}
-          title={!showLabels ? "Admin" : undefined}
-        >
-          <ShieldCheck className="w-5 h-5 shrink-0" />
-          {showLabels && <span>Admin Panel</span>}
-        </Link>
-      )}
     </nav>
   );
 
   const nav = (
     <>
-      {/* ── Top bar ── */}
-      <header className="fixed top-0 left-0 right-0 z-50 h-14 border-b dark:border-slate-800 border-slate-200 dark:bg-slate-950/95 bg-white/95 backdrop-blur-sm">
-        <div className="h-full px-4 flex items-center justify-between">
-          {/* Left: hamburger + logo */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                // Mobile: toggle overlay. Desktop: toggle expanded.
-                if (window.innerWidth < 640) {
-                  setMobileOpen(v => !v);
-                } else {
-                  setExpanded(v => !v);
-                }
-              }}
-              className="p-2 rounded-lg dark:text-slate-400 text-slate-600 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
-              aria-label="Toggle sidebar"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <Link href="/" className="flex items-center gap-1.5 font-bold text-sm sm:text-lg tracking-tight">
-              <Logo className="w-6 h-6 sm:w-7 sm:h-7" />
-              <span className="text-emerald-400">Ledger</span>
-              <span className="hidden sm:inline dark:text-white text-slate-900">Of Alpha</span>
+      {/* ── Mobile Hamburger ── */}
+      <div className="sm:hidden fixed top-4 left-4 z-50">
+        <button
+          onClick={() => setMobileOpen(v => !v)}
+          className="p-2 rounded-lg bg-white dark:bg-slate-950 border dark:border-slate-800 border-slate-200 shadow-lg dark:text-slate-400 text-slate-600"
+        >
+          {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+      </div>
+
+      {/* ── Sidebar ── */}
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="sm:hidden fixed inset-0 z-40 bg-black/50"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      <aside className={clsx(
+        "fixed top-0 left-0 bottom-0 z-40 flex flex-col border-r dark:border-slate-800 border-slate-200 dark:bg-slate-950 bg-white transition-all duration-200",
+        // Mobile: hidden unless open
+        mobileOpen ? "max-sm:w-64" : "max-sm:w-0 max-sm:border-r-0",
+        // Desktop: collapsed or expanded
+        expanded ? "sm:w-64" : "sm:w-16",
+      )}>
+        {/* Desktop Collapse Toggle on the border line */}
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="hidden sm:flex absolute top-6 -right-3 z-50 w-6 h-6 items-center justify-center rounded-full border dark:border-slate-800 border-slate-200 dark:bg-slate-900 bg-white dark:text-slate-400 text-slate-500 hover:dark:text-white hover:text-slate-900 shadow-md transition-colors"
+          title={expanded ? "Collapse sidebar" : "Expand sidebar"}
+        >
+          {expanded ? <ChevronsLeft className="w-3.5 h-3.5" /> : <ChevronsRight className="w-3.5 h-3.5" />}
+        </button>
+
+        <div className="flex flex-col h-full w-full overflow-hidden">
+          {/* Sidebar Logo */}
+          <div className={clsx(
+            "h-16 flex items-center shrink-0 border-b dark:border-slate-800/50 border-slate-100/50",
+            showLabels ? "px-5" : "justify-center px-0"
+          )}>
+            <Link href="/" className="flex items-center gap-2.5 font-bold tracking-tight">
+              <Logo className="w-7 h-7 shrink-0" />
+              {showLabels && (
+                <div className="flex items-center gap-1">
+                  <span className="text-emerald-400">Ledger</span>
+                  <span className="dark:text-white text-slate-900">Of Alpha</span>
+                </div>
+              )}
             </Link>
           </div>
 
-          {/* Right side */}
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
+          {/* Nav links */}
+          <div className="flex-1 overflow-y-auto">
+            {sidebarLinks}
+          </div>
 
-            {/* Bell icon + dropdown */}
-            {me && !me.guest && (
-              <div className="relative" ref={bellRef}>
-                <button
-                  onClick={() => setBellOpen(v => !v)}
-                  className="relative p-2 rounded-lg dark:text-slate-400 text-slate-500 hover:dark:text-white hover:text-slate-900 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
-                  title="Price Alerts"
-                >
-                  <Bell className="w-4 h-4" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                  )}
-                </button>
-
-                {bellOpen && (
-                  <div className="absolute right-0 top-full mt-1 w-80 max-h-[70vh] overflow-y-auto dark:bg-slate-900 bg-white border dark:border-slate-700 border-slate-200 rounded-xl shadow-xl z-50">
-                    <div className="flex items-center justify-between px-4 py-3 border-b dark:border-slate-800 border-slate-100">
-                      <h3 className="text-sm font-semibold dark:text-white text-slate-900">Price Alerts</h3>
-                      <button
-                        onClick={() => { setEditAlert(null); setBellOpen(false); setShowAlertModal(true); }}
-                        className="text-xs px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 font-medium transition-colors"
-                      >
-                        + New Alert
-                      </button>
-                    </div>
-
-                    {recentTriggered.length > 0 && (
-                      <div className="border-b dark:border-slate-800 border-slate-100">
-                        <p className="px-4 py-2 text-[10px] uppercase tracking-wider dark:text-slate-500 text-slate-400 font-medium">Triggered</p>
-                        {recentTriggered.map(a => (
-                          <div key={`t-${a.id}`} className="px-4 py-2 flex items-center gap-2 hover:dark:bg-slate-800/50 hover:bg-slate-50">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-sm font-bold text-emerald-400">{a.symbol}</span>
-                                <span className="text-xs dark:text-slate-400 text-slate-500">
-                                  {a.condition} ${a.target_price}
-                                </span>
-                              </div>
-                              {a.note && <p className="text-xs dark:text-slate-500 text-slate-400 truncate">{a.note}</p>}
-                            </div>
-                            <span className="text-[10px] dark:text-slate-500 text-slate-400 whitespace-nowrap flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {a.triggered_at ? timeAgo(a.triggered_at) : ""}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {activeAlerts.length > 0 && (
-                      <div>
-                        <p className="px-4 py-2 text-[10px] uppercase tracking-wider dark:text-slate-500 text-slate-400 font-medium">Active</p>
-                        {activeAlerts.map(a => (
-                          <div key={`a-${a.id}`} className="px-4 py-2 flex items-center gap-2 hover:dark:bg-slate-800/50 hover:bg-slate-50 group">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-sm font-bold text-emerald-400">{a.symbol}</span>
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                  a.condition === "above" ? "bg-emerald-500/10 text-emerald-400"
-                                  : a.condition === "below" ? "bg-red-500/10 text-red-400"
-                                  : "bg-blue-500/10 text-blue-400"
-                                }`}>
-                                  {a.condition} ${a.target_price}
-                                </span>
-                                {a.repeating === 1 && (
-                                  <span className="text-[10px] dark:text-slate-500 text-slate-400">repeat</span>
-                                )}
-                              </div>
-                              {a.note && <p className="text-xs dark:text-slate-500 text-slate-400 truncate">{a.note}</p>}
-                            </div>
-                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={() => { setEditAlert(a); setBellOpen(false); setShowAlertModal(true); }}
-                                className="p-1 rounded hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
-                                title="Edit"
-                              >
-                                <Pencil className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
-                              </button>
-                              <button
-                                onClick={() => handleToggleAlert(a.id, false)}
-                                className="p-1 rounded hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
-                                title="Deactivate"
-                              >
-                                <Power className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteAlert(a.id)}
-                                className="p-1 rounded hover:bg-red-500/20 transition-colors"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {alerts.filter(a => !a.active).length > 0 && (
-                      <div className="border-t dark:border-slate-800 border-slate-100">
-                        <p className="px-4 py-2 text-[10px] uppercase tracking-wider dark:text-slate-500 text-slate-400 font-medium">Inactive</p>
-                        {alerts.filter(a => !a.active).slice(0, 5).map(a => (
-                          <div key={`i-${a.id}`} className="px-4 py-2 flex items-center gap-2 hover:dark:bg-slate-800/50 hover:bg-slate-50 group opacity-50">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-sm font-medium dark:text-slate-400 text-slate-500">{a.symbol}</span>
-                                <span className="text-xs dark:text-slate-500 text-slate-400">
-                                  {a.condition} ${a.target_price}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={() => handleToggleAlert(a.id, true)}
-                                className="p-1 rounded hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
-                                title="Reactivate"
-                              >
-                                <Power className="w-3.5 h-3.5 text-emerald-400" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteAlert(a.id)}
-                                className="p-1 rounded hover:bg-red-500/20 transition-colors"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {alerts.length === 0 && (
-                      <div className="px-4 py-8 text-center">
-                        <Bell className="w-8 h-8 mx-auto dark:text-slate-700 text-slate-300 mb-2" />
-                        <p className="text-sm dark:text-slate-500 text-slate-400">No alerts yet</p>
-                        <p className="text-xs dark:text-slate-600 text-slate-400 mt-1">Create one to get notified when prices hit your targets</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
+          {/* User / Settings at bottom */}
+          <div className="mt-auto border-t dark:border-slate-800 border-slate-200">
             {me?.guest ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700/50 dark:text-slate-400 text-slate-500 border dark:border-slate-700 border-slate-300">
-                  Guest
-                </span>
+              <div className={clsx("py-4", showLabels ? "px-4" : "flex flex-col items-center gap-2")}>
                 <Link href="/register"
-                  className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors">
-                  Sign Up
+                  className={clsx(
+                    "rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center justify-center",
+                    showLabels ? "w-full py-2 text-sm" : "w-10 h-10"
+                  )}
+                  title="Sign Up"
+                >
+                  {showLabels ? "Sign Up" : <User className="w-5 h-5" />}
                 </Link>
               </div>
             ) : me?.name ? (
-              <div className="relative" ref={menuRef}>
+              <div className="relative px-2 py-3" ref={menuRef}>
                 <button onClick={() => setMenuOpen(v => !v)}
-                  className="flex items-center gap-2 px-2 py-1 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors">
-                  <div className="w-7 h-7 rounded-full bg-emerald-600 flex items-center justify-center text-white text-xs font-bold">
+                  className={clsx(
+                    "flex items-center w-full p-2 rounded-xl hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors",
+                    showLabels ? "gap-3" : "justify-center"
+                  )}
+                >
+                  <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
                     {initials}
                   </div>
-                  <span className="hidden sm:block text-sm dark:text-slate-300 text-slate-700 max-w-[120px] truncate">
-                    {me.name}
-                  </span>
-                  <ChevronDown className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                  {showLabels && (
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-sm font-semibold dark:text-white text-slate-900 truncate">{me.name}</p>
+                      <p className="text-[10px] dark:text-slate-500 text-slate-400 truncate uppercase tracking-wider">{me.isAdmin ? "Administrator" : "Trader"}</p>
+                    </div>
+                  )}
                 </button>
 
                 {menuOpen && (
-                  <div className="absolute right-0 top-full mt-1 w-52 dark:bg-slate-900 bg-white border dark:border-slate-700 border-slate-200 rounded-xl shadow-xl py-1 z-50">
-                    <div className="px-3 py-2 border-b dark:border-slate-800 border-slate-100">
-                      <p className="text-xs font-medium dark:text-white text-slate-900 truncate">{me.name}</p>
-                      <p className="text-xs dark:text-slate-400 text-slate-500 truncate">{me.email}</p>
+                  <div className={clsx(
+                    "absolute bottom-full left-2 right-2 mb-2 dark:bg-slate-900 bg-white border dark:border-slate-700 border-slate-200 rounded-xl shadow-2xl overflow-hidden z-50",
+                    !showLabels && "w-48 left-14 bottom-2"
+                  )}>
+                    <div className="px-4 py-3 border-b dark:border-slate-800 border-slate-100">
+                      <p className="text-xs font-semibold dark:text-white text-slate-900 truncate">{me.name}</p>
+                      <p className="text-[10px] dark:text-slate-500 text-slate-400 truncate mt-0.5">{me.email}</p>
                     </div>
-                    <Link href="/settings" onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-sm dark:text-slate-300 text-slate-700 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors">
-                      <User className="w-4 h-4" /> Account Settings
-                    </Link>
-                    <button onClick={handleSignOut}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors">
-                      <LogOut className="w-4 h-4" /> Sign Out
-                    </button>
+                    
+                    {/* Theme Toggle inside user menu */}
+                    <div className="px-2 py-1.5 border-b dark:border-slate-800 border-slate-100">
+                      <div className="flex items-center justify-between px-2 py-1.5">
+                        <span className="text-xs dark:text-slate-400 text-slate-500 font-medium">Privacy Mode</span>
+                        <button
+                          onClick={toggleHidden}
+                          className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
+                          title={hidden ? "Show numbers" : "Hide numbers"}
+                        >
+                          {hidden
+                            ? <EyeOff className="w-4 h-4 dark:text-slate-400 text-slate-500" />
+                            : <Eye className="w-4 h-4 dark:text-slate-400 text-slate-500" />}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between px-2 py-1.5">
+                        <span className="text-xs dark:text-slate-400 text-slate-500 font-medium">Appearance</span>
+                        <ThemeToggle />
+                      </div>
+                    </div>
+
+                    <div className="p-1">
+                      {me?.isAdmin && (
+                        <Link href="/admin" onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-emerald-400 hover:dark:bg-slate-800 hover:bg-slate-50 rounded-lg transition-colors">
+                          <ShieldCheck className="w-4 h-4" /> Admin Panel
+                        </Link>
+                      )}
+                      <Link href="/settings" onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm dark:text-slate-300 text-slate-700 hover:dark:bg-slate-800 hover:bg-slate-50 rounded-lg transition-colors">
+                        <Settings className="w-4 h-4" /> Account Settings
+                      </Link>
+                      <button onClick={handleSignOut}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:dark:bg-slate-800 hover:bg-slate-50 rounded-lg transition-colors">
+                        <LogOut className="w-4 h-4" /> Sign Out
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
             ) : null}
           </div>
         </div>
-      </header>
-
-      {/* ── Sidebar ── */}
-      {/* Mobile backdrop */}
-      {mobileOpen && (
-        <div
-          className="sm:hidden fixed inset-0 top-14 z-40 bg-black/50"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
-      <aside className={clsx(
-        "fixed top-14 left-0 bottom-0 z-40 flex flex-col border-r dark:border-slate-800 border-slate-200 dark:bg-slate-950 bg-white transition-all duration-200 overflow-hidden",
-        // Mobile: hidden unless open
-        mobileOpen ? "max-sm:w-56" : "max-sm:w-0 max-sm:border-r-0",
-        // Desktop: collapsed or expanded
-        expanded ? "sm:w-56" : "sm:w-16",
-      )}>
-        {/* Nav links */}
-        {sidebarLinks}
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* User info in sidebar (mobile) */}
-        {me?.name && mobileOpen && (
-          <div className="sm:hidden border-t dark:border-slate-800 border-slate-200 px-4 py-3">
-            <p className="text-xs font-semibold dark:text-white text-slate-900 truncate">{me.name}</p>
-            <p className="text-xs dark:text-slate-400 text-slate-500 truncate mt-0.5">{me.email}</p>
-            <button onClick={() => { handleSignOut(); setMobileOpen(false); }}
-              className="flex items-center gap-2 mt-2 text-sm text-red-400">
-              <LogOut className="w-4 h-4" /> Sign Out
-            </button>
-          </div>
-        )}
-
-        {/* Desktop collapse toggle */}
-        <button
-          onClick={() => setExpanded(v => !v)}
-          className={clsx(
-            "hidden sm:flex items-center py-3 text-sm dark:text-slate-500 text-slate-400 hover:dark:text-white hover:text-slate-900 hover:dark:bg-slate-800/50 hover:bg-slate-100 transition-colors whitespace-nowrap border-t dark:border-slate-800 border-slate-200",
-            expanded ? "gap-3 pl-5 pr-4" : "justify-center px-0",
-          )}
-          title={expanded ? "Collapse sidebar" : "Expand sidebar"}
-        >
-          {expanded
-            ? <><ChevronsLeft className="w-5 h-5 shrink-0" /><span>Collapse</span></>
-            : <ChevronsRight className="w-5 h-5 shrink-0" />}
-        </button>
       </aside>
 
       {/* Alert modal */}

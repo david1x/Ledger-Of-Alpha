@@ -63,7 +63,7 @@ export default function PositionSizer({
 
   if (!result) {
     return (
-      <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-slate-50 p-4">
+      <div className="rounded-xl dark:bg-slate-800/50 bg-slate-50 p-4">
         <p className="text-xs dark:text-slate-500 text-slate-400 text-center">
           Enter entry & stop loss to size position
         </p>
@@ -74,7 +74,7 @@ export default function PositionSizer({
   const isManual = result.manual !== null;
 
   return (
-    <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-slate-50 p-4 space-y-3">
+    <div className="rounded-xl dark:bg-slate-800/50 bg-slate-50 p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold uppercase tracking-wider dark:text-slate-400 text-slate-500">
           Position Sizing

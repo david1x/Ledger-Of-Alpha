@@ -91,7 +91,7 @@ export default function SymbolSearch({ value, onChange, onSelectFull, placeholde
       </div>
 
       {open && results.length > 0 && (
-        <div className="absolute z-50 top-full mt-1 w-full max-h-60 overflow-y-auto rounded-lg border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white shadow-xl">
+        <div className="absolute z-50 top-full mt-1 w-full max-h-60 overflow-y-auto rounded-lg dark:bg-slate-900 bg-white shadow-xl">
           {results.map((s) => (
             <button
               key={s.symbol}

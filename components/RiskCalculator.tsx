@@ -62,7 +62,7 @@ export default function RiskCalculator({ entry, stopLoss, takeProfit, shares, di
 
   if (!calc) {
     return (
-      <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-slate-50 p-4">
+      <div className="rounded-xl dark:bg-slate-800/50 bg-slate-50 p-4">
         <p className="text-xs dark:text-slate-500 text-slate-400 text-center">Enter entry & stop loss to see risk metrics</p>
       </div>
     );
@@ -73,7 +73,7 @@ export default function RiskCalculator({ entry, stopLoss, takeProfit, shares, di
     : "dark:text-slate-400 text-slate-500";
 
   return (
-    <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-slate-50 p-4 space-y-3">
+    <div className="rounded-xl dark:bg-slate-800/50 bg-slate-50 p-4 space-y-3">
       <div className="flex items-center gap-2">
         <h3 className="text-xs font-semibold uppercase tracking-wider dark:text-slate-400 text-slate-500">Risk Analysis</h3>
         {calc.isTrailing && (
@@ -114,7 +114,7 @@ export default function RiskCalculator({ entry, stopLoss, takeProfit, shares, di
           className="text-emerald-400"
         />
 
-        <div className="col-span-2 flex items-center justify-between rounded-lg dark:bg-slate-900/60 bg-white border dark:border-slate-700 border-slate-200 p-3">
+        <div className="col-span-2 flex items-center justify-between rounded-lg dark:bg-slate-900/60 bg-white p-3">
           <span className="text-xs dark:text-slate-400 text-slate-500 font-medium">
             {calc.isTrailing ? "Status" : "Risk:Reward Ratio"}
           </span>
@@ -155,7 +155,7 @@ function Stat({
   label: string; value: string; className?: string; warn?: boolean; warnMsg?: string;
 }) {
   return (
-    <div className="rounded-lg dark:bg-slate-900/60 bg-white border dark:border-slate-700 border-slate-200 p-2.5">
+    <div className="rounded-lg dark:bg-slate-900/60 bg-white p-2.5">
       <div className="text-xs dark:text-slate-500 text-slate-400 mb-0.5">{label}</div>
       <div className={clsx("text-sm font-semibold", className ?? "dark:text-white text-slate-900")}>
         {value}

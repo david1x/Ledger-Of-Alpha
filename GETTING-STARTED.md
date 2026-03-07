@@ -252,9 +252,7 @@ The first registered user can claim admin privileges:
 1. Log in to your account
 2. Navigate to **/admin** in the URL bar
 3. Click **"Claim Admin"** — this button only appears when no admin exists yet
-4. You now have access to the Admin Panel where you can:
-   - Manage users (view, toggle admin rights)
-   - Configure SMTP settings from the UI (overrides environment variables)
+4. You now have access to the Admin Panel, which can be found in the **User Dropdown menu** (bottom of the sidebar).
 
 ### Configuring App Settings
 

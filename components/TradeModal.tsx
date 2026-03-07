@@ -112,7 +112,7 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white shadow-2xl">
+      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl dark:bg-slate-900 bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b dark:border-slate-700 border-slate-200">
           <h2 className="font-semibold dark:text-white text-slate-900">

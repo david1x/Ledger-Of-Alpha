@@ -163,7 +163,7 @@ export default function HeatmapWidget({ trades, ranges = DEFAULT_RANGES }: Props
         {popupDate && popupPos && popupTrades.length > 0 && (
           <div
             onMouseLeave={() => { setPopupDate(null); setPopupPos(null); }}
-            className="absolute z-50 w-64 rounded-xl border dark:border-slate-600 border-slate-200 dark:bg-slate-800 bg-white shadow-xl p-3"
+            className="absolute z-50 w-64 rounded-xl dark:bg-slate-800 bg-white shadow-xl p-3"
             style={{
               top: popupPos.y,
               left: Math.min(Math.max(popupPos.x - 128, 0), (gridRef.current?.offsetWidth ?? 280) - 256),

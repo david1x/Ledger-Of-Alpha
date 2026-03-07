@@ -181,7 +181,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/30 bg-slate-50 p-8 text-center">
+      <div className="rounded-xl dark:bg-slate-800/50 bg-slate-50 p-8 text-center">
         <p className="dark:text-slate-500 text-slate-400 text-sm">No trades found. Add your first trade!</p>
       </div>
     );
@@ -196,7 +196,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
     <div>
       {/* Bulk action bar */}
       {selectable && selected.size > 0 && (
-        <div className="flex items-center gap-3 mb-3 px-3 py-2 rounded-lg dark:bg-slate-800 bg-slate-100 border dark:border-slate-700 border-slate-200">
+        <div className="flex items-center gap-3 mb-3 px-3 py-2 rounded-lg dark:bg-slate-800 bg-slate-100">
           <span className="text-sm dark:text-slate-300 text-slate-700 font-medium">
             {selected.size} selected
           </span>
@@ -216,7 +216,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
         </div>
       )}
 
-      <div className="rounded-xl border dark:border-slate-700 border-slate-200 overflow-hidden">
+      <div className="rounded-xl overflow-hidden">
 
         {/* ── Mobile card view (< sm) ── */}
         <div className="sm:hidden divide-y dark:divide-slate-800 divide-slate-100">
@@ -349,12 +349,12 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
         </div>
 
         {/* ── Desktop table (sm+) ── */}
-        <div className="hidden sm:block overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="hidden sm:block overflow-x-auto p-1">
+          <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="dark:bg-slate-800/60 bg-slate-100 border-b dark:border-slate-700 border-slate-200">
+              <tr className="border-b dark:border-slate-700/50 border-slate-100">
                 {selectable && (
-                  <th className="px-3 py-2.5 w-8">
+                  <th className="px-4 py-3 w-8">
                     <input
                       type="checkbox"
                       checked={rows.length > 0 && selected.size === rows.length}
@@ -364,7 +364,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                   </th>
                 )}
                 {headers.map((h) => (
-                  <th key={h.key} className="px-3 py-2.5 text-left text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                  <th key={h.key} className="px-4 py-3 text-left text-xs font-bold dark:text-slate-500 text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     <button
                       onClick={() => handleSort(h.key)}
                       className="flex items-center gap-1 hover:dark:text-slate-200 hover:text-slate-700 transition-colors cursor-pointer select-none"
@@ -379,10 +379,10 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                   </th>
                 ))}
                 {/* Actions column (always visible) */}
-                <th className="px-3 py-2.5 text-left text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider whitespace-nowrap" />
+                <th className="px-4 py-3 text-left text-xs font-bold dark:text-slate-500 text-slate-400 uppercase tracking-wider whitespace-nowrap text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y dark:divide-slate-800 divide-slate-100">
+            <tbody className="divide-y dark:divide-slate-700/50 divide-slate-100">
               {rows.map((t) => {
                 const livePnl =
                   t.status === "open" && t.entry_price != null && t.shares != null && quotes[t.symbol] !== undefined
@@ -393,9 +393,9 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                 const isSelected = selected.has(t.id);
                 const pot = calcPotentialPnl(t);
                 return (
-                  <tr key={t.id} className={clsx("hover:dark:bg-slate-800/30 hover:bg-slate-50 transition-colors", isSelected && "dark:bg-emerald-500/5 bg-emerald-50")}>
+                  <tr key={t.id} className={clsx("hover:dark:bg-slate-800/30 hover:bg-slate-50/50 transition-colors group", isSelected && "dark:bg-emerald-500/5 bg-emerald-50/50")}>
                     {selectable && (
-                      <td className="px-3 py-2.5 w-8">
+                      <td className="px-4 py-3 w-8">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -406,7 +406,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                     )}
                     {show("symbol") && (
                       <td
-                        className="px-3 py-2.5 font-bold text-emerald-400 cursor-pointer hover:underline"
+                        className="px-4 py-3 font-bold text-emerald-400 cursor-pointer hover:underline"
                         onMouseEnter={(e) => handleSymbolEnter(e, t)}
                         onMouseLeave={handleSymbolLeave}
                         onClick={() => router.push(buildChartUrl(t))}
@@ -415,34 +415,34 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                       </td>
                     )}
                     {show("direction") && (
-                      <td className="px-3 py-2.5">
+                      <td className="px-4 py-3">
                         {t.direction === "long"
-                          ? <span className="flex items-center gap-1 text-emerald-400"><ArrowUpRight className="w-3 h-3" />Long</span>
-                          : <span className="flex items-center gap-1 text-red-400"><ArrowDownRight className="w-3 h-3" />Short</span>
+                          ? <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-emerald-400"><ArrowUpRight className="w-3 h-3" />Long</span>
+                          : <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-red-400"><ArrowDownRight className="w-3 h-3" />Short</span>
                         }
                       </td>
                     )}
                     {show("status") && (
-                      <td className="px-3 py-2.5">
-                        <span className={clsx("px-2 py-0.5 rounded-full text-xs font-medium capitalize", STATUS_STYLE[t.status])}>
+                      <td className="px-4 py-3">
+                        <span className={clsx("px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter", STATUS_STYLE[t.status])}>
                           {t.status}
                         </span>
                       </td>
                     )}
-                    {show("entry") && <td className="px-3 py-2.5 dark:text-slate-300 text-slate-700">{t.entry_price ? `$${t.entry_price}` : "—"}</td>}
-                    {show("stop") && <td className="px-3 py-2.5 text-red-400">{t.stop_loss ? `$${t.stop_loss}` : "—"}</td>}
-                    {show("target") && <td className="px-3 py-2.5 text-emerald-400">{t.take_profit ? `$${t.take_profit}` : "—"}</td>}
-                    {show("exit") && <td className="px-3 py-2.5 dark:text-slate-300 text-slate-700">{t.exit_price ? `$${t.exit_price}` : "—"}</td>}
-                    {show("shares") && <td className="px-3 py-2.5 dark:text-slate-400 text-slate-500">{t.shares ?? "—"}</td>}
+                    {show("entry") && <td className="px-4 py-3 dark:text-slate-300 text-slate-700 font-medium text-xs">{t.entry_price ? `$${t.entry_price}` : "—"}</td>}
+                    {show("stop") && <td className="px-4 py-3 text-red-400 font-medium text-xs">{t.stop_loss ? `$${t.stop_loss}` : "—"}</td>}
+                    {show("target") && <td className="px-4 py-3 text-emerald-400 font-medium text-xs">{t.take_profit ? `$${t.take_profit}` : "—"}</td>}
+                    {show("exit") && <td className="px-4 py-3 dark:text-slate-300 text-slate-700 font-medium text-xs">{t.exit_price ? `$${t.exit_price}` : "—"}</td>}
+                    {show("shares") && <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs font-medium">{t.shares ?? "—"}</td>}
                     {show("pnl") && (
-                      <td className={clsx("px-3 py-2.5 font-medium", closedPnlColor)}>
+                      <td className={clsx("px-4 py-3 font-semibold text-xs", closedPnlColor)}>
                         {t.pnl !== null ? `${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}` : "—"}
                       </td>
                     )}
                     {show("potential") && (
-                      <td className="px-3 py-2.5">
+                      <td className="px-4 py-3">
                         {pot ? (
-                          <div className="flex flex-col text-xs font-medium leading-tight">
+                          <div className="flex flex-col text-[10px] font-bold leading-tight uppercase tracking-tighter">
                             {pot.profit != null && <span className="text-emerald-400">+${pot.profit.toFixed(2)}</span>}
                             {pot.loss != null && <span className="text-red-400">-${Math.abs(pot.loss).toFixed(2)}</span>}
                           </div>
@@ -450,7 +450,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                       </td>
                     )}
                     {show("unrealized") && (
-                      <td className={clsx("px-3 py-2.5 font-medium", liveColor)}>
+                      <td className={clsx("px-4 py-3 font-semibold text-xs", liveColor)}>
                         <span className="flex items-center gap-1.5">
                           {livePnl !== null && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
                           {livePnl !== null ? `${livePnl >= 0 ? "+" : ""}$${livePnl.toFixed(2)}` : "—"}
@@ -458,12 +458,12 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                       </td>
                     )}
                     {show("commission") && (
-                      <td className="px-3 py-2.5 dark:text-slate-400 text-slate-500">
+                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs">
                         {t.commission != null ? `$${t.commission.toFixed(2)}` : "—"}
                       </td>
                     )}
                     {show("risk") && (
-                      <td className="px-3 py-2.5 dark:text-slate-400 text-slate-500">
+                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs">
                         {t.risk_per_trade != null
                           ? `${t.risk_per_trade}%`
                           : defaultRiskPercent != null
@@ -472,18 +472,18 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                       </td>
                     )}
                     {show("date") && (
-                      <td className="px-3 py-2.5 dark:text-slate-500 text-slate-400 text-xs whitespace-nowrap">
+                      <td className="px-4 py-3 dark:text-slate-500 text-slate-400 text-[10px] whitespace-nowrap uppercase">
                         {t.entry_date ?? t.created_at.slice(0, 10)}
                       </td>
                     )}
-                    <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-1">
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => router.push(buildChartUrl(t))}
                           className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
                           title="Open in Chart"
                         >
-                          <LineChart className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                          <LineChart className="w-4 h-4 dark:text-slate-400 text-slate-500" />
                         </button>
                         <a
                           href={buildTradingViewUrl(t.symbol)}
@@ -492,7 +492,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                           className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
                           title="Open in TradingView"
                         >
-                          <ExternalLink className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                          <ExternalLink className="w-4 h-4 dark:text-slate-400 text-slate-500" />
                         </a>
                         {onSetAlert && (
                           <button
@@ -500,7 +500,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                             className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
                             title="Set Price Alert"
                           >
-                            <Bell className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                            <Bell className="w-4 h-4 dark:text-slate-400 text-slate-500" />
                           </button>
                         )}
                         <button
@@ -508,7 +508,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                           className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
                           title="Edit"
                         >
-                          <Pencil className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                          <PencilIcon className="w-4 h-4 dark:text-slate-400 text-slate-500" />
                         </button>
                         <button
                           onClick={() => {
@@ -517,7 +517,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                           className="p-1.5 rounded-lg hover:bg-red-500/20 transition-colors"
                           title="Delete"
                         >
-                          <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                          <Trash2 className="w-4 h-4 text-red-400" />
                         </button>
                       </div>
                     </td>
@@ -532,7 +532,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
       {/* Symbol hover popover */}
       {mounted && hoverTrade && createPortal(
         <div
-          className="fixed z-50 rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white shadow-xl overflow-hidden"
+          className="fixed z-50 rounded-xl dark:bg-slate-900 bg-white shadow-xl overflow-hidden"
           style={{ top: hoverPos.top, left: hoverPos.left, width: 320 }}
           onMouseEnter={() => clearTimeout(hoverTimeout.current)}
           onMouseLeave={handleSymbolLeave}
@@ -551,5 +551,14 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
         document.body
       )}
     </div>
+  );
+}
+
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+      <path d="m15 5 4 4"/>
+    </svg>
   );
 }

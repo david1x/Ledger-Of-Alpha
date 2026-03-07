@@ -62,7 +62,7 @@ export default function AdminSettingsPage() {
 
       <form onSubmit={save} className="space-y-8">
         {/* ── New user defaults ── */}
-        <section className="dark:bg-slate-900 bg-white border dark:border-slate-800 border-slate-200 rounded-xl p-6">
+        <section className="dark:bg-slate-900 bg-white rounded-xl p-6">
           <h2 className="text-sm font-semibold dark:text-white text-slate-900 mb-4">New User Defaults</h2>
           <p className="text-xs dark:text-slate-400 text-slate-500 mb-4">
             These values are seeded for every new account at registration.
@@ -80,7 +80,7 @@ export default function AdminSettingsPage() {
         </section>
 
         {/* ── App URL ── */}
-        <section className="dark:bg-slate-900 bg-white border dark:border-slate-800 border-slate-200 rounded-xl p-6">
+        <section className="dark:bg-slate-900 bg-white rounded-xl p-6">
           <h2 className="text-sm font-semibold dark:text-white text-slate-900 mb-1">App URL</h2>
           <p className="text-xs dark:text-slate-400 text-slate-500 mb-4">
             Used in email links. Leave blank to use the <code className="text-xs">NEXT_PUBLIC_APP_URL</code> env var.
@@ -90,7 +90,7 @@ export default function AdminSettingsPage() {
         </section>
 
         {/* ── SMTP ── */}
-        <section className="dark:bg-slate-900 bg-white border dark:border-slate-800 border-slate-200 rounded-xl p-6">
+        <section className="dark:bg-slate-900 bg-white rounded-xl p-6">
           <h2 className="text-sm font-semibold dark:text-white text-slate-900 mb-1">SMTP Email</h2>
           <p className="text-xs dark:text-slate-400 text-slate-500 mb-4">
             These settings take precedence over <code className="text-xs">.env.local</code>. Leave all blank to fall back to env vars.

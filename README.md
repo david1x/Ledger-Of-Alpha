@@ -112,7 +112,8 @@
 - **2FA** — TOTP (authenticator app) with backup codes
 - Email verification on signup
 - **Guest mode** — explore the app with realistic demo data, no account required
-- **Admin panel** — manage users, toggle admin rights, configure SMTP
+- **Admin panel** — manage users, toggle admin rights, configure SMTP (now located in the user dropdown)
+- **Privacy Mode** — toggle "eye" icon to mask sensitive P&L and balance numbers across the entire app
 - **Rate limiting** — per-IP throttling on auth and API endpoints
 - **Security headers** — CSP, HSTS, X-Frame-Options via middleware
 - **Input validation** — server-side trade data sanitization and type checking

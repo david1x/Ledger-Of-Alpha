@@ -16,6 +16,7 @@ interface Settings {
   commission_per_trade: string;
   heatmap_ranges: string;
   charts_collapsed: string;
+  privacy_mode: string;
 }
 
 interface TwoFactorSetup {
@@ -68,7 +69,7 @@ function SettingsContent() {
   const initialCategory = (searchParams.get("tab") ?? "account") as Category;
   const [settings, setSettings] = useState<Settings>({
     discord_webhook: "", alert_discord_webhook: "", fmp_api_key: "", account_size: "10000", risk_per_trade: "1", commission_per_trade: "0",
-    heatmap_ranges: JSON.stringify({ high: 500, mid: 200, low: 1 }), charts_collapsed: "false",
+    heatmap_ranges: JSON.stringify({ high: 500, mid: 200, low: 1 }), charts_collapsed: "false", privacy_mode: "revealed",
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -516,15 +517,46 @@ function SettingsContent() {
                 <p className={HINT}>Lightest green/red shade</p>
               </div>
             </div>
-            <label className="flex items-center gap-2 text-sm dark:text-slate-300 text-slate-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={settings.charts_collapsed === "true"}
-                onChange={e => setSettings(s => ({ ...s, charts_collapsed: e.target.checked ? "true" : "false" }))}
-                className="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500"
-              />
-              Collapse charts by default
-            </label>
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm dark:text-slate-300 text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.charts_collapsed === "true"}
+                  onChange={e => setSettings(s => ({ ...s, charts_collapsed: e.target.checked ? "true" : "false" }))}
+                  className="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500"
+                />
+                Collapse charts by default
+              </label>
+
+              <div className="pt-2">
+                <label className={LABEL}>Default Privacy Mode</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSettings(s => ({ ...s, privacy_mode: "revealed" }))}
+                    className={clsx(
+                      "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                      settings.privacy_mode === "revealed"
+                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                        : "dark:bg-slate-800 bg-slate-100 dark:text-slate-400 text-slate-500 hover:dark:bg-slate-700 hover:bg-slate-200"
+                    )}
+                  >
+                    <Eye className="w-4 h-4" /> Revealed
+                  </button>
+                  <button
+                    onClick={() => setSettings(s => ({ ...s, privacy_mode: "hidden" }))}
+                    className={clsx(
+                      "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                      settings.privacy_mode === "hidden"
+                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                        : "dark:bg-slate-800 bg-slate-100 dark:text-slate-400 text-slate-500 hover:dark:bg-slate-700 hover:bg-slate-200"
+                    )}
+                  >
+                    <EyeOff className="w-4 h-4" /> Hidden
+                  </button>
+                </div>
+                <p className={HINT}>Choose whether prices are hidden or shown by default when you load the app.</p>
+              </div>
+            </div>
 
             {/* Preview */}
             <div className="pt-2 border-t dark:border-slate-800 border-slate-100">

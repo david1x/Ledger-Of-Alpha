@@ -144,7 +144,7 @@ export default function SetupPreview({
   // No data and not interactive → original placeholder
   if (!layout && !interactive) {
     return (
-      <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-slate-50 h-20 flex items-center justify-center">
+      <div className="rounded-xl dark:bg-slate-800/50 bg-slate-50 h-20 flex items-center justify-center">
         <p className="text-xs dark:text-slate-500 text-slate-400 text-center px-4">
           Enter entry &amp; stop loss to preview setup
         </p>
@@ -155,7 +155,7 @@ export default function SetupPreview({
   // Interactive but no centerPrice or prices yet → show inactive state
   if (!layout) {
     return (
-      <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-slate-50 overflow-hidden">
+      <div className="rounded-xl dark:bg-slate-800/50 bg-slate-50 overflow-hidden">
         {modeSelector}
         <div className="flex items-center justify-center" style={{ height: SVG_H }}>
           <p className="text-xs dark:text-slate-500 text-slate-400 text-center px-4">
@@ -169,7 +169,7 @@ export default function SetupPreview({
   const { ey, sy, ty, rr, riskTop, riskH, rewardTop, rewardH } = layout;
 
   return (
-    <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-slate-50 overflow-hidden">
+    <div className="rounded-xl dark:bg-slate-800/50 bg-slate-50 overflow-hidden">
       {modeSelector}
       <svg
         ref={svgRef}

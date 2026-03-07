@@ -268,7 +268,7 @@ const SetupChart = forwardRef<SetupChartHandle, Props>(({
   const fmt = (p: number) => p < 10 ? p.toPrecision(4) : p.toFixed(2);
 
   return (
-    <div className="rounded-xl border dark:border-slate-700 border-slate-200 overflow-hidden">
+    <div className="rounded-xl overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center justify-between px-2 py-1.5 border-b dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white">
         {/* Mode selector */}

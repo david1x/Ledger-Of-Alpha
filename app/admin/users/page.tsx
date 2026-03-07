@@ -59,7 +59,7 @@ export default function AdminUsersPage() {
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {!loading && !error && (
-        <div className="dark:bg-slate-900 bg-white border dark:border-slate-800 border-slate-200 rounded-xl overflow-hidden">
+        <div className="dark:bg-slate-900 bg-white rounded-xl overflow-hidden">
 
           {/* ── Mobile card view (< sm) ── */}
           <div className="sm:hidden divide-y dark:divide-slate-800 divide-slate-100">

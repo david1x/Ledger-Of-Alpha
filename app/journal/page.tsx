@@ -48,7 +48,20 @@ export default function JournalPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [chartsVisible, setChartsVisible] = useState(true);
   const [accountSize, setAccountSize] = useState(10000);
-  const [hidden, setHidden] = useState(true);
+  const [hidden, setHidden] = useState(false);
+
+  // ── Privacy persistence ──
+  useEffect(() => {
+    const saved = localStorage.getItem("privacy_hidden");
+    if (saved === "true") setHidden(true);
+    if (saved === "false") setHidden(false);
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "privacy_hidden") setHidden(e.newValue === "true");
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -60,6 +73,12 @@ export default function JournalPage() {
     const settingsData = await settingsRes.json();
     if (Array.isArray(data)) setTrades(data);
     if (settingsData.account_size) setAccountSize(parseFloat(settingsData.account_size));
+
+    // Check privacy mode if not explicitly set in localStorage
+    if (localStorage.getItem("privacy_hidden") === null && settingsData.privacy_mode) {
+      setHidden(settingsData.privacy_mode === "hidden");
+    }
+
     setLoading(false);
   };
 
@@ -111,10 +130,10 @@ export default function JournalPage() {
           <button
             onClick={() => setFilter("all")}
             className={clsx(
-              "px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
+              "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
               filter === "all"
-                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                : "dark:border-slate-700 border-slate-200 dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100"
+                ? "bg-emerald-500/20 text-emerald-400"
+                : "dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-800/50 bg-slate-100/50"
             )}
           >
             All ({trades.length})
@@ -122,10 +141,10 @@ export default function JournalPage() {
           <button
             onClick={() => setFilter("with-notes")}
             className={clsx(
-              "px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
+              "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
               filter === "with-notes"
-                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                : "dark:border-slate-700 border-slate-200 dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100"
+                ? "bg-emerald-500/20 text-emerald-400"
+                : "dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-800/50 bg-slate-100/50"
             )}
           >
             <FileText className="w-3.5 h-3.5 inline mr-1" />
@@ -133,7 +152,7 @@ export default function JournalPage() {
           </button>
           <button
             onClick={() => setChartsVisible(v => !v)}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium border dark:border-slate-700 border-slate-200 dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors flex items-center gap-1"
+            className="px-3 py-1.5 rounded-lg text-sm font-medium dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-800/50 bg-slate-100/50 transition-colors flex items-center gap-1"
           >
             {chartsVisible ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             Charts
@@ -142,18 +161,27 @@ export default function JournalPage() {
       </div>
 
       {/* Account Stats Banner */}
-      <AccountBanner trades={trades} accountSize={accountSize} hidden={hidden} onToggleHidden={() => setHidden(v => !v)} />
+      <AccountBanner
+        trades={trades}
+        accountSize={accountSize}
+        hidden={hidden}
+        onToggleHidden={() => {
+          const next = !hidden;
+          setHidden(next);
+          localStorage.setItem("privacy_hidden", String(next));
+        }}
+      />
 
       {loading ? (
         <div className="text-center py-12 dark:text-slate-400 text-slate-500">Loading...</div>
       ) : displayed.length === 0 ? (
-        <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/30 bg-slate-50 p-12 text-center">
+        <div className="rounded-xl dark:bg-slate-800/50 bg-slate-50 p-12 text-center">
           <p className="dark:text-slate-500 text-slate-400">No trades with notes yet. Edit a trade to add notes.</p>
         </div>
       ) : (
         <>
           {/* Always-visible select all row */}
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg dark:bg-slate-800/50 bg-slate-50 border dark:border-slate-700 border-slate-200">
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg dark:bg-slate-800/50 bg-slate-50">
             <input
               type="checkbox"
               checked={displayed.length > 0 && selected.size === displayed.length}
@@ -193,7 +221,7 @@ export default function JournalPage() {
               const pot = calcPotentialPnl(t);
 
               return (
-                <div key={t.id} className={clsx("rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-4 space-y-3 hover:border-emerald-500/50 transition-colors", isSelected && "border-emerald-500/50 dark:bg-emerald-500/5 bg-emerald-50")}>
+                <div key={t.id} className={clsx("rounded-xl dark:bg-slate-900 bg-white p-4 space-y-3 hover:bg-emerald-500/5 transition-colors", isSelected && "dark:bg-emerald-500/5 bg-emerald-50")}>
                   {/* Header */}
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-2">
@@ -266,7 +294,7 @@ export default function JournalPage() {
                       {t.notes}
                     </div>
                   ) : (
-                    <div className="rounded-lg dark:bg-slate-800/50 bg-slate-50 border dark:border-slate-700 border-dashed border-slate-200 p-3 text-xs dark:text-slate-600 text-slate-400 italic">
+                    <div className="rounded-lg dark:bg-slate-800/50 bg-slate-50 p-3 text-xs dark:text-slate-600 text-slate-400 italic">
                       No notes added yet
                     </div>
                   )}
@@ -285,7 +313,7 @@ export default function JournalPage() {
 
                   {/* Chart + potential P&L section */}
                   {chartsVisible && (
-                    <div className="space-y-3 pt-2 border-t dark:border-slate-700 border-slate-200">
+                    <div className="space-y-3 pt-2">
                       {/* Potential P&L */}
                       {pot && (
                         <div className="flex items-center gap-3 text-xs font-medium">

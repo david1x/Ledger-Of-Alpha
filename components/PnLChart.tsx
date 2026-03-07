@@ -34,7 +34,7 @@ interface Props {
   onChartOrderChange?: (order: string[]) => void;
 }
 
-const CARD = "rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-white p-3";
+const CARD = "rounded-xl dark:bg-slate-800/50 bg-white p-3";
 const TOOLTIP_STYLE = {
   background: "#0f172a",
   border: "1px solid #1e293b",
@@ -305,7 +305,7 @@ export default function PnLChart({ trades, heatmapRanges, chartsCollapsed: colla
 
   if (closed.length === 0) {
     return (
-      <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-slate-50 p-8 text-center">
+      <div className="rounded-xl dark:bg-slate-800/50 bg-slate-50 p-8 text-center">
         <p className="dark:text-slate-500 text-slate-400 text-sm">No closed trades yet. Close a trade to see your P&L charts.</p>
       </div>
     );

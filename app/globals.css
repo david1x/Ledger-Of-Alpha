@@ -38,7 +38,7 @@
     margin-left: 4rem;
   }
   html[data-sidebar="expanded"] .sidebar-push {
-    margin-left: 14rem;
+    margin-left: 16rem;
   }
 }
 .sidebar-push {
@@ -51,7 +51,7 @@
     left: 4rem;
   }
   html[data-sidebar="expanded"] .sidebar-push-fixed {
-    left: 14rem;
+    left: 16rem;
   }
 }
 .sidebar-push-fixed {

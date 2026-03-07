@@ -64,7 +64,7 @@ export default function WeeklyCalendar({ dailyPnl, dailyCounts, trades }: Props)
   const popupDayIndex = popupDate ? weekDays.findIndex(d => d.date === popupDate) : -1;
 
   return (
-    <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900/80 bg-white px-4 py-3">
+    <div className="rounded-xl dark:bg-slate-900/80 bg-white px-4 py-3">
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-2">
           <button onClick={() => { setWeekOffset(v => v - 1); setPopupDate(null); }}

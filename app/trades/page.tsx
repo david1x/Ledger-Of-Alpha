@@ -30,7 +30,20 @@ export default function TradesPage() {
   const [importing, setImporting] = useState(false);
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertDefaults, setAlertDefaults] = useState<{ symbol?: string; price?: number }>({});
-  const [hidden, setHidden] = useState(true);
+  const [hidden, setHidden] = useState(false);
+
+  // ── Privacy persistence ──
+  useEffect(() => {
+    const saved = localStorage.getItem("privacy_hidden");
+    if (saved === "true") setHidden(true);
+    if (saved === "false") setHidden(false);
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "privacy_hidden") setHidden(e.newValue === "true");
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
   const columnMenuRef = useRef<HTMLDivElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -66,6 +79,12 @@ export default function TradesPage() {
       }
       if (settingsData.account_size) setAccountSize(parseFloat(settingsData.account_size));
       if (settingsData.risk_per_trade) setRiskPercent(parseFloat(settingsData.risk_per_trade));
+
+      // Check privacy mode if not explicitly set in localStorage
+      if (localStorage.getItem("privacy_hidden") === null && settingsData.privacy_mode) {
+        setHidden(settingsData.privacy_mode === "hidden");
+      }
+
       if (settingsData.trade_table_columns) {
         try {
           const saved = JSON.parse(settingsData.trade_table_columns) as ColumnKey[];
@@ -219,8 +238,8 @@ export default function TradesPage() {
   const FILTER_BTN = (active: boolean) =>
     `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
       active
-        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-        : "dark:text-slate-400 text-slate-600 hover:dark:bg-slate-800 hover:bg-slate-100 border dark:border-slate-700 border-slate-200"
+        ? "bg-emerald-500/20 text-emerald-400"
+        : "dark:text-slate-400 text-slate-600 hover:dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-800/50 bg-slate-100/50"
     }`;
 
   return (
@@ -235,14 +254,14 @@ export default function TradesPage() {
           <div className="relative" ref={exportMenuRef}>
             <button
               onClick={() => setShowExportMenu(prev => !prev)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border dark:border-slate-700 border-slate-300 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-1.5 h-9 px-3 rounded-lg dark:bg-slate-800/50 bg-slate-100/50 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-200 transition-colors"
             >
               <Download className="w-4 h-4" />
               Export
               <ChevronDown className="w-3.5 h-3.5" />
             </button>
             {showExportMenu && (
-              <div className="absolute right-0 top-full mt-1 z-50 w-40 rounded-lg border dark:border-slate-700 border-slate-200 dark:bg-slate-800 bg-white shadow-xl py-1">
+              <div className="absolute right-0 top-full mt-1 z-50 w-40 rounded-lg dark:bg-slate-800 bg-white shadow-xl py-1">
                 <button
                   onClick={() => exportTrades("csv")}
                   className="w-full text-left px-3 py-2 text-sm dark:text-slate-300 text-slate-700 hover:dark:bg-slate-700/50 hover:bg-slate-50"
@@ -263,7 +282,7 @@ export default function TradesPage() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={importing}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border dark:border-slate-700 border-slate-300 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 h-9 px-3 rounded-lg dark:bg-slate-800/50 bg-slate-100/50 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-200 transition-colors disabled:opacity-50"
           >
             <Upload className="w-4 h-4" />
             {importing ? "Importing..." : "Import"}
@@ -279,7 +298,7 @@ export default function TradesPage() {
           {/* New Trade button */}
           <button
             onClick={() => { setEditTrade(null); setShowModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium transition-colors"
+            className="flex items-center gap-2 h-9 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium transition-colors"
           >
             <Plus className="w-4 h-4" />
             New Trade
@@ -288,7 +307,17 @@ export default function TradesPage() {
       </div>
 
       {/* Account Stats Banner */}
-      <AccountBanner trades={trades} quotes={quotes} accountSize={accountSize} hidden={hidden} onToggleHidden={() => setHidden(v => !v)} />
+      <AccountBanner
+        trades={trades}
+        quotes={quotes}
+        accountSize={accountSize}
+        hidden={hidden}
+        onToggleHidden={() => {
+          const next = !hidden;
+          setHidden(next);
+          localStorage.setItem("privacy_hidden", String(next));
+        }}
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
@@ -300,12 +329,12 @@ export default function TradesPage() {
             value={symbolQ}
             onChange={(e) => setSymbolQ(e.target.value.toUpperCase())}
             placeholder="Filter by symbol"
-            className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-9 pr-3 py-1.5 h-9 text-sm rounded-lg dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
 
         {/* Status filter */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 h-9">
           <Filter className="w-4 h-4 dark:text-slate-500 text-slate-400" />
           {(["all", "planned", "open", "closed"] as StatusFilter[]).map((s) => (
             <button key={s} onClick={() => setStatus(s)} className={FILTER_BTN(status === s)}>
@@ -315,7 +344,7 @@ export default function TradesPage() {
         </div>
 
         {/* Direction filter */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 h-9">
           {(["all", "long", "short"] as DirectionFilter[]).map((d) => (
             <button key={d} onClick={() => setDirection(d)} className={FILTER_BTN(direction === d)}>
               {d.charAt(0).toUpperCase() + d.slice(1)}
@@ -335,7 +364,7 @@ export default function TradesPage() {
             </span>
           </button>
           {showColumnMenu && (
-            <div className="absolute right-0 top-full mt-2 z-50 w-52 rounded-lg border dark:border-slate-700 border-slate-200 dark:bg-slate-800 bg-white shadow-xl py-2">
+            <div className="absolute right-0 top-full mt-2 z-50 w-52 rounded-lg dark:bg-slate-800 bg-white shadow-xl py-2">
               {ALL_COLUMNS.map((col) => (
                 <label
                   key={col.key}
@@ -393,7 +422,9 @@ export default function TradesPage() {
       {loading ? (
         <div className="text-center py-12 dark:text-slate-400 text-slate-500">Loading...</div>
       ) : (
-        <TradeTable trades={trades} onEdit={(t) => { setEditTrade(t); setShowModal(true); }} onDelete={handleDelete} onBulkDelete={handleBulkDelete} quotes={quotes} visibleColumns={visibleColumns} defaultRiskPercent={riskPercent} onSetAlert={(symbol, price) => { setAlertDefaults({ symbol, price }); setShowAlertModal(true); }} />
+        <div className="rounded-xl dark:bg-slate-800/50 bg-white p-4">
+          <TradeTable trades={trades} onEdit={(t) => { setEditTrade(t); setShowModal(true); }} onDelete={handleDelete} onBulkDelete={handleBulkDelete} quotes={quotes} visibleColumns={visibleColumns} defaultRiskPercent={riskPercent} onSetAlert={(symbol, price) => { setAlertDefaults({ symbol, price }); setShowAlertModal(true); }} />
+        </div>
       )}
 
       {showModal && (

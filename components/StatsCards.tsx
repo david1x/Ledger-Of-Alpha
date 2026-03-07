@@ -39,7 +39,6 @@ export default function StatsCards({ trades, quotes, hidden }: Props) {
       icon: totalPnl >= 0 ? TrendingUp : TrendingDown,
       color: totalPnl >= 0 ? "text-emerald-400" : "text-red-400",
       bg: totalPnl >= 0 ? "dark:bg-emerald-500/10 bg-emerald-50" : "dark:bg-red-500/10 bg-red-50",
-      border: totalPnl >= 0 ? "dark:border-emerald-500/20 border-emerald-200" : "dark:border-red-500/20 border-red-200",
     },
     {
       label: "Win Rate",
@@ -49,7 +48,6 @@ export default function StatsCards({ trades, quotes, hidden }: Props) {
       icon: Target,
       color: winRate >= 50 ? "text-emerald-400" : "text-yellow-400",
       bg: "dark:bg-slate-800/50 bg-slate-50",
-      border: "dark:border-slate-700 border-slate-200",
     },
     {
       label: "Avg Win / Loss",
@@ -60,7 +58,6 @@ export default function StatsCards({ trades, quotes, hidden }: Props) {
       icon: BarChart2,
       color: "dark:text-slate-200 text-slate-700",
       bg: "dark:bg-slate-800/50 bg-slate-50",
-      border: "dark:border-slate-700 border-slate-200",
     },
     {
       label: "Open / Planned",
@@ -70,14 +67,13 @@ export default function StatsCards({ trades, quotes, hidden }: Props) {
       icon: TrendingUp,
       color: "text-blue-400",
       bg: "dark:bg-blue-500/10 bg-blue-50",
-      border: "dark:border-blue-500/20 border-blue-200",
     },
   ];
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       {stats.map((s) => (
-        <div key={s.label} className={clsx("rounded-xl border p-4 space-y-2", s.bg, s.border)}>
+        <div key={s.label} className={clsx("rounded-xl p-4 space-y-2", s.bg)}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               {s.label}
@@ -94,8 +90,8 @@ export default function StatsCards({ trades, quotes, hidden }: Props) {
       ))}
       {hasLive && (
         <div className={clsx(
-          "rounded-xl border p-4 space-y-2",
-          unrealized >= 0 ? "dark:bg-emerald-500/10 bg-emerald-50 dark:border-emerald-500/20 border-emerald-200" : "dark:bg-red-500/10 bg-red-50 dark:border-red-500/20 border-red-200"
+          "rounded-xl p-4 space-y-2",
+          unrealized >= 0 ? "dark:bg-emerald-500/10 bg-emerald-50" : "dark:bg-red-500/10 bg-red-50"
         )}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider flex items-center gap-1.5">

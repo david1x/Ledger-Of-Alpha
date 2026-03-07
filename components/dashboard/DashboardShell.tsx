@@ -96,7 +96,7 @@ function WidgetCard({ id, title, editMode, size, onHide, onToggleSize, children 
 
   return (
     <div ref={setNodeRef} style={style}
-      className={`rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-white p-3 ${spanClass}`}
+      className={`rounded-xl dark:bg-slate-800/50 bg-white p-3 ${spanClass}`}
     >
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold dark:text-white text-slate-900">{title}</h3>
@@ -181,7 +181,20 @@ export default function DashboardShell() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [editMode, setEditMode] = useState(false);
   const [layout, setLayout] = useState<DashboardLayout>({ order: DEFAULT_ORDER, hidden: DEFAULT_HIDDEN, sizes: {} });
-  const [hidden, setHidden] = useState(true);
+  const [hidden, setHidden] = useState(false);
+
+  // ── Privacy persistence ──
+  useEffect(() => {
+    const saved = localStorage.getItem("privacy_hidden");
+    if (saved === "true") setHidden(true);
+    if (saved === "false") setHidden(false);
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "privacy_hidden") setHidden(e.newValue === "true");
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -210,6 +223,12 @@ export default function DashboardShell() {
       }
       if (settingsData.account_size) setAccountSize(parseFloat(settingsData.account_size));
       if (settingsData.risk_per_trade) setRiskPercent(parseFloat(settingsData.risk_per_trade));
+
+      // Check privacy mode if not explicitly set in localStorage
+      if (localStorage.getItem("privacy_hidden") === null && settingsData.privacy_mode) {
+        setHidden(settingsData.privacy_mode === "hidden");
+      }
+
       if (settingsData.heatmap_ranges) {
         try { setHeatmapRanges(JSON.parse(settingsData.heatmap_ranges)); } catch { /* keep defaults */ }
       }
@@ -660,26 +679,15 @@ export default function DashboardShell() {
           <p className="text-sm dark:text-slate-400 text-slate-500 mt-0.5">Your trading performance at a glance</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Privacy toggle */}
-          <button
-            onClick={() => setHidden(v => !v)}
-            className="p-2 rounded-lg border dark:border-slate-700 border-slate-200 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
-            title={hidden ? "Show numbers" : "Hide numbers"}
-          >
-            {hidden
-              ? <EyeOff className="w-4 h-4 dark:text-slate-400 text-slate-500" />
-              : <Eye className="w-4 h-4 dark:text-slate-400 text-slate-500" />}
-          </button>
-
           {/* Time filter */}
-          <div className="flex rounded-lg border dark:border-slate-700 border-slate-200 overflow-hidden">
+          <div className="flex h-9 rounded-lg dark:bg-slate-800/50 bg-slate-100/50 overflow-hidden">
             {timeFilters.map(tf => (
               <button key={tf.label}
                 onClick={() => saveTimeFilter(tf.value)}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`px-3 flex items-center text-xs font-medium transition-colors ${
                   timeFilter === tf.value
-                    ? "bg-emerald-500 text-white"
-                    : "dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100"
+                    ? "bg-emerald-500 text-white shadow-sm"
+                    : "dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-200"
                 }`}
               >
                 {tf.label}
@@ -690,26 +698,40 @@ export default function DashboardShell() {
           {/* Edit / Done */}
           {editMode ? (
             <button onClick={finishEdit}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium transition-colors">
+              className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium transition-colors shadow-sm">
               <Check className="w-4 h-4" />
               Done
             </button>
           ) : (
             <button onClick={() => setEditMode(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-slate-700 border-slate-200 hover:dark:bg-slate-800 hover:bg-slate-100 text-sm dark:text-slate-300 text-slate-600 transition-colors">
+              className="flex items-center gap-1.5 h-9 px-3 rounded-lg dark:bg-slate-800/50 bg-slate-100/50 hover:dark:bg-slate-800 hover:bg-slate-200 text-sm dark:text-slate-300 text-slate-600 transition-colors">
               <Pencil className="w-3.5 h-3.5" />
               Edit Layout
             </button>
           )}
 
           <button onClick={load}
-            className="p-2 rounded-lg border dark:border-slate-700 border-slate-200 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
+            className="h-9 w-9 flex items-center justify-center rounded-lg dark:bg-slate-800/50 bg-slate-100/50 hover:dark:bg-slate-800 hover:bg-slate-200 transition-colors"
             title="Refresh">
             <RefreshCw className={`w-4 h-4 dark:text-slate-400 text-slate-500 ${loading ? "animate-spin" : ""}`} />
           </button>
 
+          <button
+            onClick={() => {
+              const next = !hidden;
+              setHidden(next);
+              localStorage.setItem("privacy_hidden", String(next));
+            }}
+            className="h-9 w-9 flex items-center justify-center rounded-lg dark:bg-slate-800/50 bg-slate-100/50 hover:dark:bg-slate-800 hover:bg-slate-200 transition-colors"
+            title={hidden ? "Show numbers" : "Hide numbers"}
+          >
+            {hidden
+              ? <EyeOff className="w-4 h-4 dark:text-slate-400 text-slate-500" />
+              : <Eye className="w-4 h-4 dark:text-slate-400 text-slate-500" />}
+          </button>
+
           <button onClick={() => { setEditTrade(null); setShowModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium transition-colors">
+            className="flex items-center gap-2 h-9 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium transition-colors shadow-sm ml-1">
             <Plus className="w-4 h-4" />
             New Trade
           </button>
@@ -765,19 +787,21 @@ export default function DashboardShell() {
 
       {/* Open Trades */}
       {openTrades.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
             <h2 className="font-semibold dark:text-white text-slate-900">Open Trades</h2>
             <a href="/trades" className="text-sm text-emerald-400 hover:underline">View all trades</a>
           </div>
-          <TradeTable
-            trades={trades}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            limit={10}
-            quotes={quotes}
-            onSetAlert={(symbol, price) => { setAlertDefaults({ symbol, price }); setShowAlertModal(true); }}
-          />
+          <div className="rounded-xl dark:bg-slate-800/50 bg-white p-4">
+            <TradeTable
+              trades={trades}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              limit={10}
+              quotes={quotes}
+              onSetAlert={(symbol, price) => { setAlertDefaults({ symbol, price }); setShowAlertModal(true); }}
+            />
+          </div>
         </div>
       )}
 

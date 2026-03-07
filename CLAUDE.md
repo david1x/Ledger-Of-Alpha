@@ -68,9 +68,15 @@ All API routes live under `app/api/`. Key patterns:
 - **6-column CSS grid** (`grid-cols-1 md:grid-cols-6`) with 3 size modes per widget: large (3 cols), medium (2 cols), compact (1 col)
 - **Edit mode**: drag-reorder via @dnd-kit, hide/show widgets, cycle card sizes — all persisted as `dashboard_layout` setting
 - **Time filter**: 30/60/90/All days — filters all widget data by exit_date
+- **Privacy mode**: Toggle in the header (eye icon) to mask all sensitive numbers.
 - **Weekly calendar strip**: shows daily P&L and trade counts, click day to see trade popup
 - **Heatmap**: monthly calendar with color-coded P&L, click day for trade popup
-- **AccountBanner**: shared component on trades + journal pages (balance, P&L, win rate, expectancy)
+- **AccountBanner**: shared component on trades + journal pages (balance, P&L, win rate, expectancy). Now includes a privacy toggle.
+
+### Sidebar / Navbar
+- **Collapse Toggle**: A floating button positioned on the sidebar's right border line.
+- **Admin Panel**: Accessible via the User Dropdown menu (for admins).
+- **Persistence**: Sidebar expanded/collapsed state is persisted in `localStorage`.
 
 ### Dynamic Account Balance
 - `account_size` setting stores the **starting balance** (default $10,000)

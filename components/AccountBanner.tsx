@@ -8,7 +8,7 @@ interface Props {
   quotes?: QuoteMap;
   accountSize: number;
   hidden: boolean;
-  onToggleHidden: () => void;
+  onToggleHidden?: () => void;
 }
 
 export default function AccountBanner({ trades, quotes, accountSize, hidden, onToggleHidden }: Props) {
@@ -39,7 +39,7 @@ export default function AccountBanner({ trades, quotes, accountSize, hidden, onT
   const isUp = stats.totalPnl >= 0;
 
   return (
-    <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900/80 bg-white px-4 py-3">
+    <div className="rounded-xl dark:bg-slate-900/80 bg-white px-4 py-3">
       <div className="flex items-center gap-6 flex-wrap">
         {/* Balance */}
         <div className="flex items-center gap-2">
@@ -111,15 +111,17 @@ export default function AccountBanner({ trades, quotes, accountSize, hidden, onT
         )}
 
         {/* Privacy toggle */}
-        <button
-          onClick={onToggleHidden}
-          className="ml-auto p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
-          title={hidden ? "Show numbers" : "Hide numbers"}
-        >
-          {hidden
-            ? <EyeOff className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
-            : <Eye className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />}
-        </button>
+        {onToggleHidden && (
+          <button
+            onClick={onToggleHidden}
+            className="ml-auto p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
+            title={hidden ? "Show numbers" : "Hide numbers"}
+          >
+            {hidden
+              ? <EyeOff className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+              : <Eye className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />}
+          </button>
+        )}
       </div>
     </div>
   );
