@@ -62,6 +62,11 @@ export default function JournalPage() {
   const [accountSize, setAccountSize] = useState(10000);
   const [hidden, setHidden] = useState(false);
 
+  // Review Mode Inline Editing
+  const [isEditingReview, setIsEditingReview] = useState(false);
+  const [editFormData, setEditFormData] = useState<Partial<Trade>>({});
+  const [savingReview, setSavingReview] = useState(false);
+
   // ── Privacy persistence ──
   useEffect(() => {
     const saved = localStorage.getItem("privacy_hidden");
@@ -120,6 +125,32 @@ export default function JournalPage() {
   const toggleAll = () => {
     if (selected.size === displayed.length) setSelected(new Set());
     else setSelected(new Set(displayed.map(t => t.id)));
+  };
+
+  const handleReviewEdit = () => {
+    if (!selectedTrade) return;
+    setEditFormData({ ...selectedTrade });
+    setIsEditingReview(true);
+  };
+
+  const handleReviewSave = async () => {
+    if (!selectedTrade || !editFormData) return;
+    setSavingReview(true);
+    try {
+      const res = await fetch(`/api/trades/${selectedTrade.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editFormData),
+      });
+      if (res.ok) {
+        setIsEditingReview(false);
+        await load();
+      }
+    } catch (err) {
+      console.error("Save error:", err);
+    } finally {
+      setSavingReview(false);
+    }
   };
 
   const handleBulkDelete = async () => {
@@ -373,74 +404,185 @@ export default function JournalPage() {
           <div className="lg:col-span-8 rounded-xl border dark:border-slate-800 border-slate-200 dark:bg-slate-900 bg-white overflow-y-auto p-6 scrollbar-thin">
             {selectedTrade && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-xl dark:bg-emerald-500/10 bg-emerald-50 flex items-center justify-center">
-                      <Logo className="w-7 h-7" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h2 className="text-2xl font-bold dark:text-white text-slate-900">{selectedTrade.symbol}</h2>
-                        <span className={clsx("px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider", STATUS_COLOR[selectedTrade.status])}>
-                          {selectedTrade.status}
-                        </span>
+                {isEditingReview ? (
+                  /* Inline Edit Form */
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-xl dark:bg-emerald-500/10 bg-emerald-50 flex items-center justify-center">
+                          <Logo className="w-7 h-7" />
+                        </div>
+                        <div>
+                          <h2 className="text-2xl font-bold dark:text-white text-slate-900">{selectedTrade.symbol}</h2>
+                          <p className="text-xs dark:text-slate-500 text-slate-400">Editing entry details</p>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 mt-1 text-sm dark:text-slate-400 text-slate-500 font-medium">
-                        <span className={selectedTrade.direction === "long" ? "text-emerald-400" : "text-red-400"}>
-                          {selectedTrade.direction.toUpperCase()}
-                        </span>
-                        <span>•</span>
-                        <span>{selectedTrade.entry_date ?? selectedTrade.created_at.slice(0, 10)}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setIsEditingReview(false)}
+                          className="px-4 h-10 rounded-lg border dark:border-slate-700 border-slate-200 dark:text-slate-300 text-slate-600 text-sm font-bold hover:dark:bg-slate-800 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleReviewSave}
+                          disabled={savingReview}
+                          className="flex items-center gap-2 px-6 h-10 rounded-lg bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                        >
+                          {savingReview ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Save Changes"}
+                        </button>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => { setEditTrade(selectedTrade); setShowModal(true); }}
-                      className="flex items-center gap-2 px-4 h-10 rounded-lg dark:bg-slate-800 bg-slate-100 dark:text-white text-slate-900 font-bold text-sm transition-colors hover:dark:bg-slate-700"
-                    >
-                      <Pencil className="w-4 h-4" /> Edit
-                    </button>
-                    <button
-                      onClick={() => router.push(buildChartUrl(selectedTrade))}
-                      className="p-2.5 rounded-lg dark:bg-slate-800 bg-slate-100 hover:dark:bg-slate-700 transition-colors"
-                    >
-                      <LineChart className="w-5 h-5 dark:text-slate-400 text-slate-500" />
-                    </button>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="p-4 rounded-xl dark:bg-slate-800/50 bg-slate-50">
-                    <p className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold mb-1">Entry Price</p>
-                    <p className="text-lg font-bold dark:text-white text-slate-900">{selectedTrade.entry_price ? `$${selectedTrade.entry_price}` : "—"}</p>
-                  </div>
-                  <div className="p-4 rounded-xl dark:bg-slate-800/50 bg-slate-50">
-                    <p className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold mb-1">Exit Price</p>
-                    <p className="text-lg font-bold dark:text-white text-slate-900">{selectedTrade.exit_price ? `$${selectedTrade.exit_price}` : "—"}</p>
-                  </div>
-                  <div className="p-4 rounded-xl dark:bg-slate-800/50 bg-slate-50">
-                    <p className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold mb-1">Quantity</p>
-                    <p className="text-lg font-bold dark:text-white text-slate-900">{selectedTrade.shares ?? "—"}</p>
-                  </div>
-                  <div className="p-4 rounded-xl dark:bg-slate-800/50 bg-slate-50">
-                    <p className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold mb-1">P&L</p>
-                    <p className={clsx("text-lg font-bold", (selectedTrade.pnl ?? 0) >= 0 ? "text-emerald-400" : "text-red-400")}>
-                      {selectedTrade.pnl != null ? `${selectedTrade.pnl >= 0 ? "+" : ""}${hidden ? mask : selectedTrade.pnl.toFixed(2)}` : "—"}
-                    </p>
-                  </div>
-                </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Status</label>
+                        <select 
+                          value={editFormData.status}
+                          onChange={(e) => setEditFormData({...editFormData, status: e.target.value as any})}
+                          className="w-full h-11 px-4 rounded-xl dark:bg-slate-800 bg-slate-50 border dark:border-slate-700 border-slate-200 text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                        >
+                          <option value="planned">Planned</option>
+                          <option value="open">Open</option>
+                          <option value="closed">Closed</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Direction</label>
+                        <select 
+                          value={editFormData.direction}
+                          onChange={(e) => setEditFormData({...editFormData, direction: e.target.value as any})}
+                          className="w-full h-11 px-4 rounded-xl dark:bg-slate-800 bg-slate-50 border dark:border-slate-700 border-slate-200 text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                        >
+                          <option value="long">Long</option>
+                          <option value="short">Short</option>
+                        </select>
+                      </div>
+                    </div>
 
-                <div className="space-y-3">
-                  <h3 className="text-sm font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Notes & Reflection</h3>
-                  <div className="p-6 rounded-2xl dark:bg-slate-800/30 bg-slate-50 border dark:border-slate-800 border-slate-100 min-h-[150px]">
-                    {selectedTrade.notes ? (
-                      <p className="text-sm dark:text-slate-300 text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedTrade.notes}</p>
-                    ) : (
-                      <p className="text-sm dark:text-slate-600 text-slate-400 italic">No notes captured for this trade.</p>
-                    )}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Entry</label>
+                        <input 
+                          type="number" step="any"
+                          value={editFormData.entry_price ?? ""}
+                          onChange={(e) => setEditFormData({...editFormData, entry_price: parseFloat(e.target.value) || 0})}
+                          className="w-full h-11 px-4 rounded-xl dark:bg-slate-800 bg-slate-50 border dark:border-slate-700 border-slate-200 text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Stop Loss</label>
+                        <input 
+                          type="number" step="any"
+                          value={editFormData.stop_loss ?? ""}
+                          onChange={(e) => setEditFormData({...editFormData, stop_loss: parseFloat(e.target.value) || 0})}
+                          className="w-full h-11 px-4 rounded-xl dark:bg-slate-800 bg-slate-50 border dark:border-slate-700 border-slate-200 text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Target</label>
+                        <input 
+                          type="number" step="any"
+                          value={editFormData.take_profit ?? ""}
+                          onChange={(e) => setEditFormData({...editFormData, take_profit: parseFloat(e.target.value) || 0})}
+                          className="w-full h-11 px-4 rounded-xl dark:bg-slate-800 bg-slate-50 border dark:border-slate-700 border-slate-200 text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Quantity</label>
+                        <input 
+                          type="number" step="any"
+                          value={editFormData.shares ?? ""}
+                          onChange={(e) => setEditFormData({...editFormData, shares: parseFloat(e.target.value) || 0})}
+                          className="w-full h-11 px-4 rounded-xl dark:bg-slate-800 bg-slate-50 border dark:border-slate-700 border-slate-200 text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Notes & Reflection</label>
+                      <textarea 
+                        rows={8}
+                        value={editFormData.notes ?? ""}
+                        onChange={(e) => setEditFormData({...editFormData, notes: e.target.value})}
+                        placeholder="What did you see? How did you feel?"
+                        className="w-full p-4 rounded-2xl dark:bg-slate-800 bg-slate-50 border dark:border-slate-700 border-slate-200 text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none resize-none"
+                      />
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  /* Static View */
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-xl dark:bg-emerald-500/10 bg-emerald-50 flex items-center justify-center">
+                          <Logo className="w-7 h-7" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-3">
+                            <h2 className="text-2xl font-bold dark:text-white text-slate-900">{selectedTrade.symbol}</h2>
+                            <span className={clsx("px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider", STATUS_COLOR[selectedTrade.status])}>
+                              {selectedTrade.status}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-sm dark:text-slate-400 text-slate-500 font-medium">
+                            <span className={selectedTrade.direction === "long" ? "text-emerald-400" : "text-red-400"}>
+                              {selectedTrade.direction.toUpperCase()}
+                            </span>
+                            <span>•</span>
+                            <span>{selectedTrade.entry_date ?? selectedTrade.created_at.slice(0, 10)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleReviewEdit}
+                          className="flex items-center gap-2 px-4 h-10 rounded-lg dark:bg-slate-800 bg-slate-100 dark:text-white text-slate-900 font-bold text-sm transition-colors hover:dark:bg-slate-700"
+                        >
+                          <Pencil className="w-4 h-4" /> Edit
+                        </button>
+                        <button
+                          onClick={() => router.push(buildChartUrl(selectedTrade))}
+                          className="p-2.5 rounded-lg dark:bg-slate-800 bg-slate-100 hover:dark:bg-slate-700 transition-colors"
+                        >
+                          <LineChart className="w-5 h-5 dark:text-slate-400 text-slate-500" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="p-4 rounded-xl dark:bg-slate-800/50 bg-slate-50">
+                        <p className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold mb-1">Entry Price</p>
+                        <p className="text-lg font-bold dark:text-white text-slate-900">{selectedTrade.entry_price ? `$${selectedTrade.entry_price}` : "—"}</p>
+                      </div>
+                      <div className="p-4 rounded-xl dark:bg-slate-800/50 bg-slate-50">
+                        <p className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold mb-1">Exit Price</p>
+                        <p className="text-lg font-bold dark:text-white text-slate-900">{selectedTrade.exit_price ? `$${selectedTrade.exit_price}` : "—"}</p>
+                      </div>
+                      <div className="p-4 rounded-xl dark:bg-slate-800/50 bg-slate-50">
+                        <p className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold mb-1">Quantity</p>
+                        <p className="text-lg font-bold dark:text-white text-slate-900">{selectedTrade.shares ?? "—"}</p>
+                      </div>
+                      <div className="p-4 rounded-xl dark:bg-slate-800/50 bg-slate-50">
+                        <p className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold mb-1">P&L</p>
+                        <p className={clsx("text-lg font-bold", (selectedTrade.pnl ?? 0) >= 0 ? "text-emerald-400" : "text-red-400")}>
+                          {selectedTrade.pnl != null ? `${selectedTrade.pnl >= 0 ? "+" : ""}${hidden ? mask : selectedTrade.pnl.toFixed(2)}` : "—"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Notes & Reflection</h3>
+                      <div className="p-6 rounded-2xl dark:bg-slate-800/30 bg-slate-50 border dark:border-slate-800 border-slate-100 min-h-[150px]">
+                        {selectedTrade.notes ? (
+                          <p className="text-sm dark:text-slate-300 text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedTrade.notes}</p>
+                        ) : (
+                          <p className="text-sm dark:text-slate-600 text-slate-400 italic">No notes captured for this trade.</p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {chartsVisible && (
                   <div className="space-y-3">

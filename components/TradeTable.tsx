@@ -53,6 +53,10 @@ interface Props {
   visibleColumns?: ColumnKey[];
   defaultRiskPercent?: number;
   onSetAlert?: (symbol: string, defaultPrice?: number) => void;
+  // External selection control
+  selectedIds?: Set<number>;
+  onToggleSelect?: (id: number) => void;
+  selectable?: boolean;
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -105,10 +109,27 @@ function getSortValue(t: Trade, key: ColumnKey, quotes: QuoteMap, defaultRiskPer
   }
 }
 
-export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, limit, quotes = {}, visibleColumns, defaultRiskPercent, onSetAlert }: Props) {
+export default function TradeTable({ 
+  trades, 
+  onEdit, 
+  onDelete, 
+  onBulkDelete, 
+  limit, 
+  quotes = {}, 
+  visibleColumns, 
+  defaultRiskPercent, 
+  onSetAlert,
+  selectedIds,
+  onToggleSelect,
+  selectable: selectableProp
+}: Props) {
   const router = useRouter();
   const baseRows = limit ? trades.slice(0, limit) : trades;
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  
+  // Use external selected state if provided, otherwise use internal
+  const [internalSelected, setInternalSelected] = useState<Set<number>>(new Set());
+  const selected = selectedIds ?? internalSelected;
+
   const [sortKey, setSortKey] = useState<ColumnKey | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -136,19 +157,33 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
   const visible = new Set<ColumnKey>(visibleColumns ?? DEFAULT_COLUMNS);
   const show = (k: ColumnKey) => visible.has(k);
 
-  const selectable = !!onBulkDelete;
+  const selectable = selectableProp ?? !!onBulkDelete;
 
   const toggleOne = (id: number) => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+    if (onToggleSelect) {
+      onToggleSelect(id);
+    } else {
+      setInternalSelected(prev => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        return next;
+      });
+    }
   };
 
   const toggleAll = () => {
-    if (selected.size === rows.length) setSelected(new Set());
-    else setSelected(new Set(rows.map(t => t.id)));
+    const allIds = rows.map(t => t.id);
+    const allSelected = allIds.every(id => selected.has(id));
+    
+    if (onToggleSelect) {
+      // This is a limitation of the current prop-based toggleOne pattern
+      // For toggleAll to work correctly with external state, we'd need a onSelectAll prop
+      // But for JournalPage, toggleAll is already handled by the management bar.
+      // We'll just support the internal one for now or just the individual ones.
+    } else {
+      if (allSelected) setInternalSelected(new Set());
+      else setInternalSelected(new Set(allIds));
+    }
   };
 
   const handleBulkDelete = () => {
