@@ -1,12 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Trade } from "@/lib/types";
-import { ArrowUpRight, ArrowDownRight, Tag, FileText, Pencil, Trash2, ChevronDown, ChevronUp, LineChart, ExternalLink } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Tag, FileText, Pencil, Trash2, ChevronDown, ChevronUp, LineChart, ExternalLink, Search, LayoutGrid, List, Columns, RefreshCw } from "lucide-react";
 import AccountBanner from "@/components/AccountBanner";
 import { useRouter } from "next/navigation";
 import TradeModal from "@/components/TradeModal";
 import MiniChart from "@/components/MiniChart";
 import clsx from "clsx";
+import TradeTable from "@/components/TradeTable";
+
+type ViewMode = "cards" | "list" | "review";
 
 function calcPotentialPnl(t: Trade) {
   if (t.status === "closed") return null;
@@ -44,8 +47,16 @@ export default function JournalPage() {
   const [loading, setLoading] = useState(true);
   const [editTrade, setEditTrade] = useState<Trade | null>(null);
   const [showModal, setShowModal] = useState(false);
+  
+  // Filters
   const [filter, setFilter] = useState<"all" | "with-notes">("all");
+  const [symbolQ, setSymbolQ] = useState("");
+  const [status, setStatus] = useState("all");
+  const [direction, setDirection] = useState("all");
+  
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [viewMode, setViewMode] = useState<ViewMode>("cards");
+  const [selectedTradeId, setSelectedTradeId] = useState<number | null>(null);
   const [chartsVisible, setChartsVisible] = useState(true);
   const [accountSize, setAccountSize] = useState(10000);
   const [hidden, setHidden] = useState(false);
@@ -71,7 +82,10 @@ export default function JournalPage() {
     ]);
     const data = await tradesRes.json();
     const settingsData = await settingsRes.json();
-    if (Array.isArray(data)) setTrades(data);
+    if (Array.isArray(data)) {
+      setTrades(data);
+      if (data.length > 0) setSelectedTradeId(data[0].id);
+    }
     if (settingsData.account_size) setAccountSize(parseFloat(settingsData.account_size));
 
     // Check privacy mode if not explicitly set in localStorage
@@ -84,9 +98,15 @@ export default function JournalPage() {
 
   useEffect(() => { load(); }, []);
 
-  const displayed = filter === "with-notes"
-    ? trades.filter((t) => t.notes && t.notes.trim().length > 0)
-    : trades;
+  const displayed = trades.filter((t) => {
+    if (filter === "with-notes" && (!t.notes || !t.notes.trim().length)) return false;
+    if (symbolQ && !t.symbol.toLowerCase().includes(symbolQ.toLowerCase())) return false;
+    if (status !== "all" && t.status !== status) return false;
+    if (direction !== "all" && t.direction !== direction) return false;
+    return true;
+  });
+
+  const selectedTrade = trades.find(t => t.id === selectedTradeId) || displayed[0];
 
   const toggleOne = (id: number) => {
     setSelected(prev => {
@@ -119,43 +139,63 @@ export default function JournalPage() {
     closed: "bg-slate-500/20 dark:text-slate-400 text-slate-500",
   };
 
+  const mask = "------";
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold dark:text-white text-slate-900">Trade Journal</h1>
           <p className="text-sm dark:text-slate-400 text-slate-500 mt-0.5">Notes, tags, and reflections per trade</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setFilter("all")}
-            className={clsx(
-              "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-              filter === "all"
-                ? "bg-emerald-500/20 text-emerald-400"
-                : "dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-800/50 bg-slate-100/50"
-            )}
-          >
-            All ({trades.length})
-          </button>
-          <button
-            onClick={() => setFilter("with-notes")}
-            className={clsx(
-              "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-              filter === "with-notes"
-                ? "bg-emerald-500/20 text-emerald-400"
-                : "dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-800/50 bg-slate-100/50"
-            )}
-          >
-            <FileText className="w-3.5 h-3.5 inline mr-1" />
-            With Notes ({trades.filter((t) => t.notes?.trim()).length})
-          </button>
+        <div className="flex items-center gap-2">
+           {/* View Toggles */}
+           <div className="flex h-9 rounded-lg dark:bg-slate-800/50 bg-slate-100/50 p-1">
+            <button
+              onClick={() => setViewMode("cards")}
+              className={clsx(
+                "px-2 rounded flex items-center gap-1.5 text-xs font-medium transition-colors",
+                viewMode === "cards" ? "bg-emerald-500 text-white shadow-sm" : "dark:text-slate-400 text-slate-500 hover:dark:text-slate-200"
+              )}
+              title="Card Grid"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              Cards
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={clsx(
+                "px-2 rounded flex items-center gap-1.5 text-xs font-medium transition-colors",
+                viewMode === "list" ? "bg-emerald-500 text-white shadow-sm" : "dark:text-slate-400 text-slate-500 hover:dark:text-slate-200"
+              )}
+              title="Table List"
+            >
+              <List className="w-3.5 h-3.5" />
+              List
+            </button>
+            <button
+              onClick={() => setViewMode("review")}
+              className={clsx(
+                "px-2 rounded flex items-center gap-1.5 text-xs font-medium transition-colors",
+                viewMode === "review" ? "bg-emerald-500 text-white shadow-sm" : "dark:text-slate-400 text-slate-500 hover:dark:text-slate-200"
+              )}
+              title="Review Mode"
+            >
+              <Columns className="w-3.5 h-3.5" />
+              Review
+            </button>
+          </div>
+          
           <button
             onClick={() => setChartsVisible(v => !v)}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-800/50 bg-slate-100/50 transition-colors flex items-center gap-1"
+            className="px-3 h-9 rounded-lg text-sm font-medium dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-800/50 bg-slate-100/50 transition-colors flex items-center gap-1.5"
           >
             {chartsVisible ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             Charts
+          </button>
+          <button onClick={load}
+            className="h-9 w-9 flex items-center justify-center rounded-lg dark:bg-slate-800/50 bg-slate-100/50 hover:dark:bg-slate-800 hover:bg-slate-200 transition-colors">
+            <RefreshCw className={`w-4 h-4 dark:text-slate-400 text-slate-500 ${loading ? "animate-spin" : ""}`} />
           </button>
         </div>
       </div>
@@ -172,165 +212,343 @@ export default function JournalPage() {
         }}
       />
 
-      {loading ? (
-        <div className="text-center py-12 dark:text-slate-400 text-slate-500">Loading...</div>
-      ) : displayed.length === 0 ? (
-        <div className="rounded-xl dark:bg-slate-800/50 bg-slate-50 p-12 text-center">
-          <p className="dark:text-slate-500 text-slate-400">No trades with notes yet. Edit a trade to add notes.</p>
-        </div>
-      ) : (
-        <>
-          {/* Always-visible select all row */}
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg dark:bg-slate-800/50 bg-slate-50">
+      {/* Management Bar */}
+      <div className="rounded-xl border dark:border-slate-800 border-slate-200 dark:bg-slate-900/50 bg-white p-3 space-y-3">
+        <div className="flex items-center flex-wrap gap-3">
+          {/* Select All */}
+          <div className="flex items-center gap-2 px-3 h-9 rounded-lg dark:bg-slate-800/50 bg-slate-50 border dark:border-slate-700/50 border-slate-200">
             <input
               type="checkbox"
               checked={displayed.length > 0 && selected.size === displayed.length}
               onChange={toggleAll}
               className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
             />
-            <span className="text-sm dark:text-slate-400 text-slate-500">
-              Select all
+            <span className="text-xs font-medium dark:text-slate-400 text-slate-500 whitespace-nowrap">
+              {selected.size > 0 ? `${selected.size} Selected` : "Select All"}
             </span>
             {selected.size > 0 && (
-              <>
-                <span className="text-sm dark:text-slate-300 text-slate-700 font-medium ml-2">
-                  {selected.size} selected
-                </span>
-                <button
-                  onClick={handleBulkDelete}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs font-medium transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Delete Selected
-                </button>
-                <button
-                  onClick={() => setSelected(new Set())}
-                  className="text-xs dark:text-slate-400 text-slate-500 hover:dark:text-white hover:text-slate-900 transition-colors ml-auto"
-                >
-                  Clear
-                </button>
-              </>
+              <button
+                onClick={handleBulkDelete}
+                className="ml-2 p-1 rounded hover:bg-red-500/20 text-red-400 transition-colors"
+                title="Delete Selected"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             )}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {displayed.map((t) => {
-              const pnlColor = (t.pnl ?? 0) > 0 ? "text-emerald-400" : (t.pnl ?? 0) < 0 ? "text-red-400" : "dark:text-slate-400 text-slate-500";
-              const tags = t.tags ? t.tags.split(",").map((s) => s.trim()).filter(Boolean) : [];
-              const isSelected = selected.has(t.id);
-              const pot = calcPotentialPnl(t);
+          <div className="h-6 w-px dark:bg-slate-800 bg-slate-200 mx-1 hidden sm:block" />
 
-              return (
-                <div key={t.id} className={clsx("rounded-xl dark:bg-slate-900 bg-white p-4 space-y-3 hover:bg-emerald-500/5 transition-colors", isSelected && "dark:bg-emerald-500/5 bg-emerald-50")}>
-                  {/* Header */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-2">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleOne(t.id)}
-                        className="w-4 h-4 mt-1 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 cursor-pointer shrink-0"
-                      />
-                      <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-emerald-400 text-lg cursor-pointer hover:underline" onClick={() => router.push(buildChartUrl(t))}>{t.symbol}</span>
-                        <span className={clsx("px-2 py-0.5 rounded-full text-xs font-medium capitalize", STATUS_COLOR[t.status])}>
-                          {t.status}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {t.direction === "long"
-                          ? <span className="flex items-center text-xs text-emerald-400 gap-0.5"><ArrowUpRight className="w-3 h-3" />Long</span>
-                          : <span className="flex items-center text-xs text-red-400 gap-0.5"><ArrowDownRight className="w-3 h-3" />Short</span>
-                        }
-                        <span className="text-xs dark:text-slate-500 text-slate-400">
-                          {t.entry_date ?? t.created_at.slice(0, 10)}
-                        </span>
-                      </div>
+          {/* Search */}
+          <div className="relative flex-1 min-w-[150px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 dark:text-slate-500 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Filter by symbol..."
+              value={symbolQ}
+              onChange={(e) => setSymbolQ(e.target.value)}
+              className="w-full h-9 pl-9 pr-4 rounded-lg dark:bg-slate-800/50 bg-slate-50 border dark:border-slate-700/50 border-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+            />
+          </div>
+
+          {/* Quick Filters */}
+          <div className="flex items-center gap-2">
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as any)}
+              className="h-9 px-3 rounded-lg dark:bg-slate-800/50 bg-slate-50 border dark:border-slate-700/50 border-slate-200 text-xs font-medium dark:text-slate-300 text-slate-600 focus:outline-none"
+            >
+              <option value="all">All Entries</option>
+              <option value="with-notes">With Notes</option>
+            </select>
+
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="h-9 px-3 rounded-lg dark:bg-slate-800/50 bg-slate-50 border dark:border-slate-700/50 border-slate-200 text-xs font-medium dark:text-slate-300 text-slate-600 focus:outline-none"
+            >
+              <option value="all">Any Status</option>
+              <option value="planned">Planned</option>
+              <option value="open">Open</option>
+              <option value="closed">Closed</option>
+            </select>
+
+            <select
+              value={direction}
+              onChange={(e) => setDirection(e.target.value)}
+              className="h-9 px-3 rounded-lg dark:bg-slate-800/50 bg-slate-50 border dark:border-slate-700/50 border-slate-200 text-xs font-medium dark:text-slate-300 text-slate-600 focus:outline-none"
+            >
+              <option value="all">Any Direction</option>
+              <option value="long">Long</option>
+              <option value="short">Short</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-12 dark:text-slate-400 text-slate-500">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
+          Loading journal...
+        </div>
+      ) : displayed.length === 0 ? (
+        <div className="rounded-xl dark:bg-slate-800/50 bg-slate-50 p-12 text-center border-2 border-dashed dark:border-slate-800 border-slate-200">
+          <p className="dark:text-slate-500 text-slate-400 font-medium">No trades match your filters.</p>
+          <button onClick={() => { setSymbolQ(""); setStatus("all"); setDirection("all"); setFilter("all"); }} 
+            className="mt-4 text-sm text-emerald-400 hover:underline">Clear all filters</button>
+        </div>
+      ) : viewMode === "list" ? (
+        <div className="rounded-xl dark:bg-slate-900 bg-white border dark:border-slate-800 border-slate-200 overflow-hidden">
+          <TradeTable
+            trades={displayed}
+            onEdit={(t) => { setEditTrade(t); setShowModal(true); }}
+            onDelete={(id) => {
+              if (confirm("Delete this trade?")) {
+                fetch(`/api/trades/${id}`, { method: "DELETE" }).then(load);
+              }
+            }}
+            selectedIds={selected}
+            onToggleSelect={toggleOne}
+          />
+        </div>
+      ) : viewMode === "review" ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-320px)] min-h-[600px]">
+          {/* Sidebar List */}
+          <div className="lg:col-span-4 flex flex-col rounded-xl border dark:border-slate-800 border-slate-200 dark:bg-slate-900/50 bg-white overflow-hidden">
+            <div className="p-3 border-b dark:border-slate-800 border-slate-100 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider dark:text-slate-500 text-slate-400">Entries</span>
+              <span className="text-xs dark:text-slate-400 text-slate-500">{displayed.length}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto divide-y dark:divide-slate-800 divide-slate-100">
+              {displayed.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setSelectedTradeId(t.id)}
+                  className={clsx(
+                    "w-full p-4 text-left transition-colors flex items-center gap-3",
+                    selectedTradeId === t.id ? "dark:bg-emerald-500/10 bg-emerald-50" : "hover:dark:bg-slate-800 hover:bg-slate-50"
+                  )}
+                >
+                  <div className={clsx("w-1.5 h-10 rounded-full", STATUS_COLOR[t.status].split(" ")[0])} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold dark:text-white text-slate-900">{t.symbol}</span>
+                      <span className={clsx("text-xs font-bold", (t.pnl ?? 0) >= 0 ? "text-emerald-400" : "text-red-400")}>
+                        {t.pnl != null ? `${t.pnl >= 0 ? "+" : ""}${hidden ? mask : t.pnl.toFixed(2)}` : "—"}
+                      </span>
                     </div>
-                    </div>
-                    <div className="flex items-center gap-0.5">
-                      <button
-                        onClick={() => router.push(buildChartUrl(t))}
-                        className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
-                        title="Open in Chart"
-                      >
-                        <LineChart className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
-                      </button>
-                      <a
-                        href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(t.symbol)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
-                        title="Open in TradingView"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
-                      </a>
-                      <button
-                        onClick={() => { setEditTrade(t); setShowModal(true); }}
-                        className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
-                        title="Edit"
-                      >
-                        <Pencil className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
-                      </button>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[10px] uppercase tracking-wider dark:text-slate-500 text-slate-400">{t.entry_date ?? t.created_at.slice(0,10)}</span>
+                      <span className="text-[10px] dark:text-slate-500 text-slate-400 truncate ml-2 max-w-[100px]">{t.notes || "No notes"}</span>
                     </div>
                   </div>
+                </button>
+              ))}
+            </div>
+          </div>
 
-                  {/* Price info */}
-                  <div className="flex gap-3 text-xs">
-                    <span className="dark:text-slate-500 text-slate-400">Entry <span className="dark:text-slate-300 text-slate-700">{t.entry_price ? `$${t.entry_price}` : "—"}</span></span>
-                    <span className="text-red-400">SL <span>{t.stop_loss ? `$${t.stop_loss}` : "—"}</span></span>
-                    <span className="text-emerald-400">TP <span>{t.take_profit ? `$${t.take_profit}` : "—"}</span></span>
-                    {t.pnl !== null && (
-                      <span className={clsx("ml-auto font-bold", pnlColor)}>
-                        {t.pnl >= 0 ? "+" : ""}${t.pnl.toFixed(2)}
-                      </span>
+          {/* Detail View */}
+          <div className="lg:col-span-8 rounded-xl border dark:border-slate-800 border-slate-200 dark:bg-slate-900 bg-white overflow-y-auto p-6 scrollbar-thin">
+            {selectedTrade && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-xl dark:bg-emerald-500/10 bg-emerald-50 flex items-center justify-center font-bold text-emerald-400">
+                      {selectedTrade.symbol[0].toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-2xl font-bold dark:text-white text-slate-900">{selectedTrade.symbol}</h2>
+                        <span className={clsx("px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider", STATUS_COLOR[selectedTrade.status])}>
+                          {selectedTrade.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-sm dark:text-slate-400 text-slate-500 font-medium">
+                        <span className={selectedTrade.direction === "long" ? "text-emerald-400" : "text-red-400"}>
+                          {selectedTrade.direction.toUpperCase()}
+                        </span>
+                        <span>•</span>
+                        <span>{selectedTrade.entry_date ?? selectedTrade.created_at.slice(0, 10)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setEditTrade(selectedTrade); setShowModal(true); }}
+                      className="flex items-center gap-2 px-4 h-10 rounded-lg dark:bg-slate-800 bg-slate-100 dark:text-white text-slate-900 font-bold text-sm transition-colors hover:dark:bg-slate-700"
+                    >
+                      <Pencil className="w-4 h-4" /> Edit
+                    </button>
+                    <button
+                      onClick={() => router.push(buildChartUrl(selectedTrade))}
+                      className="p-2.5 rounded-lg dark:bg-slate-800 bg-slate-100 hover:dark:bg-slate-700 transition-colors"
+                    >
+                      <LineChart className="w-5 h-5 dark:text-slate-400 text-slate-500" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="p-4 rounded-xl dark:bg-slate-800/50 bg-slate-50">
+                    <p className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold mb-1">Entry Price</p>
+                    <p className="text-lg font-bold dark:text-white text-slate-900">{selectedTrade.entry_price ? `$${selectedTrade.entry_price}` : "—"}</p>
+                  </div>
+                  <div className="p-4 rounded-xl dark:bg-slate-800/50 bg-slate-50">
+                    <p className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold mb-1">Exit Price</p>
+                    <p className="text-lg font-bold dark:text-white text-slate-900">{selectedTrade.exit_price ? `$${selectedTrade.exit_price}` : "—"}</p>
+                  </div>
+                  <div className="p-4 rounded-xl dark:bg-slate-800/50 bg-slate-50">
+                    <p className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold mb-1">Quantity</p>
+                    <p className="text-lg font-bold dark:text-white text-slate-900">{selectedTrade.shares ?? "—"}</p>
+                  </div>
+                  <div className="p-4 rounded-xl dark:bg-slate-800/50 bg-slate-50">
+                    <p className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold mb-1">P&L</p>
+                    <p className={clsx("text-lg font-bold", (selectedTrade.pnl ?? 0) >= 0 ? "text-emerald-400" : "text-red-400")}>
+                      {selectedTrade.pnl != null ? `${selectedTrade.pnl >= 0 ? "+" : ""}${hidden ? mask : selectedTrade.pnl.toFixed(2)}` : "—"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="text-sm font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Notes & Reflection</h3>
+                  <div className="p-6 rounded-2xl dark:bg-slate-800/30 bg-slate-50 border dark:border-slate-800 border-slate-100 min-h-[150px]">
+                    {selectedTrade.notes ? (
+                      <p className="text-sm dark:text-slate-300 text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedTrade.notes}</p>
+                    ) : (
+                      <p className="text-sm dark:text-slate-600 text-slate-400 italic">No notes captured for this trade.</p>
                     )}
                   </div>
+                </div>
 
-                  {/* Notes */}
-                  {t.notes ? (
-                    <div className="rounded-lg dark:bg-slate-800 bg-slate-50 p-3 text-xs dark:text-slate-300 text-slate-600 leading-relaxed whitespace-pre-wrap">
-                      {t.notes}
+                {chartsVisible && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Chart Context</h3>
+                    <div className="rounded-2xl overflow-hidden border dark:border-slate-800 border-slate-100">
+                      <MiniChart
+                        symbol={selectedTrade.symbol}
+                        entry={selectedTrade.entry_price}
+                        stopLoss={selectedTrade.stop_loss}
+                        takeProfit={selectedTrade.take_profit}
+                        height={350}
+                      />
                     </div>
-                  ) : (
-                    <div className="rounded-lg dark:bg-slate-800/50 bg-slate-50 p-3 text-xs dark:text-slate-600 text-slate-400 italic">
-                      No notes added yet
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {displayed.map((t) => {
+            const pnlColor = (t.pnl ?? 0) > 0 ? "text-emerald-400" : (t.pnl ?? 0) < 0 ? "text-red-400" : "dark:text-slate-400 text-slate-500";
+            const tags = t.tags ? t.tags.split(",").map((s) => s.trim()).filter(Boolean) : [];
+            const isSelected = selected.has(t.id);
+            const pot = calcPotentialPnl(t);
+
+            return (
+              <div key={t.id} className={clsx("rounded-xl dark:bg-slate-900 bg-white p-4 space-y-3 hover:bg-emerald-500/5 transition-colors border dark:border-slate-800 border-slate-100", isSelected && "ring-2 ring-emerald-500")}>
+                {/* Header */}
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleOne(t.id)}
+                      className="w-4 h-4 mt-1 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 cursor-pointer shrink-0"
+                    />
+                    <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-emerald-400 text-lg cursor-pointer hover:underline" onClick={() => router.push(buildChartUrl(t))}>{t.symbol}</span>
+                      <span className={clsx("px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider", STATUS_COLOR[t.status])}>
+                        {t.status}
+                      </span>
                     </div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {t.direction === "long"
+                        ? <span className="flex items-center text-xs text-emerald-400 gap-0.5"><ArrowUpRight className="w-3 h-3" />Long</span>
+                        : <span className="flex items-center text-xs text-red-400 gap-0.5"><ArrowDownRight className="w-3 h-3" />Short</span>
+                      }
+                      <span className="text-xs dark:text-slate-500 text-slate-400">
+                        {t.entry_date ?? t.created_at.slice(0, 10)}
+                      </span>
+                    </div>
+                  </div>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      onClick={() => router.push(buildChartUrl(t))}
+                      className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
+                      title="Open in Chart"
+                    >
+                      <LineChart className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                    </button>
+                    <button
+                      onClick={() => { setEditTrade(t); setShowModal(true); }}
+                      className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
+                      title="Edit"
+                    >
+                      <Pencil className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Price info */}
+                <div className="flex gap-3 text-xs">
+                  <span className="dark:text-slate-500 text-slate-400">Entry <span className="dark:text-slate-300 text-slate-700">{t.entry_price ? `$${t.entry_price}` : "—"}</span></span>
+                  <span className="text-red-400 font-medium">SL <span>{t.stop_loss ? `$${t.stop_loss}` : "—"}</span></span>
+                  <span className="text-emerald-400 font-medium">TP <span>{t.take_profit ? `$${t.take_profit}` : "—"}</span></span>
+                  {t.pnl !== null && (
+                    <span className={clsx("ml-auto font-bold", pnlColor)}>
+                      {t.pnl >= 0 ? "+" : ""}{hidden ? mask : t.pnl.toFixed(2)}
+                    </span>
                   )}
+                </div>
 
-                  {/* Tags */}
-                  {tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      <Tag className="w-3 h-3 dark:text-slate-500 text-slate-400 mt-0.5 shrink-0" />
-                      {tags.map((tag) => (
-                        <span key={tag} className="px-2 py-0.5 rounded-full text-xs dark:bg-slate-800 bg-slate-100 dark:text-slate-400 text-slate-500">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                {/* Notes */}
+                {t.notes ? (
+                  <div className="rounded-lg dark:bg-slate-800 bg-slate-50 p-3 text-xs dark:text-slate-300 text-slate-600 leading-relaxed whitespace-pre-wrap">
+                    {t.notes}
+                  </div>
+                ) : (
+                  <div className="rounded-lg dark:bg-slate-800/50 bg-slate-50 p-3 text-xs dark:text-slate-600 text-slate-400 italic">
+                    No notes added yet
+                  </div>
+                )}
 
-                  {/* Chart + potential P&L section */}
-                  {chartsVisible && (
-                    <div className="space-y-3 pt-2">
-                      {/* Potential P&L */}
-                      {pot && (
-                        <div className="flex items-center gap-3 text-xs font-medium">
-                          <span className="dark:text-slate-500 text-slate-400">Potential:</span>
-                          {pot.profit != null && (
-                            <span className="text-emerald-400">+${pot.profit.toFixed(2)}</span>
-                          )}
-                          {pot.loss != null && (
-                            <span className="text-red-400">-${Math.abs(pot.loss).toFixed(2)}</span>
-                          )}
-                          {pot.rr != null && (
-                            <span className="dark:text-slate-400 text-slate-500">R:R {pot.rr.toFixed(1)}</span>
-                          )}
-                        </div>
-                      )}
+                {/* Tags */}
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <Tag className="w-3 h-3 dark:text-slate-500 text-slate-400 mt-0.5 shrink-0" />
+                    {tags.map((tag) => (
+                      <span key={tag} className="px-2 py-0.5 rounded-full text-xs dark:bg-slate-800 bg-slate-100 dark:text-slate-400 text-slate-500">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
-                      {/* Mini chart */}
+                {/* Chart + potential P&L section */}
+                {chartsVisible && (
+                  <div className="space-y-3 pt-2">
+                    {/* Potential P&L */}
+                    {pot && (
+                      <div className="flex items-center gap-3 text-xs font-medium">
+                        <span className="dark:text-slate-500 text-slate-400">Potential:</span>
+                        {pot.profit != null && (
+                          <span className="text-emerald-400">+${pot.profit.toFixed(2)}</span>
+                        )}
+                        {pot.loss != null && (
+                          <span className="text-red-400">-${Math.abs(pot.loss).toFixed(2)}</span>
+                        )}
+                        {pot.rr != null && (
+                          <span className="dark:text-slate-400 text-slate-500">R:R {pot.rr.toFixed(1)}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Mini chart */}
+                    <div className="rounded-xl overflow-hidden border dark:border-slate-800 border-slate-100">
                       <MiniChart
                         symbol={t.symbol}
                         entry={t.entry_price}
@@ -339,12 +557,12 @@ export default function JournalPage() {
                         height={160}
                       />
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {showModal && (
