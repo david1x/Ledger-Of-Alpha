@@ -1,15 +1,21 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database } from "lucide-react";
+import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database, Send, Grid3X3, Users, Settings, Trash2, UserCheck, UserX } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { tradesToCsv, csvToTrades } from "@/lib/csv";
 import { TRADE_FIELDS } from "@/lib/validate-trade";
+import clsx from "clsx";
 
 interface Settings {
   discord_webhook: string;
+  alert_discord_webhook: string;
   fmp_api_key: string;
   account_size: string;
   risk_per_trade: string;
   commission_per_trade: string;
+  heatmap_ranges: string;
+  charts_collapsed: string;
 }
 
 interface TwoFactorSetup {
@@ -17,15 +23,61 @@ interface TwoFactorSetup {
   qrDataUrl: string;
 }
 
-export default function SettingsPage() {
+type Category = "account" | "display" | "integrations" | "security" | "data" | "admin-users" | "admin-settings";
+
+const CATEGORIES: { id: Category; label: string; icon: typeof DollarSign; adminOnly?: boolean }[] = [
+  { id: "account",        label: "Account",        icon: DollarSign },
+  { id: "display",        label: "Display",         icon: Grid3X3 },
+  { id: "integrations",   label: "Integrations",    icon: Key },
+  { id: "security",       label: "Security",        icon: ShieldCheck },
+  { id: "data",           label: "Data",             icon: Database },
+  { id: "admin-users",    label: "Users",            icon: Users, adminOnly: true },
+  { id: "admin-settings", label: "System",           icon: Settings, adminOnly: true },
+];
+
+interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  email_verified: number;
+  two_factor_enabled: number;
+  is_admin: number;
+  created_at: string;
+}
+
+interface SystemSettings {
+  account_size: string;
+  risk_per_trade: string;
+  smtp_host: string;
+  smtp_port: string;
+  smtp_secure: string;
+  smtp_user: string;
+  smtp_pass: string;
+  smtp_from: string;
+  app_url: string;
+}
+
+const SYS_DEFAULTS: SystemSettings = {
+  account_size: "10000", risk_per_trade: "1",
+  smtp_host: "", smtp_port: "587", smtp_secure: "false",
+  smtp_user: "", smtp_pass: "", smtp_from: "", app_url: "",
+};
+
+function SettingsContent() {
+  const searchParams = useSearchParams();
+  const initialCategory = (searchParams.get("tab") ?? "account") as Category;
   const [settings, setSettings] = useState<Settings>({
-    discord_webhook: "", fmp_api_key: "", account_size: "10000", risk_per_trade: "1", commission_per_trade: "0",
+    discord_webhook: "", alert_discord_webhook: "", fmp_api_key: "", account_size: "10000", risk_per_trade: "1", commission_per_trade: "0",
+    heatmap_ranges: JSON.stringify({ high: 500, mid: 200, low: 1 }), charts_collapsed: "false",
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
   const [symbolCount, setSymbolCount] = useState<number | null>(null);
+  const [activeCategory, setActiveCategory] = useState<Category>(
+    CATEGORIES.some(c => c.id === initialCategory) ? initialCategory : "account"
+  );
 
   // 2FA state
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -41,12 +93,25 @@ export default function SettingsPage() {
   const [claimMsg, setClaimMsg] = useState<{ text: string; type: "ok" | "err" } | null>(null);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
   const [importing, setImporting] = useState(false);
+  const [testingChart, setTestingChart] = useState(false);
+  const [testingAlert, setTestingAlert] = useState(false);
+  const [chartTestMsg, setChartTestMsg] = useState<{ text: string; type: "ok" | "err" } | null>(null);
+  const [alertTestMsg, setAlertTestMsg] = useState<{ text: string; type: "ok" | "err" } | null>(null);
   const [currentBalance, setCurrentBalance] = useState<number | null>(null);
+
+  // Admin state
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [adminUsersError, setAdminUsersError] = useState("");
+  const [sysSettings, setSysSettings] = useState<SystemSettings>(SYS_DEFAULTS);
+  const [sysLoading, setSysLoading] = useState(false);
+  const [sysSaving, setSysSaving] = useState(false);
+  const [sysSaved, setSysSaved] = useState(false);
+  const [showSmtpPass, setShowSmtpPass] = useState(false);
 
   useEffect(() => {
     fetch("/api/settings").then(r => r.json()).then(data => {
       setSettings(s => ({ ...s, ...data }));
-      // Fetch trades to compute current balance
       fetch("/api/trades").then(r => r.json()).then(trades => {
         if (Array.isArray(trades)) {
           const totalPnl = trades.filter((t: { status: string; pnl?: number }) => t.status === "closed")
@@ -66,17 +131,65 @@ export default function SettingsPage() {
     }).catch(() => {});
   }, []);
 
+  // Admin data loading
+  const loadAdminUsers = async () => {
+    setAdminUsersLoading(true); setAdminUsersError("");
+    const res = await fetch("/api/admin/users");
+    const data = await res.json();
+    if (res.ok) setAdminUsers(data.users);
+    else setAdminUsersError(data.error);
+    setAdminUsersLoading(false);
+  };
+
+  const loadSysSettings = async () => {
+    setSysLoading(true);
+    const res = await fetch("/api/admin/settings");
+    const data = await res.json();
+    if (data.settings) setSysSettings(s => ({ ...s, ...data.settings }));
+    setSysLoading(false);
+  };
+
+  useEffect(() => {
+    if (activeCategory === "admin-users" && isAdmin && adminUsers.length === 0) loadAdminUsers();
+    if (activeCategory === "admin-settings" && isAdmin && sysLoading === false && sysSettings === SYS_DEFAULTS) loadSysSettings();
+  }, [activeCategory, isAdmin]);
+
+  const toggleAdminRole = async (user: AdminUser) => {
+    const res = await fetch(`/api/admin/users/${user.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_admin: !user.is_admin }),
+    });
+    if (res.ok) loadAdminUsers();
+    else { const d = await res.json(); alert(d.error); }
+  };
+
+  const deleteAdminUser = async (user: AdminUser) => {
+    if (!confirm(`Delete ${user.email}? This is irreversible.`)) return;
+    const res = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
+    if (res.ok) loadAdminUsers();
+    else { const d = await res.json(); alert(d.error); }
+  };
+
+  const saveSysSettings = async () => {
+    setSysSaving(true);
+    await fetch("/api/admin/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(sysSettings),
+    });
+    setSysSaving(false);
+    setSysSaved(true);
+    setTimeout(() => setSysSaved(false), 2500);
+  };
+
   const claimAdmin = async () => {
     setClaiming(true); setClaimMsg(null);
     const res = await fetch("/api/admin/claim", { method: "POST" });
     const data = await res.json();
     setClaiming(false);
-    if (res.ok) {
-      // JWT was re-issued with isAdmin:true — navigate to admin panel
-      window.location.href = "/admin";
-    } else {
-      setClaimMsg({ text: data.error, type: "err" });
-    }
+    if (res.ok) { window.location.href = "/admin"; }
+    else { setClaimMsg({ text: data.error, type: "err" }); }
   };
 
   const save = async () => {
@@ -103,7 +216,32 @@ export default function SettingsPage() {
     }
   };
 
-  // ── Data Management handlers ──────────────────────────────────────────
+  const testWebhook = async (which: "chart" | "alert") => {
+    const url = which === "chart" ? settings.discord_webhook : settings.alert_discord_webhook;
+    const setTesting = which === "chart" ? setTestingChart : setTestingAlert;
+    const setMsg = which === "chart" ? setChartTestMsg : setAlertTestMsg;
+
+    if (!url) { setMsg({ text: "Enter a webhook URL first", type: "err" }); return; }
+    setTesting(true); setMsg(null);
+    try {
+      const res = await fetch("/api/discord/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ webhook: url }),
+      });
+      if (res.ok) {
+        setMsg({ text: "Test message sent! Check your Discord channel.", type: "ok" });
+      } else {
+        const data = await res.json();
+        setMsg({ text: data.error || "Test failed", type: "err" });
+      }
+    } catch {
+      setMsg({ text: "Network error", type: "err" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
   const exportTrades = async (format: "csv" | "json") => {
     try {
       const res = await fetch("/api/trades");
@@ -113,9 +251,7 @@ export default function SettingsPage() {
       const exportFields = [...TRADE_FIELDS, "pnl", "created_at"] as const;
       const cleaned = allTrades.map((t: Record<string, unknown>) => {
         const obj: Record<string, unknown> = {};
-        for (const f of exportFields) {
-          obj[f] = t[f] ?? null;
-        }
+        for (const f of exportFields) { obj[f] = t[f] ?? null; }
         return obj;
       });
 
@@ -169,11 +305,8 @@ export default function SettingsPage() {
       });
       const result = await res.json();
 
-      if (res.ok) {
-        setImportResult(result);
-      } else {
-        setImportResult({ imported: 0, skipped: 0, errors: [result.error] });
-      }
+      if (res.ok) { setImportResult(result); }
+      else { setImportResult({ imported: 0, skipped: 0, errors: [result.error] }); }
     } catch {
       setImportResult({ imported: 0, skipped: 0, errors: ["Failed to parse file."] });
     } finally {
@@ -181,7 +314,7 @@ export default function SettingsPage() {
     }
   };
 
-  // ── 2FA handlers ───────────────────────────────────────────────────────
+  // 2FA handlers
   const startTfaSetup = async () => {
     setTfaMsg(null);
     const res = await fetch("/api/auth/2fa/setup");
@@ -223,299 +356,644 @@ export default function SettingsPage() {
     }
   };
 
+  // Heatmap range helpers
+  const heatRanges = (() => { try { return JSON.parse(settings.heatmap_ranges); } catch { return { high: 500, mid: 200, low: 1 }; } })();
+  const setHeatRange = (key: string, value: number) => {
+    const r = { ...heatRanges, [key]: value };
+    setSettings(s => ({ ...s, heatmap_ranges: JSON.stringify(r) }));
+  };
+
   const INPUT = "w-full px-3 py-2 rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500";
   const LABEL = "block text-sm font-medium dark:text-white text-slate-900 mb-1";
   const HINT  = "text-xs dark:text-slate-500 text-slate-400 mt-1";
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold dark:text-white text-slate-900">Settings</h1>
-        <p className="text-sm dark:text-slate-400 text-slate-500 mt-0.5">Configure your account preferences and integrations</p>
-      </div>
-
-      {/* Account */}
-      <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
-        <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
-          <DollarSign className="w-4 h-4 text-emerald-400" /> Account Settings
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className={LABEL}>Starting Balance ($)</label>
-            <input type="number" value={settings.account_size}
-              onChange={e => setSettings(s => ({ ...s, account_size: e.target.value }))} className={INPUT} />
-            <p className={HINT}>Your initial trading capital</p>
-            {currentBalance != null && (
-              <p className={`text-xs mt-1.5 font-medium ${currentBalance >= parseFloat(settings.account_size || "10000") ? "text-emerald-400" : "text-red-400"}`}>
-                Current Balance: ${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className={LABEL}>Risk Per Trade (%)</label>
-            <input type="number" step="0.1" value={settings.risk_per_trade}
-              onChange={e => setSettings(s => ({ ...s, risk_per_trade: e.target.value }))} className={INPUT} />
-            <p className={HINT}>Max % of account to risk per trade</p>
-          </div>
-          <div>
-            <label className={LABEL}>Commission ($)</label>
-            <input type="number" step="0.01" value={settings.commission_per_trade}
-              onChange={e => setSettings(s => ({ ...s, commission_per_trade: e.target.value }))} className={INPUT} />
-            <p className={HINT}>Flat commission per trade (×2 round trip)</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Security / 2FA */}
-      <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
-        <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" /> Security
-        </h2>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm dark:text-white text-slate-900 font-medium">Two-Factor Authentication</p>
-            <p className={HINT}>Add an extra layer of security to your account.</p>
-          </div>
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${twoFactorEnabled ? "bg-emerald-500/15 text-emerald-400" : "bg-slate-500/15 dark:text-slate-400 text-slate-500"}`}>
-            {twoFactorEnabled ? "Enabled" : "Disabled"}
-          </span>
-        </div>
-
-        {tfaMsg && (
-          <p className={`text-sm rounded-lg px-3 py-2 ${tfaMsg.type === "ok" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
-            {tfaMsg.text}
-          </p>
-        )}
-
-        {/* Backup codes after enabling */}
-        {backupCodes.length > 0 && (
-          <div className="rounded-lg border dark:border-slate-700 border-slate-200 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-medium dark:text-white text-slate-900">Backup Codes</p>
-              <button onClick={() => { navigator.clipboard.writeText(backupCodes.join("\n")); }}
-                className="flex items-center gap-1 text-xs dark:text-slate-400 text-slate-500 hover:text-emerald-400">
-                <Copy className="w-3.5 h-3.5" /> Copy all
+    <div className="flex gap-6">
+      {/* Category sidebar */}
+      <nav className="hidden sm:flex flex-col w-48 shrink-0 sticky top-20 self-start space-y-1">
+        {CATEGORIES.filter(c => !c.adminOnly).map(({ id, label, icon: Icon }) => (
+          <button key={id} onClick={() => setActiveCategory(id)}
+            className={clsx(
+              "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left",
+              activeCategory === id
+                ? "bg-emerald-500/15 text-emerald-400"
+                : "dark:text-slate-400 text-slate-600 hover:dark:text-white hover:text-slate-900 hover:dark:bg-slate-800/50 hover:bg-slate-100"
+            )}>
+            <Icon className="w-4 h-4 shrink-0" />
+            {label}
+          </button>
+        ))}
+        {isAdmin && (
+          <>
+            <div className="pt-3 pb-1 px-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider dark:text-slate-500 text-slate-400">Admin</p>
+            </div>
+            {CATEGORIES.filter(c => c.adminOnly).map(({ id, label, icon: Icon }) => (
+              <button key={id} onClick={() => setActiveCategory(id)}
+                className={clsx(
+                  "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left",
+                  activeCategory === id
+                    ? "bg-emerald-500/15 text-emerald-400"
+                    : "dark:text-slate-400 text-slate-600 hover:dark:text-white hover:text-slate-900 hover:dark:bg-slate-800/50 hover:bg-slate-100"
+                )}>
+                <Icon className="w-4 h-4 shrink-0" />
+                {label}
               </button>
-            </div>
-            <p className="text-xs dark:text-slate-400 text-slate-500 mb-3">
-              Save these codes somewhere safe. Each can be used once if you lose access to your authenticator.
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {backupCodes.map(c => (
-                <code key={c} className="text-xs font-mono dark:bg-slate-800 bg-slate-100 px-2 py-1 rounded text-center dark:text-slate-300 text-slate-700">
-                  {c}
-                </code>
-              ))}
-            </div>
-          </div>
+            ))}
+          </>
         )}
-
-        {/* Setup flow */}
-        {!twoFactorEnabled && !tfaSetup && (
-          <button onClick={startTfaSetup}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors">
-            <ShieldCheck className="w-4 h-4" /> Set Up 2FA
+        {!isAdmin && !hasAdmin && (
+          <button onClick={() => setActiveCategory("account")}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-amber-400 hover:bg-amber-500/10 transition-colors text-left">
+            <ShieldCheck className="w-4 h-4 shrink-0" />
+            Claim Admin
           </button>
         )}
+      </nav>
 
-        {!twoFactorEnabled && tfaSetup && (
-          <div className="space-y-4">
-            <p className="text-sm dark:text-slate-300 text-slate-700">
-              Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password…), then enter the 6-digit code to confirm.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 items-start">
-              {/* QR code */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={tfaSetup.qrDataUrl} alt="2FA QR Code" className="w-40 h-40 rounded-lg border dark:border-slate-700 border-slate-200" />
-              <div className="flex-1 space-y-3">
-                <div>
-                  <p className="text-xs dark:text-slate-400 text-slate-500 mb-1">Or enter this secret manually:</p>
-                  <div className="flex items-center gap-2">
-                    <code className="text-xs font-mono dark:bg-slate-800 bg-slate-100 px-2 py-1 rounded flex-1 dark:text-slate-300 text-slate-700 break-all">
-                      {showSecret ? tfaSetup.secret : "••••••••••••••••"}
-                    </code>
-                    <button onClick={() => setShowSecret(v => !v)} className="dark:text-slate-400 text-slate-500">
-                      {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                    <button onClick={() => navigator.clipboard.writeText(tfaSetup.secret)} className="dark:text-slate-400 text-slate-500 hover:text-emerald-400">
-                      <Copy className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className={LABEL}>Confirmation Code</label>
-                  <input type="text" inputMode="numeric" maxLength={6} value={tfaCode}
-                    onChange={e => setTfaCode(e.target.value.replace(/\D/g, ""))}
-                    placeholder="000000" className={INPUT} />
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={enableTfa} disabled={tfaLoading || tfaCode.length < 6}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors disabled:opacity-50">
-                    <ShieldCheck className="w-4 h-4" /> {tfaLoading ? "Enabling…" : "Enable 2FA"}
-                  </button>
-                  <button onClick={() => { setTfaSetup(null); setTfaCode(""); }}
-                    className="px-4 py-2 rounded-lg border dark:border-slate-700 border-slate-300 dark:text-slate-400 text-slate-600 text-sm transition-colors hover:dark:bg-slate-800 hover:bg-slate-50">
-                    Cancel
-                  </button>
-                </div>
+      {/* Mobile category tabs */}
+      <div className="sm:hidden fixed top-14 left-0 right-0 z-30 bg-slate-950/95 backdrop-blur-sm border-b dark:border-slate-800 border-slate-200 px-4 py-2 flex gap-1 overflow-x-auto sidebar-push">
+        {CATEGORIES.filter(c => !c.adminOnly || isAdmin).map(({ id, label, icon: Icon }) => (
+          <button key={id} onClick={() => setActiveCategory(id)}
+            className={clsx(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors",
+              activeCategory === id
+                ? "bg-emerald-500/15 text-emerald-400"
+                : "dark:text-slate-400 text-slate-600"
+            )}>
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0 space-y-6 sm:max-w-2xl">
+        <div>
+          <h1 className="text-2xl font-bold dark:text-white text-slate-900">Settings</h1>
+          <p className="text-sm dark:text-slate-400 text-slate-500 mt-0.5">Configure your account preferences and integrations</p>
+        </div>
+
+        {/* ── Account ── */}
+        {activeCategory === "account" && (
+          <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
+            <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-emerald-400" /> Account Settings
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className={LABEL}>Starting Balance ($)</label>
+                <input type="number" value={settings.account_size}
+                  onChange={e => setSettings(s => ({ ...s, account_size: e.target.value }))} className={INPUT} />
+                <p className={HINT}>Your initial trading capital</p>
+                {currentBalance != null && (
+                  <p className={`text-xs mt-1.5 font-medium ${currentBalance >= parseFloat(settings.account_size || "10000") ? "text-emerald-400" : "text-red-400"}`}>
+                    Current Balance: ${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className={LABEL}>Risk Per Trade (%)</label>
+                <input type="number" step="0.1" value={settings.risk_per_trade}
+                  onChange={e => setSettings(s => ({ ...s, risk_per_trade: e.target.value }))} className={INPUT} />
+                <p className={HINT}>Max % of account to risk per trade</p>
+              </div>
+              <div>
+                <label className={LABEL}>Commission ($)</label>
+                <input type="number" step="0.01" value={settings.commission_per_trade}
+                  onChange={e => setSettings(s => ({ ...s, commission_per_trade: e.target.value }))} className={INPUT} />
+                <p className={HINT}>Flat commission per trade (x2 round trip)</p>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Disable flow */}
-        {twoFactorEnabled && (
-          <div className="space-y-3">
-            <div>
-              <label className={LABEL}>Enter your current TOTP code to disable 2FA</label>
-              <input type="text" inputMode="numeric" maxLength={6} value={tfaCode}
-                onChange={e => setTfaCode(e.target.value.replace(/\D/g, ""))}
-                placeholder="000000" className={`${INPUT} max-w-xs`} />
-            </div>
-            <button onClick={disableTfa} disabled={tfaLoading || tfaCode.length < 6}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 text-sm font-medium transition-colors disabled:opacity-50">
-              <ShieldOff className="w-4 h-4" /> {tfaLoading ? "Disabling…" : "Disable 2FA"}
-            </button>
-          </div>
-        )}
-      </section>
-
-      {/* FMP API */}
-      <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
-        <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
-          <Key className="w-4 h-4 text-yellow-400" /> Financial Modeling Prep API
-        </h2>
-        <div>
-          <label className={LABEL}>FMP API Key</label>
-          <input type="password" value={settings.fmp_api_key}
-            onChange={e => setSettings(s => ({ ...s, fmp_api_key: e.target.value }))}
-            placeholder="Enter your FMP API key..." className={INPUT} />
-          <p className={HINT}>
-            Get a free key at <span className="text-emerald-400">financialmodelingprep.com</span>.
-            Enables live symbol search as you type.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button onClick={refreshSymbols} disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors disabled:opacity-50">
-            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-            {refreshing ? "Loading..." : "Load Symbol List"}
-          </button>
-          {symbolCount !== null && <span className="text-sm dark:text-slate-400 text-slate-500">{symbolCount} symbols cached</span>}
-        </div>
-        {refreshMsg && <p className="text-sm dark:text-slate-400 text-slate-500">{refreshMsg}</p>}
-      </section>
-
-      {/* Discord */}
-      <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
-        <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
-          <Bell className="w-4 h-4 text-indigo-400" /> Discord Integration
-        </h2>
-        <div>
-          <label className={LABEL}>Webhook URL</label>
-          <input type="password" value={settings.discord_webhook}
-            onChange={e => setSettings(s => ({ ...s, discord_webhook: e.target.value }))}
-            placeholder="https://discord.com/api/webhooks/..." className={INPUT} />
-          <p className={HINT}>Create a webhook in your Discord channel (Integrations → Webhooks). Chart snapshots will be posted there.</p>
-        </div>
-      </section>
-
-      {/* Data Management */}
-      <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
-        <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
-          <Database className="w-4 h-4 text-blue-400" /> Data Management
-        </h2>
-        <p className="text-sm dark:text-slate-400 text-slate-500">
-          Export your complete trading history for backup or import trades from a CSV or JSON file.
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => exportTrades("csv")}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors"
-          >
-            <Download className="w-4 h-4" /> Export as CSV
-          </button>
-          <button
-            onClick={() => exportTrades("json")}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors"
-          >
-            <Download className="w-4 h-4" /> Export as JSON
-          </button>
-          <label className="flex items-center gap-2 px-4 py-2 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors cursor-pointer">
-            <Upload className="w-4 h-4" />
-            {importing ? "Importing..." : "Import Trades"}
-            <input
-              type="file"
-              accept=".csv,.json"
-              onChange={handleImportFile}
-              disabled={importing}
-              className="hidden"
-            />
-          </label>
-        </div>
-        {importResult && (
-          <div className={`rounded-lg px-4 py-3 text-sm ${importResult.imported > 0 ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-red-500/10 border border-red-500/20"}`}>
-            <div className="flex items-center justify-between">
-              <span className={importResult.imported > 0 ? "text-emerald-400" : "text-red-400"}>
-                {importResult.imported > 0
-                  ? `Imported ${importResult.imported} trade${importResult.imported !== 1 ? "s" : ""} successfully.`
-                  : "No trades imported."}
-                {importResult.skipped > 0 && ` ${importResult.skipped} skipped.`}
-              </span>
-              <button onClick={() => setImportResult(null)} className="dark:text-slate-400 text-slate-500 hover:dark:text-white hover:text-slate-900 text-xs">
-                Dismiss
-              </button>
-            </div>
-            {importResult.errors.length > 0 && (
-              <ul className="mt-2 space-y-0.5 text-xs dark:text-slate-400 text-slate-500">
-                {importResult.errors.slice(0, 10).map((err, i) => (
-                  <li key={i}>{err}</li>
-                ))}
-                {importResult.errors.length > 10 && (
-                  <li>...and {importResult.errors.length - 10} more errors</li>
+            {/* Claim Admin */}
+            {!isAdmin && !hasAdmin && (
+              <div className="rounded-lg border border-amber-500/30 dark:bg-amber-500/5 bg-amber-50 p-4 space-y-3 mt-4">
+                <h3 className="font-medium dark:text-white text-slate-900 flex items-center gap-2 text-sm">
+                  <ShieldCheck className="w-4 h-4 text-amber-400" /> Claim Admin Access
+                </h3>
+                <p className="text-xs dark:text-slate-400 text-slate-500">
+                  No admin exists yet. Claim admin privileges to manage users and system settings.
+                </p>
+                {claimMsg && (
+                  <p className={`text-sm rounded-lg px-3 py-2 ${claimMsg.type === "ok" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+                    {claimMsg.text}
+                  </p>
                 )}
-              </ul>
+                <button onClick={claimAdmin} disabled={claiming}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium transition-colors disabled:opacity-50">
+                  <ShieldCheck className="w-4 h-4" />
+                  {claiming ? "Claiming..." : "Claim Admin"}
+                </button>
+              </div>
             )}
-          </div>
+          </section>
         )}
-      </section>
 
-      {/* Claim Admin — only shown when no admin exists yet */}
-      {!isAdmin && !hasAdmin && (
-        <section className="rounded-xl border border-amber-500/30 dark:bg-amber-500/5 bg-amber-50 p-5 space-y-3">
-          <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-amber-400" /> Claim Admin Access
-          </h2>
-          <p className="text-sm dark:text-slate-400 text-slate-500">
-            No admin exists yet. As the first user, you can claim admin privileges to manage users and system settings.
-          </p>
-          {claimMsg && (
-            <p className={`text-sm rounded-lg px-3 py-2 ${claimMsg.type === "ok" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
-              {claimMsg.text}
+        {/* ── Display ── */}
+        {activeCategory === "display" && (
+          <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
+            <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+              <Grid3X3 className="w-4 h-4 text-emerald-400" /> Activity Heatmap
+            </h2>
+            <p className="text-xs dark:text-slate-400 text-slate-500">
+              Set P&L thresholds for heatmap colors. Amounts above "High" get the darkest shade, "Mid" to "High" medium, "Low" to "Mid" lightest.
             </p>
-          )}
-          <button onClick={claimAdmin} disabled={claiming}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium transition-colors disabled:opacity-50">
-            <ShieldCheck className="w-4 h-4" />
-            {claiming ? "Claiming…" : "Claim Admin"}
-          </button>
-        </section>
-      )}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className={LABEL}>High Threshold ($)</label>
+                <input type="number" value={heatRanges.high} onChange={e => setHeatRange("high", Number(e.target.value))} className={INPUT} />
+                <p className={HINT}>Darkest green/red shade</p>
+              </div>
+              <div>
+                <label className={LABEL}>Mid Threshold ($)</label>
+                <input type="number" value={heatRanges.mid} onChange={e => setHeatRange("mid", Number(e.target.value))} className={INPUT} />
+                <p className={HINT}>Medium green/red shade</p>
+              </div>
+              <div>
+                <label className={LABEL}>Low Threshold ($)</label>
+                <input type="number" value={heatRanges.low} onChange={e => setHeatRange("low", Number(e.target.value))} className={INPUT} />
+                <p className={HINT}>Lightest green/red shade</p>
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm dark:text-slate-300 text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.charts_collapsed === "true"}
+                onChange={e => setSettings(s => ({ ...s, charts_collapsed: e.target.checked ? "true" : "false" }))}
+                className="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500"
+              />
+              Collapse charts by default
+            </label>
 
-      {/* Save */}
-      <div className="flex items-center gap-3">
-        <button onClick={save} disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white font-medium transition-colors disabled:opacity-50">
-          <Save className="w-4 h-4" />
-          {saving ? "Saving..." : "Save Settings"}
-        </button>
-        {saved && (
-          <span className="flex items-center gap-1.5 text-emerald-400 text-sm">
-            <CheckCircle className="w-4 h-4" /> Settings saved!
-          </span>
+            {/* Preview */}
+            <div className="pt-2 border-t dark:border-slate-800 border-slate-100">
+              <p className="text-xs dark:text-slate-500 text-slate-400 mb-2">Color preview</p>
+              <div className="flex items-center gap-2 text-[10px] dark:text-slate-500 text-slate-400">
+                <span>-${heatRanges.high}+</span>
+                <div className="w-5 h-5 rounded" style={{ background: "#dc2626" }} />
+                <div className="w-5 h-5 rounded" style={{ background: "#ef4444" }} />
+                <div className="w-5 h-5 rounded" style={{ background: "#fca5a5" }} />
+                <div className="w-5 h-5 rounded" style={{ background: "#475569" }} />
+                <div className="w-5 h-5 rounded" style={{ background: "#86efac" }} />
+                <div className="w-5 h-5 rounded" style={{ background: "#22c55e" }} />
+                <div className="w-5 h-5 rounded" style={{ background: "#16a34a" }} />
+                <span>+${heatRanges.high}+</span>
+              </div>
+            </div>
+          </section>
         )}
+
+        {/* ── Integrations ── */}
+        {activeCategory === "integrations" && (
+          <>
+            {/* FMP */}
+            <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
+              <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+                <Key className="w-4 h-4 text-yellow-400" /> Financial Modeling Prep API
+              </h2>
+              <div>
+                <label className={LABEL}>FMP API Key</label>
+                <input type="password" value={settings.fmp_api_key}
+                  onChange={e => setSettings(s => ({ ...s, fmp_api_key: e.target.value }))}
+                  placeholder="Enter your FMP API key..." className={INPUT} />
+                <p className={HINT}>
+                  Get a free key at <span className="text-emerald-400">financialmodelingprep.com</span>.
+                  Enables live symbol search as you type.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={refreshSymbols} disabled={refreshing}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors disabled:opacity-50">
+                  <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+                  {refreshing ? "Loading..." : "Load Symbol List"}
+                </button>
+                {symbolCount !== null && <span className="text-sm dark:text-slate-400 text-slate-500">{symbolCount} symbols cached</span>}
+              </div>
+              {refreshMsg && <p className="text-sm dark:text-slate-400 text-slate-500">{refreshMsg}</p>}
+            </section>
+
+            {/* Discord */}
+            <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
+              <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+                <Bell className="w-4 h-4 text-indigo-400" /> Discord Integration
+              </h2>
+              <div>
+                <label className={LABEL}>Chart Webhook URL</label>
+                <input type="password" value={settings.discord_webhook}
+                  onChange={e => setSettings(s => ({ ...s, discord_webhook: e.target.value }))}
+                  placeholder="https://discord.com/api/webhooks/..." className={INPUT} />
+                <div className="flex items-center gap-3 mt-2">
+                  <button onClick={() => testWebhook("chart")} disabled={testingChart}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-xs font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors disabled:opacity-50">
+                    <Send className="w-3.5 h-3.5" />
+                    {testingChart ? "Sending..." : "Test Connection"}
+                  </button>
+                  {chartTestMsg && (
+                    <span className={`text-xs ${chartTestMsg.type === "ok" ? "text-emerald-400" : "text-red-400"}`}>
+                      {chartTestMsg.text}
+                    </span>
+                  )}
+                </div>
+                <p className={HINT}>Chart snapshots will be posted here.</p>
+              </div>
+              <div>
+                <label className={LABEL}>Alerts Webhook URL</label>
+                <input type="password" value={settings.alert_discord_webhook}
+                  onChange={e => setSettings(s => ({ ...s, alert_discord_webhook: e.target.value }))}
+                  placeholder="https://discord.com/api/webhooks/..." className={INPUT} />
+                <div className="flex items-center gap-3 mt-2">
+                  <button onClick={() => testWebhook("alert")} disabled={testingAlert}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-xs font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors disabled:opacity-50">
+                    <Send className="w-3.5 h-3.5" />
+                    {testingAlert ? "Sending..." : "Test Connection"}
+                  </button>
+                  {alertTestMsg && (
+                    <span className={`text-xs ${alertTestMsg.type === "ok" ? "text-emerald-400" : "text-red-400"}`}>
+                      {alertTestMsg.text}
+                    </span>
+                  )}
+                </div>
+                <p className={HINT}>Separate webhook for price alerts. Leave empty to use chart webhook.</p>
+              </div>
+            </section>
+          </>
+        )}
+
+        {/* ── Security ── */}
+        {activeCategory === "security" && (
+          <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
+            <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" /> Two-Factor Authentication
+            </h2>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm dark:text-white text-slate-900 font-medium">2FA Status</p>
+                <p className={HINT}>Add an extra layer of security to your account.</p>
+              </div>
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${twoFactorEnabled ? "bg-emerald-500/15 text-emerald-400" : "bg-slate-500/15 dark:text-slate-400 text-slate-500"}`}>
+                {twoFactorEnabled ? "Enabled" : "Disabled"}
+              </span>
+            </div>
+
+            {tfaMsg && (
+              <p className={`text-sm rounded-lg px-3 py-2 ${tfaMsg.type === "ok" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+                {tfaMsg.text}
+              </p>
+            )}
+
+            {backupCodes.length > 0 && (
+              <div className="rounded-lg border dark:border-slate-700 border-slate-200 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-medium dark:text-white text-slate-900">Backup Codes</p>
+                  <button onClick={() => { navigator.clipboard.writeText(backupCodes.join("\n")); }}
+                    className="flex items-center gap-1 text-xs dark:text-slate-400 text-slate-500 hover:text-emerald-400">
+                    <Copy className="w-3.5 h-3.5" /> Copy all
+                  </button>
+                </div>
+                <p className="text-xs dark:text-slate-400 text-slate-500 mb-3">
+                  Save these codes somewhere safe. Each can be used once if you lose access to your authenticator.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {backupCodes.map(c => (
+                    <code key={c} className="text-xs font-mono dark:bg-slate-800 bg-slate-100 px-2 py-1 rounded text-center dark:text-slate-300 text-slate-700">
+                      {c}
+                    </code>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!twoFactorEnabled && !tfaSetup && (
+              <button onClick={startTfaSetup}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors">
+                <ShieldCheck className="w-4 h-4" /> Set Up 2FA
+              </button>
+            )}
+
+            {!twoFactorEnabled && tfaSetup && (
+              <div className="space-y-4">
+                <p className="text-sm dark:text-slate-300 text-slate-700">
+                  Scan this QR code with your authenticator app, then enter the 6-digit code to confirm.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 items-start">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={tfaSetup.qrDataUrl} alt="2FA QR Code" className="w-40 h-40 rounded-lg border dark:border-slate-700 border-slate-200" />
+                  <div className="flex-1 space-y-3">
+                    <div>
+                      <p className="text-xs dark:text-slate-400 text-slate-500 mb-1">Or enter this secret manually:</p>
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs font-mono dark:bg-slate-800 bg-slate-100 px-2 py-1 rounded flex-1 dark:text-slate-300 text-slate-700 break-all">
+                          {showSecret ? tfaSetup.secret : "••••••••••••••••"}
+                        </code>
+                        <button onClick={() => setShowSecret(v => !v)} className="dark:text-slate-400 text-slate-500">
+                          {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                        <button onClick={() => navigator.clipboard.writeText(tfaSetup.secret)} className="dark:text-slate-400 text-slate-500 hover:text-emerald-400">
+                          <Copy className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className={LABEL}>Confirmation Code</label>
+                      <input type="text" inputMode="numeric" maxLength={6} value={tfaCode}
+                        onChange={e => setTfaCode(e.target.value.replace(/\D/g, ""))}
+                        placeholder="000000" className={INPUT} />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={enableTfa} disabled={tfaLoading || tfaCode.length < 6}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors disabled:opacity-50">
+                        <ShieldCheck className="w-4 h-4" /> {tfaLoading ? "Enabling..." : "Enable 2FA"}
+                      </button>
+                      <button onClick={() => { setTfaSetup(null); setTfaCode(""); }}
+                        className="px-4 py-2 rounded-lg border dark:border-slate-700 border-slate-300 dark:text-slate-400 text-slate-600 text-sm transition-colors hover:dark:bg-slate-800 hover:bg-slate-50">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {twoFactorEnabled && (
+              <div className="space-y-3">
+                <div>
+                  <label className={LABEL}>Enter your current TOTP code to disable 2FA</label>
+                  <input type="text" inputMode="numeric" maxLength={6} value={tfaCode}
+                    onChange={e => setTfaCode(e.target.value.replace(/\D/g, ""))}
+                    placeholder="000000" className={`${INPUT} max-w-xs`} />
+                </div>
+                <button onClick={disableTfa} disabled={tfaLoading || tfaCode.length < 6}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 text-sm font-medium transition-colors disabled:opacity-50">
+                  <ShieldOff className="w-4 h-4" /> {tfaLoading ? "Disabling..." : "Disable 2FA"}
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── Data ── */}
+        {activeCategory === "data" && (
+          <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
+            <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+              <Database className="w-4 h-4 text-blue-400" /> Data Management
+            </h2>
+            <p className="text-sm dark:text-slate-400 text-slate-500">
+              Export your complete trading history for backup or import trades from a CSV or JSON file.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <button onClick={() => exportTrades("csv")}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors">
+                <Download className="w-4 h-4" /> Export as CSV
+              </button>
+              <button onClick={() => exportTrades("json")}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors">
+                <Download className="w-4 h-4" /> Export as JSON
+              </button>
+              <label className="flex items-center gap-2 px-4 py-2 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors cursor-pointer">
+                <Upload className="w-4 h-4" />
+                {importing ? "Importing..." : "Import Trades"}
+                <input type="file" accept=".csv,.json" onChange={handleImportFile} disabled={importing} className="hidden" />
+              </label>
+            </div>
+            {importResult && (
+              <div className={`rounded-lg px-4 py-3 text-sm ${importResult.imported > 0 ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-red-500/10 border border-red-500/20"}`}>
+                <div className="flex items-center justify-between">
+                  <span className={importResult.imported > 0 ? "text-emerald-400" : "text-red-400"}>
+                    {importResult.imported > 0
+                      ? `Imported ${importResult.imported} trade${importResult.imported !== 1 ? "s" : ""} successfully.`
+                      : "No trades imported."}
+                    {importResult.skipped > 0 && ` ${importResult.skipped} skipped.`}
+                  </span>
+                  <button onClick={() => setImportResult(null)} className="dark:text-slate-400 text-slate-500 hover:dark:text-white hover:text-slate-900 text-xs">
+                    Dismiss
+                  </button>
+                </div>
+                {importResult.errors.length > 0 && (
+                  <ul className="mt-2 space-y-0.5 text-xs dark:text-slate-400 text-slate-500">
+                    {importResult.errors.slice(0, 10).map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                    {importResult.errors.length > 10 && (
+                      <li>...and {importResult.errors.length - 10} more errors</li>
+                    )}
+                  </ul>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── Admin: Users ── */}
+        {activeCategory === "admin-users" && isAdmin && (
+          <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
+            <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+              <Users className="w-4 h-4 text-emerald-400" /> User Management
+            </h2>
+
+            {adminUsersLoading && <p className="text-sm dark:text-slate-400 text-slate-500">Loading...</p>}
+            {adminUsersError && <p className="text-sm text-red-400">{adminUsersError}</p>}
+
+            {!adminUsersLoading && !adminUsersError && adminUsers.length > 0 && (
+              <div className="border dark:border-slate-700 border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b dark:border-slate-700 border-slate-200">
+                      <th className="text-left px-4 py-2.5 text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wide">User</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wide hidden sm:table-cell">Joined</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wide hidden sm:table-cell">Status</th>
+                      <th className="px-4 py-2.5" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminUsers.map(user => (
+                      <tr key={user.id} className="border-b dark:border-slate-700/50 border-slate-100 last:border-0">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-7 h-7 rounded-full bg-emerald-600/20 flex items-center justify-center text-emerald-400 text-[10px] font-bold shrink-0">
+                              {user.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-medium dark:text-white text-slate-900 text-sm">{user.name}</span>
+                                {!!user.is_admin && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium">Admin</span>
+                                )}
+                              </div>
+                              <div className="dark:text-slate-400 text-slate-500 text-xs">{user.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs hidden sm:table-cell">
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3 hidden sm:table-cell">
+                          <div className="flex items-center gap-2">
+                            {user.email_verified ? (
+                              <span className="flex items-center gap-1 text-xs text-emerald-400">
+                                <UserCheck className="w-3.5 h-3.5" /> Verified
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-xs dark:text-slate-500 text-slate-400">
+                                <UserX className="w-3.5 h-3.5" /> Unverified
+                              </span>
+                            )}
+                            {!!user.two_factor_enabled && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700/50 dark:text-slate-400 text-slate-500">2FA</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => toggleAdminRole(user)}
+                              title={user.is_admin ? "Remove admin" : "Make admin"}
+                              className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors dark:text-slate-400 text-slate-500">
+                              {user.is_admin ? <ShieldOff className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                            </button>
+                            <button onClick={() => deleteAdminUser(user)}
+                              title="Delete user"
+                              className="p-1.5 rounded-lg hover:dark:bg-red-500/10 hover:bg-red-50 transition-colors text-red-400">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── Admin: System Settings ── */}
+        {activeCategory === "admin-settings" && isAdmin && (
+          <>
+            <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
+              <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+                <Settings className="w-4 h-4 text-emerald-400" /> System Settings
+              </h2>
+              {sysLoading ? (
+                <p className="text-sm dark:text-slate-400 text-slate-500">Loading...</p>
+              ) : (
+                <>
+                  {/* New user defaults */}
+                  <div>
+                    <h3 className="text-sm font-medium dark:text-white text-slate-900 mb-3">New User Defaults</h3>
+                    <p className={HINT + " mb-3"}>These values are seeded for every new account at registration.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className={LABEL}>Account Size ($)</label>
+                        <input type="number" value={sysSettings.account_size}
+                          onChange={e => setSysSettings(s => ({ ...s, account_size: e.target.value }))} className={INPUT} />
+                      </div>
+                      <div>
+                        <label className={LABEL}>Risk Per Trade (%)</label>
+                        <input type="number" value={sysSettings.risk_per_trade} step="0.1"
+                          onChange={e => setSysSettings(s => ({ ...s, risk_per_trade: e.target.value }))} className={INPUT} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* App URL */}
+                  <div className="pt-4 border-t dark:border-slate-800 border-slate-100">
+                    <h3 className="text-sm font-medium dark:text-white text-slate-900 mb-1">App URL</h3>
+                    <p className={HINT + " mb-3"}>Used in email links. Leave blank to use the NEXT_PUBLIC_APP_URL env var.</p>
+                    <input type="url" value={sysSettings.app_url}
+                      onChange={e => setSysSettings(s => ({ ...s, app_url: e.target.value }))}
+                      placeholder="https://yourdomain.com" className={INPUT} />
+                  </div>
+
+                  {/* SMTP */}
+                  <div className="pt-4 border-t dark:border-slate-800 border-slate-100 space-y-4">
+                    <div>
+                      <h3 className="text-sm font-medium dark:text-white text-slate-900 mb-1">SMTP Email</h3>
+                      <p className={HINT + " mb-3"}>Leave all blank to fall back to .env.local vars.</p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="sm:col-span-2">
+                        <label className={LABEL}>SMTP Host</label>
+                        <input type="text" value={sysSettings.smtp_host}
+                          onChange={e => setSysSettings(s => ({ ...s, smtp_host: e.target.value }))}
+                          placeholder="smtp.gmail.com" className={INPUT} />
+                      </div>
+                      <div>
+                        <label className={LABEL}>Port</label>
+                        <input type="number" value={sysSettings.smtp_port}
+                          onChange={e => setSysSettings(s => ({ ...s, smtp_port: e.target.value }))}
+                          placeholder="587" className={INPUT} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className={LABEL}>Security</label>
+                      <select value={sysSettings.smtp_secure}
+                        onChange={e => setSysSettings(s => ({ ...s, smtp_secure: e.target.value }))} className={INPUT}>
+                        <option value="false">STARTTLS (port 587)</option>
+                        <option value="true">SSL/TLS (port 465)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={LABEL}>Username</label>
+                      <input type="text" value={sysSettings.smtp_user}
+                        onChange={e => setSysSettings(s => ({ ...s, smtp_user: e.target.value }))}
+                        placeholder="you@gmail.com" autoComplete="off" className={INPUT} />
+                    </div>
+                    <div>
+                      <label className={LABEL}>Password / App Password</label>
+                      <div className="relative">
+                        <input type={showSmtpPass ? "text" : "password"} value={sysSettings.smtp_pass}
+                          onChange={e => setSysSettings(s => ({ ...s, smtp_pass: e.target.value }))}
+                          placeholder="••••••••" autoComplete="new-password" className={`${INPUT} pr-10`} />
+                        <button type="button" onClick={() => setShowSmtpPass(v => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 dark:text-slate-400 text-slate-500">
+                          {showSmtpPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className={LABEL}>From Address</label>
+                      <input type="text" value={sysSettings.smtp_from}
+                        onChange={e => setSysSettings(s => ({ ...s, smtp_from: e.target.value }))}
+                        placeholder='Ledger Of Alpha <noreply@yourdomain.com>' className={INPUT} />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-2">
+                    <button onClick={saveSysSettings} disabled={sysSaving}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white font-medium transition-colors disabled:opacity-50">
+                      {sysSaved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                      {sysSaved ? "Saved!" : sysSaving ? "Saving..." : "Save System Settings"}
+                    </button>
+                  </div>
+                </>
+              )}
+            </section>
+          </>
+        )}
+
+        {/* Save button — always visible */}
+        <div className="flex items-center gap-3">
+          <button onClick={save} disabled={saving}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white font-medium transition-colors disabled:opacity-50">
+            <Save className="w-4 h-4" />
+            {saving ? "Saving..." : "Save Settings"}
+          </button>
+          {saved && (
+            <span className="flex items-center gap-1.5 text-emerald-400 text-sm">
+              <CheckCircle className="w-4 h-4" /> Settings saved!
+            </span>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense>
+      <SettingsContent />
+    </Suspense>
   );
 }

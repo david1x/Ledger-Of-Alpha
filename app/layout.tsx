@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { ThemeProvider } from "next-themes";
 import Navbar from "@/components/Navbar";
 import PersistentChart from "@/components/PersistentChart";
@@ -12,15 +13,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning data-sidebar="collapsed">
       <body className="dark:bg-slate-950 bg-slate-50 dark:text-white text-slate-900 min-h-screen">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <Navbar />
-          <PersistentChart />
-          <main className="pt-14 max-w-screen-2xl mx-auto px-4 py-6">
+          <Suspense><PersistentChart /></Suspense>
+          <main className="sidebar-push pt-14 px-6 py-6">
             {children}
           </main>
-          <footer className="border-t dark:border-slate-800 border-slate-200 py-4">
+          <footer className="sidebar-push border-t dark:border-slate-800 border-slate-200 py-4">
             <div className="flex items-center justify-center gap-1 text-xs dark:text-slate-500 text-slate-400">
               <span>Built by</span>
               <span className="dark:text-slate-300 text-slate-600 font-medium">David Amar</span>

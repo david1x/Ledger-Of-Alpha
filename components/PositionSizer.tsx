@@ -98,7 +98,7 @@ export default function PositionSizer({
           <span className="text-xs dark:text-slate-400 text-slate-500">
             {isManual ? "Recommended shares" : "Recommended shares"}
           </span>
-          {isManual && onApplyShares && (
+          {onApplyShares && (
             <button
               onClick={() => onApplyShares(result.recommendedShares)}
               className="text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors"

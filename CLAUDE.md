@@ -20,10 +20,19 @@ Next.js 15 (App Router), TypeScript, Tailwind CSS v3, better-sqlite3, recharts, 
 - `data/` — SQLite database (auto-created on first API call, gitignored)
 
 ## Key Files
-- `components/PersistentChart.tsx` — Chart page shell (~1100 lines). Contains watchlist sidebar, TradingView widget, Add Trade panel, Discord integration, tab system. This is the largest and most complex component.
+- `components/dashboard/DashboardShell.tsx` — Main dashboard orchestrator (~770 lines). 24 widget cards with drag-reorder, hide/show, 3 size modes (large/medium/compact), time filtering (30/60/90/All), layout persistence via settings API.
+- `components/dashboard/WeeklyCalendar.tsx` — Weekly calendar strip with daily P&L, trade counts, click-to-popup trade details
+- `components/dashboard/HeatmapWidget.tsx` — Monthly calendar heatmap with click-to-popup trade details
+- `components/dashboard/ChartWidgets.tsx` — Area/Bar chart widget renderers (cumulative P&L, drawdown, win%, etc.)
+- `components/dashboard/ComparisonWidget.tsx` — Two-value side-by-side comparison cards
+- `components/dashboard/PerfTableWidget.tsx` — Performance breakdown tables with pagination
+- `components/dashboard/StatWidget.tsx` — Single stat display cards
+- `components/dashboard/SymbolPnlWidget.tsx` — Horizontal bar chart for P&L by symbol
+- `components/AccountBanner.tsx` — Shared account banner (balance, P&L, win rate, expectancy) used on trades + journal pages
+- `components/PersistentChart.tsx` — Chart page shell (~1100 lines). Contains watchlist sidebar, TradingView widget, Add Trade panel, Discord integration, tab system.
 - `components/SetupChart.tsx` — Interactive lightweight-charts candlestick chart for trade setup
 - `components/MiniChart.tsx` — Read-only mini chart for journal cards and trade hover
-- `components/Tooltip.tsx` — Reusable hover tooltip with auto-positioning (used across StatsCards and Dashboard)
+- `components/Tooltip.tsx` — Reusable hover tooltip with auto-positioning
 - `lib/db.ts` — Database initialization + inline migrations (no separate migration files)
 - `lib/auth.ts` — JWT auth (via `jose`), 2FA (TOTP), requireAdmin helper
 - `middleware.ts` — Route protection (JWT session + guest cookie), admin guards, 2FA enforcement
@@ -53,11 +62,19 @@ All API routes live under `app/api/`. Key patterns:
 - Both sidebars (watchlist + trade panel) are resizable with persisted widths (`watchlist_width`, `panel_width` settings)
 - Sectors are inserted at the TOP of the items list (user preference)
 
+### Analytics Dashboard
+- `app/page.tsx` is minimal — imports `DashboardShell` from `components/dashboard/`
+- **24 widget cards**: area charts, comparison cards, performance tables, single stats, heatmap, symbol P&L
+- **6-column CSS grid** (`grid-cols-1 md:grid-cols-6`) with 3 size modes per widget: large (3 cols), medium (2 cols), compact (1 col)
+- **Edit mode**: drag-reorder via @dnd-kit, hide/show widgets, cycle card sizes — all persisted as `dashboard_layout` setting
+- **Time filter**: 30/60/90/All days — filters all widget data by exit_date
+- **Weekly calendar strip**: shows daily P&L and trade counts, click day to see trade popup
+- **Heatmap**: monthly calendar with color-coded P&L, click day for trade popup
+- **AccountBanner**: shared component on trades + journal pages (balance, P&L, win rate, expectancy)
+
 ### Dynamic Account Balance
 - `account_size` setting stores the **starting balance** (default $10,000)
 - **Current balance** is computed client-side as `startingBalance + totalRealizedPnl` — no DB changes needed
-- Dashboard has a collapsible **Account Overview** banner (collapsed + hidden by default) showing current balance, starting balance, and total P&L with percentage
-- **Eye toggle** hides/reveals all monetary values across the banner and StatsCards (privacy mode)
 - PositionSizer (chart page + trade modal) uses `currentBalance` for position sizing
 - Settings page labels `account_size` as "Starting Balance" and shows computed current balance below
 
@@ -67,6 +84,12 @@ All UI state is persisted via `/api/settings` as JSON strings:
 - `watchlists` — watchlist data (items array with symbols + sectors)
 - `watchlist_width` — watchlist sidebar width
 - `panel_width` — trade panel sidebar width
+- `dashboard_layout` — widget order, hidden list, and size per widget
+- `dashboard_time_filter` — time period filter (30/60/90/all)
+
+### Settings Page
+- Admin pages (Users, System Settings) are integrated into the settings sidebar
+- Uses `?tab=` query param for navigation between sections
 
 ### Database
 - SQLite with WAL mode and foreign keys enabled

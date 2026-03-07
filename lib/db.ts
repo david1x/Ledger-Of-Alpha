@@ -200,4 +200,24 @@ function runMigrations(db: Database.Database) {
       db.exec(`ALTER TABLE trades ADD COLUMN risk_per_trade REAL;`);
     }
   }
+
+  // ── 007: price alerts ──────────────────────────────────────────────────
+  if (!hasMigration(db, "007_alerts")) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS alerts (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id      TEXT NOT NULL,
+        symbol       TEXT NOT NULL,
+        condition    TEXT NOT NULL CHECK(condition IN ('above','below','crosses')),
+        target_price REAL NOT NULL,
+        repeating    INTEGER NOT NULL DEFAULT 0,
+        active       INTEGER NOT NULL DEFAULT 1,
+        triggered_at TEXT,
+        created_at   TEXT DEFAULT (datetime('now')),
+        note         TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_alerts_user_active ON alerts(user_id, active);
+    `);
+    markMigration(db, "007_alerts");
+  }
 }

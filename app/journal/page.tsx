@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Trade } from "@/lib/types";
-import { ArrowUpRight, ArrowDownRight, Tag, FileText, Pencil, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Tag, FileText, Pencil, Trash2, ChevronDown, ChevronUp, LineChart, ExternalLink } from "lucide-react";
+import AccountBanner from "@/components/AccountBanner";
+import { useRouter } from "next/navigation";
 import TradeModal from "@/components/TradeModal";
 import MiniChart from "@/components/MiniChart";
 import clsx from "clsx";
@@ -26,7 +28,18 @@ function calcPotentialPnl(t: Trade) {
   return { profit, loss, rr };
 }
 
+function buildChartUrl(t: Trade): string {
+  const params = new URLSearchParams({ symbol: t.symbol });
+  if (t.entry_price != null) params.set("entry", String(t.entry_price));
+  if (t.stop_loss != null) params.set("stop", String(t.stop_loss));
+  if (t.take_profit != null) params.set("target", String(t.take_profit));
+  if (t.direction) params.set("direction", t.direction);
+  if (t.status) params.set("status", t.status);
+  return `/chart?${params}`;
+}
+
 export default function JournalPage() {
+  const router = useRouter();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [editTrade, setEditTrade] = useState<Trade | null>(null);
@@ -34,12 +47,19 @@ export default function JournalPage() {
   const [filter, setFilter] = useState<"all" | "with-notes">("all");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [chartsVisible, setChartsVisible] = useState(true);
+  const [accountSize, setAccountSize] = useState(10000);
+  const [hidden, setHidden] = useState(true);
 
   const load = async () => {
     setLoading(true);
-    const res = await fetch("/api/trades");
-    const data = await res.json();
+    const [tradesRes, settingsRes] = await Promise.all([
+      fetch("/api/trades"),
+      fetch("/api/settings"),
+    ]);
+    const data = await tradesRes.json();
+    const settingsData = await settingsRes.json();
     if (Array.isArray(data)) setTrades(data);
+    if (settingsData.account_size) setAccountSize(parseFloat(settingsData.account_size));
     setLoading(false);
   };
 
@@ -121,6 +141,9 @@ export default function JournalPage() {
         </div>
       </div>
 
+      {/* Account Stats Banner */}
+      <AccountBanner trades={trades} accountSize={accountSize} hidden={hidden} onToggleHidden={() => setHidden(v => !v)} />
+
       {loading ? (
         <div className="text-center py-12 dark:text-slate-400 text-slate-500">Loading...</div>
       ) : displayed.length === 0 ? (
@@ -182,7 +205,7 @@ export default function JournalPage() {
                       />
                       <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-emerald-400 text-lg">{t.symbol}</span>
+                        <span className="font-bold text-emerald-400 text-lg cursor-pointer hover:underline" onClick={() => router.push(buildChartUrl(t))}>{t.symbol}</span>
                         <span className={clsx("px-2 py-0.5 rounded-full text-xs font-medium capitalize", STATUS_COLOR[t.status])}>
                           {t.status}
                         </span>
@@ -198,12 +221,31 @@ export default function JournalPage() {
                       </div>
                     </div>
                     </div>
-                    <button
-                      onClick={() => { setEditTrade(t); setShowModal(true); }}
-                      className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
-                    >
-                      <Pencil className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
-                    </button>
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        onClick={() => router.push(buildChartUrl(t))}
+                        className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
+                        title="Open in Chart"
+                      >
+                        <LineChart className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                      </button>
+                      <a
+                        href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(t.symbol)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
+                        title="Open in TradingView"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                      </a>
+                      <button
+                        onClick={() => { setEditTrade(t); setShowModal(true); }}
+                        className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Price info */}

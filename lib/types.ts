@@ -79,3 +79,19 @@ export interface PositionSizeResult {
 }
 
 export type QuoteMap = Record<string, number>;
+
+// ── Alerts ───────────────────────────────────────────────────────────────
+export type AlertCondition = "above" | "below" | "crosses";
+
+export interface Alert {
+  id: number;
+  user_id: string;
+  symbol: string;
+  condition: AlertCondition;
+  target_price: number;
+  repeating: number;       // 0 | 1
+  active: number;          // 0 | 1
+  triggered_at: string | null;
+  created_at: string;
+  note: string | null;
+}

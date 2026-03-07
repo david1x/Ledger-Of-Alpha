@@ -4,6 +4,8 @@ import { Trade, QuoteMap } from "@/lib/types";
 import TradeTable, { ALL_COLUMNS, DEFAULT_COLUMNS, ColumnKey } from "@/components/TradeTable";
 import TradeModal from "@/components/TradeModal";
 import { Plus, Search, Filter, SlidersHorizontal, Download, Upload, ChevronDown } from "lucide-react";
+import AccountBanner from "@/components/AccountBanner";
+import AlertModal from "@/components/AlertModal";
 import { tradesToCsv, csvToTrades } from "@/lib/csv";
 import { TRADE_FIELDS } from "@/lib/validate-trade";
 
@@ -26,6 +28,9 @@ export default function TradesPage() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
   const [importing, setImporting] = useState(false);
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [alertDefaults, setAlertDefaults] = useState<{ symbol?: string; price?: number }>({});
+  const [hidden, setHidden] = useState(true);
   const columnMenuRef = useRef<HTMLDivElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -282,6 +287,9 @@ export default function TradesPage() {
         </div>
       </div>
 
+      {/* Account Stats Banner */}
+      <AccountBanner trades={trades} quotes={quotes} accountSize={accountSize} hidden={hidden} onToggleHidden={() => setHidden(v => !v)} />
+
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Symbol search */}
@@ -385,7 +393,7 @@ export default function TradesPage() {
       {loading ? (
         <div className="text-center py-12 dark:text-slate-400 text-slate-500">Loading...</div>
       ) : (
-        <TradeTable trades={trades} onEdit={(t) => { setEditTrade(t); setShowModal(true); }} onDelete={handleDelete} onBulkDelete={handleBulkDelete} quotes={quotes} visibleColumns={visibleColumns} defaultRiskPercent={riskPercent} />
+        <TradeTable trades={trades} onEdit={(t) => { setEditTrade(t); setShowModal(true); }} onDelete={handleDelete} onBulkDelete={handleBulkDelete} quotes={quotes} visibleColumns={visibleColumns} defaultRiskPercent={riskPercent} onSetAlert={(symbol, price) => { setAlertDefaults({ symbol, price }); setShowAlertModal(true); }} />
       )}
 
       {showModal && (
@@ -393,10 +401,17 @@ export default function TradesPage() {
           trade={editTrade}
           onClose={() => { setShowModal(false); setEditTrade(null); }}
           onSaved={load}
-          accountSize={accountSize}
           riskPercent={riskPercent}
         />
       )}
+
+      <AlertModal
+        open={showAlertModal}
+        onClose={() => { setShowAlertModal(false); setAlertDefaults({}); }}
+        onSaved={() => {}}
+        defaultSymbol={alertDefaults.symbol}
+        defaultPrice={alertDefaults.price}
+      />
     </div>
   );
 }

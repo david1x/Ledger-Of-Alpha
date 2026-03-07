@@ -2,7 +2,8 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
-import { Camera, Send, CheckCircle, AlertCircle, Plus, X, ExternalLink, Link, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Pencil, List, Download, Upload, MoreHorizontal, GripVertical, FolderPlus } from "lucide-react";
+import { Camera, Send, CheckCircle, AlertCircle, Plus, X, ExternalLink, Link, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Pencil, List, Download, Upload, MoreHorizontal, GripVertical, FolderPlus, Bell } from "lucide-react";
+import AlertModal from "@/components/AlertModal";
 import RiskCalculator from "@/components/RiskCalculator";
 import PositionSizer from "@/components/PositionSizer";
 import SetupChart, { type SetupChartHandle } from "@/components/SetupChart";
@@ -187,6 +188,9 @@ export default function PersistentChart() {
   const [loaded, setLoaded] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
+
+  // Alert modal
+  const [showAlertModal, setShowAlertModal] = useState(false);
 
   // Discord
   const [discordMode, setDiscordMode] = useState<"capture" | "link">("capture");
@@ -843,7 +847,7 @@ export default function PersistentChart() {
 
   return (
     <div
-      className="fixed left-0 right-0 bottom-0 flex-col"
+      className="fixed left-0 right-0 bottom-0 flex-col sidebar-push-fixed"
       style={{ top: "56px", display: isChart ? "flex" : "none" }}
     >
 
@@ -906,6 +910,11 @@ export default function PersistentChart() {
           className="flex items-center gap-1 px-2.5 py-1 rounded border dark:border-slate-700 border-slate-200 dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 text-xs font-medium transition-colors whitespace-nowrap">
           <ExternalLink className="w-3 h-3" /><span className="hidden sm:inline">Open in TradingView</span>
         </a>
+
+        <button onClick={() => setShowAlertModal(true)} title="Set Price Alert"
+          className="flex items-center gap-1 px-2.5 py-1 rounded border dark:border-slate-700 border-slate-200 dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 text-xs font-medium transition-colors">
+          <Bell className="w-3 h-3" /><span className="hidden sm:inline">Alert</span>
+        </button>
 
         <div className="flex-1" />
 
@@ -1515,6 +1524,13 @@ export default function PersistentChart() {
           </button>
         )}
       </div>
+
+      <AlertModal
+        open={showAlertModal}
+        onClose={() => setShowAlertModal(false)}
+        onSaved={() => {}}
+        defaultSymbol={activeTab.symbol || undefined}
+      />
     </div>
   );
 }

@@ -38,8 +38,7 @@ function LoginForm() {
       if (data.requires2fa) {
         router.push("/verify-2fa");
       } else {
-        router.push(params.get("next") ?? "/");
-        router.refresh();
+        window.location.href = params.get("next") ?? "/";
       }
     } finally {
       setLoading(false);

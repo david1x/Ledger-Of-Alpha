@@ -2,9 +2,24 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Trade, QuoteMap } from "@/lib/types";
-import { Pencil, Trash2, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown } from "lucide-react";
+import { Pencil, Trash2, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, LineChart, ExternalLink, Bell } from "lucide-react";
+import { useRouter } from "next/navigation";
 import MiniChart from "@/components/MiniChart";
 import clsx from "clsx";
+
+function buildChartUrl(t: Trade): string {
+  const params = new URLSearchParams({ symbol: t.symbol });
+  if (t.entry_price != null) params.set("entry", String(t.entry_price));
+  if (t.stop_loss != null) params.set("stop", String(t.stop_loss));
+  if (t.take_profit != null) params.set("target", String(t.take_profit));
+  if (t.direction) params.set("direction", t.direction);
+  if (t.status) params.set("status", t.status);
+  return `/chart?${params}`;
+}
+
+function buildTradingViewUrl(symbol: string): string {
+  return `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(symbol)}`;
+}
 
 export const ALL_COLUMNS = [
   { key: "symbol",     label: "Symbol",     default: true },
@@ -36,6 +51,7 @@ interface Props {
   quotes?: QuoteMap;
   visibleColumns?: ColumnKey[];
   defaultRiskPercent?: number;
+  onSetAlert?: (symbol: string, defaultPrice?: number) => void;
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -88,7 +104,8 @@ function getSortValue(t: Trade, key: ColumnKey, quotes: QuoteMap, defaultRiskPer
   }
 }
 
-export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, limit, quotes = {}, visibleColumns, defaultRiskPercent }: Props) {
+export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, limit, quotes = {}, visibleColumns, defaultRiskPercent, onSetAlert }: Props) {
+  const router = useRouter();
   const baseRows = limit ? trades.slice(0, limit) : trades;
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [sortKey, setSortKey] = useState<ColumnKey | null>(null);
@@ -225,7 +242,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                         className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
                       />
                     )}
-                    {show("symbol") && <span className="font-bold text-emerald-400">{t.symbol}</span>}
+                    {show("symbol") && <span className="font-bold text-emerald-400 cursor-pointer hover:underline" onClick={() => router.push(buildChartUrl(t))}>{t.symbol}</span>}
                     {show("direction") && (
                       t.direction === "long"
                         ? <span className="flex items-center gap-0.5 text-xs text-emerald-400"><ArrowUpRight className="w-3 h-3" />Long</span>
@@ -238,6 +255,17 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                     )}
                   </div>
                   <div className="flex items-center gap-0.5 shrink-0">
+                    <button onClick={() => router.push(buildChartUrl(t))} className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors" title="Open in Chart">
+                      <LineChart className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                    </button>
+                    <a href={buildTradingViewUrl(t.symbol)} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors" title="Open in TradingView">
+                      <ExternalLink className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                    </a>
+                    {onSetAlert && (
+                      <button onClick={() => onSetAlert(t.symbol, t.entry_price ?? undefined)} className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors" title="Set Price Alert">
+                        <Bell className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                      </button>
+                    )}
                     <button onClick={() => onEdit(t)} className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors" title="Edit">
                       <Pencil className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
                     </button>
@@ -378,9 +406,10 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                     )}
                     {show("symbol") && (
                       <td
-                        className="px-3 py-2.5 font-bold text-emerald-400 cursor-default"
+                        className="px-3 py-2.5 font-bold text-emerald-400 cursor-pointer hover:underline"
                         onMouseEnter={(e) => handleSymbolEnter(e, t)}
                         onMouseLeave={handleSymbolLeave}
+                        onClick={() => router.push(buildChartUrl(t))}
                       >
                         {t.symbol}
                       </td>
@@ -449,6 +478,31 @@ export default function TradeTable({ trades, onEdit, onDelete, onBulkDelete, lim
                     )}
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => router.push(buildChartUrl(t))}
+                          className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
+                          title="Open in Chart"
+                        >
+                          <LineChart className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                        </button>
+                        <a
+                          href={buildTradingViewUrl(t.symbol)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
+                          title="Open in TradingView"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                        </a>
+                        {onSetAlert && (
+                          <button
+                            onClick={() => onSetAlert(t.symbol, t.entry_price ?? undefined)}
+                            className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
+                            title="Set Price Alert"
+                          >
+                            <Bell className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                          </button>
+                        )}
                         <button
                           onClick={() => onEdit(t)}
                           className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"

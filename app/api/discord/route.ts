@@ -13,15 +13,19 @@ export async function POST(req: NextRequest) {
   try {
     const db = getDb();
 
-    // Get user's webhook, falling back to _system default
-    const row = db.prepare(`
-      SELECT COALESCE(u.value, s.value) AS value
-      FROM settings s
-      LEFT JOIN settings u ON u.key = s.key AND u.user_id = ?
-      WHERE s.user_id = '_system' AND s.key = 'discord_webhook'
-    `).get(user.id, ) as { value: string } | undefined;
-
-    const webhook = row?.value ?? "";
+    // Get user's webhook, falling back to alert webhook then _system default
+    const getWebhook = (key: string) => {
+      const r = db.prepare(`
+        SELECT value FROM settings
+        WHERE user_id = ? AND key = ?
+        UNION ALL
+        SELECT value FROM settings
+        WHERE user_id = '_system' AND key = ?
+        LIMIT 1
+      `).get(user.id, key, key) as { value: string } | undefined;
+      return r?.value ?? "";
+    };
+    const webhook = getWebhook("discord_webhook") || getWebhook("alert_discord_webhook");
     if (!webhook) {
       return NextResponse.json({ error: "Discord webhook not configured. Go to Settings." }, { status: 400 });
     }
