@@ -123,6 +123,8 @@ export default function TradeTable({
   onSetAlert,
   selectedIds,
   onToggleSelect,
+  onSelectAll,
+  allSelected,
   selectable: selectableProp
 }: Props) {
   const router = useRouter();
