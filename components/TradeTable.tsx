@@ -452,12 +452,17 @@ export default function TradeTable({
                   <tr key={t.id} className={clsx("hover:dark:bg-slate-800/30 hover:bg-slate-50/50 transition-colors group", isSelected && "dark:bg-emerald-500/5 bg-emerald-50/50")}>
                     {selectable && (
                       <td className="px-4 py-3 w-8">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleOne(t.id)}
-                          className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
-                        />
+                        <div className={clsx(
+                          "transition-opacity duration-200",
+                          !isSelected && selected.size === 0 ? "opacity-0 group-hover:opacity-100" : "opacity-100"
+                        )}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleOne(t.id)}
+                            className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                          />
+                        </div>
                       </td>
                     )}
                     {show("symbol") && (

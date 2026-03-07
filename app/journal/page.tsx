@@ -363,7 +363,7 @@ export default function JournalPage() {
             selectedIds={selected}
             onToggleSelect={toggleOne}
             onSelectAll={(ids) => setSelected(new Set(ids))}
-            selectable={selected.size > 0}
+            selectable={true}
           />
         </div>
       ) : viewMode === "review" ? (
@@ -613,16 +613,21 @@ export default function JournalPage() {
             const pot = calcPotentialPnl(t);
 
             return (
-              <div key={t.id} className={clsx("rounded-xl dark:bg-slate-900 bg-white p-4 space-y-3 hover:bg-emerald-500/5 transition-colors border dark:border-slate-800 border-slate-100", isSelected && "ring-2 ring-emerald-500")}>
+              <div key={t.id} className={clsx("rounded-xl dark:bg-slate-900 bg-white p-4 space-y-3 hover:bg-emerald-500/5 transition-colors border dark:border-slate-800 border-slate-100 group", isSelected && "ring-2 ring-emerald-500")}>
                 {/* Header */}
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-2">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleOne(t.id)}
-                      className="w-4 h-4 mt-1 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 cursor-pointer shrink-0"
-                    />
+                    <div className={clsx(
+                      "transition-opacity duration-200 mt-1",
+                      !isSelected && selected.size === 0 ? "opacity-0 group-hover:opacity-100" : "opacity-100"
+                    )}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleOne(t.id)}
+                        className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 cursor-pointer shrink-0"
+                      />
+                    </div>
                     <div>
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-emerald-400 text-lg cursor-pointer hover:underline" onClick={() => router.push(buildChartUrl(t))}>{t.symbol}</span>
