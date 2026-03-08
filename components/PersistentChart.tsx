@@ -183,6 +183,7 @@ export default function PersistentChart() {
   const isChart = pathname === "/chart";
 
   const nextId = useRef(2);
+  const [me, setMe] = useState<any>(null);
   const [tabs, setTabs] = useState<Tab[]>(DEFAULT_TABS);
   const [activeId, setActiveId] = useState("1");
   const [loaded, setLoaded] = useState(false);
@@ -262,62 +263,66 @@ export default function PersistentChart() {
         setTotalPnl(pnl);
       }
     }).catch(() => {});
-    fetch("/api/settings")
-      .then(r => r.json())
-      .then((data: Record<string, string>) => {
-        if (data.account_size) setAccountSize(parseFloat(data.account_size));
-        if (data.risk_per_trade) setRiskPercent(parseFloat(data.risk_per_trade));
-        if (data.commission_per_trade) setCommission(parseFloat(data.commission_per_trade));
-        if (data.chart_tabs) {
-          try {
-            const saved: Tab[] = JSON.parse(data.chart_tabs);
-            if (Array.isArray(saved) && saved.length > 0) {
-              const maxId = Math.max(...saved.map(t => parseInt(t.id) || 0));
-              nextId.current = maxId + 1;
-              setTabs(saved);
-              setActiveId(saved[0].id);
-            }
-          } catch { /* ignore */ }
-        }
-        if (data.watchlists) {
-          try {
-            const saved: LegacyWatchlist[] = JSON.parse(data.watchlists);
-            if (Array.isArray(saved) && saved.length > 0) {
-              const migrated = saved.map(migrateWatchlist);
-              const maxId = Math.max(...migrated.map(w => parseInt(w.id) || 0));
-              nextWlId.current = maxId + 1;
-              // Compute max sector id
-              let maxSectorId = 0;
-              for (const wl of migrated) {
-                for (const item of wl.items) {
-                  if (isSector(item)) {
-                    const sid = parseInt(item.id) || 0;
-                    if (sid > maxSectorId) maxSectorId = sid;
-                  }
+    
+    Promise.all([
+      fetch("/api/settings").then(r => r.json()),
+      fetch("/api/auth/me").then(r => r.json()),
+    ]).then(([data, meData]) => {
+      setMe(meData);
+      if (data.account_size) setAccountSize(parseFloat(data.account_size));
+      if (data.risk_per_trade) setRiskPercent(parseFloat(data.risk_per_trade));
+      if (data.commission_per_trade) setCommission(parseFloat(data.commission_per_trade));
+      if (data.chart_tabs) {
+        try {
+          const saved: Tab[] = JSON.parse(data.chart_tabs);
+          if (Array.isArray(saved) && saved.length > 0) {
+            const maxId = Math.max(...saved.map(t => parseInt(t.id) || 0));
+            nextId.current = maxId + 1;
+            setTabs(saved);
+            setActiveId(saved[0].id);
+          }
+        } catch { /* ignore */ }
+      }
+      if (data.watchlists) {
+        try {
+          const saved: LegacyWatchlist[] = JSON.parse(data.watchlists);
+          if (Array.isArray(saved) && saved.length > 0) {
+            const migrated = saved.map(migrateWatchlist);
+            const maxId = Math.max(...migrated.map(w => parseInt(w.id) || 0));
+            nextWlId.current = maxId + 1;
+            // Compute max sector id
+            let maxSectorId = 0;
+            for (const wl of migrated) {
+              for (const item of wl.items) {
+                if (isSector(item)) {
+                  const sid = parseInt(item.id) || 0;
+                  if (sid > maxSectorId) maxSectorId = sid;
                 }
               }
-              nextSectorId.current = maxSectorId + 1;
-              setWatchlists(migrated);
-              setActiveWlId(migrated[0].id);
             }
-          } catch { /* ignore */ }
-        }
-        if (data.watchlist_width) {
-          const w = parseInt(data.watchlist_width);
-          if (w >= 160 && w <= 400) setWlWidth(w);
-        }
-        if (data.panel_width) {
-          const w = parseInt(data.panel_width);
-          if (w >= 300 && w <= 600) setPanelWidth(w);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoaded(true));
+            nextSectorId.current = maxSectorId + 1;
+            setWatchlists(migrated);
+            setActiveWlId(migrated[0].id);
+          }
+        } catch { /* ignore */ }
+      }
+      if (data.watchlist_width) {
+        const w = parseInt(data.watchlist_width);
+        if (w >= 160 && w <= 400) setWlWidth(w);
+      }
+      if (data.panel_width) {
+        const w = parseInt(data.panel_width);
+        if (w >= 300 && w <= 600) setPanelWidth(w);
+      }
+    })
+    .catch(() => {})
+    .finally(() => setLoaded(true));
   }, []);
 
 
   // ── Tab save ─────────────────────────────────────────────────────────────
   const saveTabs = useCallback((newTabs: Tab[]) => {
+    if (me?.guest) return;
     if (saveTabsTimer.current) clearTimeout(saveTabsTimer.current);
     saveTabsTimer.current = setTimeout(() => {
       fetch("/api/settings", {
@@ -326,9 +331,10 @@ export default function PersistentChart() {
         body: JSON.stringify({ chart_tabs: JSON.stringify(newTabs) }),
       }).catch(() => {});
     }, 600);
-  }, []);
+  }, [me]);
 
   const saveWatchlists = useCallback((next: Watchlist[]) => {
+    if (me?.guest) return;
     if (saveWlTimer.current) clearTimeout(saveWlTimer.current);
     saveWlTimer.current = setTimeout(() => {
       fetch("/api/settings", {
@@ -337,23 +343,25 @@ export default function PersistentChart() {
         body: JSON.stringify({ watchlists: JSON.stringify(next) }),
       }).catch(() => {});
     }, 600);
-  }, []);
+  }, [me]);
 
   const saveWlWidth = useCallback((w: number) => {
+    if (me?.guest) return;
     fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ watchlist_width: String(w) }),
     }).catch(() => {});
-  }, []);
+  }, [me]);
 
   const savePanelWidth = useCallback((w: number) => {
+    if (me?.guest) return;
     fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ panel_width: String(w) }),
     }).catch(() => {});
-  }, []);
+  }, [me]);
 
   const addTab = () => {
     const id = String(nextId.current++);

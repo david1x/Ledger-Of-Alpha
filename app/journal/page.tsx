@@ -44,6 +44,7 @@ function buildChartUrl(t: Trade): string {
 
 export default function JournalPage() {
   const router = useRouter();
+  const [me, setMe] = useState<any>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [editTrade, setEditTrade] = useState<Trade | null>(null);
@@ -66,6 +67,7 @@ export default function JournalPage() {
   const [isEditingReview, setIsEditingReview] = useState(false);
   const [editFormData, setEditFormData] = useState<Partial<Trade>>({});
   const [savingReview, setSavingReview] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   // ── Privacy persistence ──
   useEffect(() => {
@@ -82,12 +84,16 @@ export default function JournalPage() {
 
   const load = async () => {
     setLoading(true);
-    const [tradesRes, settingsRes] = await Promise.all([
+    const [tradesRes, settingsRes, meRes] = await Promise.all([
       fetch("/api/trades"),
       fetch("/api/settings"),
+      fetch("/api/auth/me"),
     ]);
     const data = await tradesRes.json();
     const settingsData = await settingsRes.json();
+    const meData = await meRes.json();
+    
+    setMe(meData);
     if (Array.isArray(data)) {
       setTrades(data);
       if (data.length > 0) setSelectedTradeId(data[0].id);
@@ -131,11 +137,13 @@ export default function JournalPage() {
     if (!selectedTrade) return;
     setEditFormData({ ...selectedTrade });
     setIsEditingReview(true);
+    setSaveError("");
   };
 
   const handleReviewSave = async () => {
     if (!selectedTrade || !editFormData) return;
     setSavingReview(true);
+    setSaveError("");
     try {
       const res = await fetch(`/api/trades/${selectedTrade.id}`, {
         method: "PUT",
@@ -145,9 +153,13 @@ export default function JournalPage() {
       if (res.ok) {
         setIsEditingReview(false);
         await load();
+      } else {
+        const d = await res.json();
+        setSaveError(d.error || "Failed to save changes.");
       }
     } catch (err) {
       console.error("Save error:", err);
+      setSaveError("A network error occurred.");
     } finally {
       setSavingReview(false);
     }
@@ -425,6 +437,17 @@ export default function JournalPage() {
                 {isEditingReview ? (
                   /* Inline Edit Form */
                   <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {me?.guest && (
+                      <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4" />
+                        Guest Mode: You can preview changes here, but they won't be saved to the database.
+                      </div>
+                    )}
+                    {saveError && (
+                      <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium">
+                        {saveError}
+                      </div>
+                    )}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="h-12 w-12 rounded-xl dark:bg-emerald-500/10 bg-emerald-50 flex items-center justify-center">

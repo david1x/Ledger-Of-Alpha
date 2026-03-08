@@ -293,12 +293,14 @@ export default function Navbar() {
     localStorage.setItem("privacy_hidden", String(next));
     window.dispatchEvent(new StorageEvent("storage", { key: "privacy_hidden", newValue: String(next) }));
     
-    // Persist to DB
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ privacy_mode: next ? "hidden" : "revealed" }),
-    });
+    // Persist to DB (skip for guests)
+    if (me && !me.guest) {
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ privacy_mode: next ? "hidden" : "revealed" }),
+      });
+    }
   };
 
   const initials = me?.name
@@ -443,19 +445,7 @@ export default function Navbar() {
 
           {/* User / Settings at bottom */}
           <div className="mt-auto border-t dark:border-slate-800 border-slate-200">
-            {me?.guest ? (
-              <div className={clsx("py-4", showLabels ? "px-4" : "flex flex-col items-center gap-2")}>
-                <Link href="/register"
-                  className={clsx(
-                    "rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center justify-center",
-                    showLabels ? "w-full py-2 text-sm" : "w-10 h-10"
-                  )}
-                  title="Sign Up"
-                >
-                  {showLabels ? "Sign Up" : <User className="w-5 h-5" />}
-                </Link>
-              </div>
-            ) : me?.name ? (
+            {me?.name ? (
               <div className="relative px-2 py-3" ref={menuRef}>
                 <button onClick={() => setMenuOpen(v => !v)}
                   className={clsx(
@@ -463,13 +453,18 @@ export default function Navbar() {
                     showLabels ? "gap-3" : "justify-center"
                   )}
                 >
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  <div className={clsx(
+                    "w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0",
+                    me.guest ? "bg-slate-500" : "bg-emerald-600"
+                  )}>
                     {initials}
                   </div>
                   {showLabels && (
                     <div className="flex-1 text-left min-w-0">
                       <p className="text-sm font-semibold dark:text-white text-slate-900 truncate">{me.name}</p>
-                      <p className="text-[10px] dark:text-slate-500 text-slate-400 truncate uppercase tracking-wider">{me.isAdmin ? "Administrator" : "Trader"}</p>
+                      <p className="text-[10px] dark:text-slate-500 text-slate-400 truncate uppercase tracking-wider">
+                        {me.guest ? "Guest Mode" : me.isAdmin ? "Administrator" : "Trader"}
+                      </p>
                     </div>
                   )}
                 </button>
@@ -481,9 +476,18 @@ export default function Navbar() {
                   )}>
                     <div className="px-4 py-3 border-b dark:border-slate-800 border-slate-100">
                       <p className="text-xs font-semibold dark:text-white text-slate-900 truncate">{me.name}</p>
-                      <p className="text-[10px] dark:text-slate-500 text-slate-400 truncate mt-0.5">{me.email}</p>
+                      <p className="text-[10px] dark:text-slate-500 text-slate-400 truncate mt-0.5">{me.email || "No account"}</p>
                     </div>
                     
+                    {me.guest && (
+                      <div className="p-2 border-b dark:border-slate-800 border-slate-100">
+                        <Link href="/register" onClick={() => setMenuOpen(false)}
+                          className="flex items-center justify-center w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors">
+                          Create Account
+                        </Link>
+                      </div>
+                    )}
+
                     {/* Theme Toggle inside user menu */}
                     <div className="px-2 py-1.5 border-b dark:border-slate-800 border-slate-100">
                       <div className="flex items-center justify-between px-2 py-1.5">
@@ -511,13 +515,15 @@ export default function Navbar() {
                           <ShieldCheck className="w-4 h-4" /> Admin Panel
                         </Link>
                       )}
-                      <Link href="/settings" onClick={() => setMenuOpen(false)}
-                        className="flex items-center gap-2 w-full px-3 py-2 text-sm dark:text-slate-300 text-slate-700 hover:dark:bg-slate-800 hover:bg-slate-50 rounded-lg transition-colors">
-                        <Settings className="w-4 h-4" /> Account Settings
-                      </Link>
+                      {!me.guest && (
+                        <Link href="/settings" onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm dark:text-slate-300 text-slate-700 hover:dark:bg-slate-800 hover:bg-slate-50 rounded-lg transition-colors">
+                          <Settings className="w-4 h-4" /> Account Settings
+                        </Link>
+                      )}
                       <button onClick={handleSignOut}
                         className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-400 hover:dark:bg-slate-800 hover:bg-slate-50 rounded-lg transition-colors">
-                        <LogOut className="w-4 h-4" /> Sign Out
+                        <LogOut className="w-4 h-4" /> {me.guest ? "Exit Guest Mode" : "Sign Out"}
                       </button>
                     </div>
                   </div>

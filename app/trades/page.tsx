@@ -13,6 +13,7 @@ type StatusFilter = "all" | "planned" | "open" | "closed";
 type DirectionFilter = "all" | "long" | "short";
 
 export default function TradesPage() {
+  const [me, setMe] = useState<any>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [quotes, setQuotes] = useState<QuoteMap>({});
   const [loading, setLoading] = useState(true);
@@ -67,12 +68,16 @@ export default function TradesPage() {
     if (symbolQ) params.set("symbol", symbolQ);
 
     try {
-      const [tradesRes, settingsRes] = await Promise.all([
+      const [tradesRes, settingsRes, meRes] = await Promise.all([
         fetch(`/api/trades?${params}`),
         fetch("/api/settings"),
+        fetch("/api/auth/me"),
       ]);
       const tradesData = await tradesRes.json();
       const settingsData = await settingsRes.json();
+      const meData = await meRes.json();
+      setMe(meData);
+
       if (Array.isArray(tradesData)) {
         setTrades(tradesData);
         await loadQuotes(tradesData);
@@ -136,11 +141,13 @@ export default function TradesPage() {
 
   const saveColumns = async (cols: ColumnKey[]) => {
     setVisibleColumns(cols);
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ trade_table_columns: JSON.stringify(cols) }),
-    });
+    if (me && !me.guest) {
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trade_table_columns: JSON.stringify(cols) }),
+      });
+    }
   };
 
   const toggleColumn = (key: ColumnKey) => {

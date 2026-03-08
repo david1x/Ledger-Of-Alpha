@@ -167,6 +167,7 @@ function buildPerfRows(groups: Map<string, Trade[]>, sortKeys?: string[]): PerfR
 
 // ── Main component ──────────────────────────────────────────────────────
 export default function DashboardShell() {
+  const [me, setMe] = useState<any>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [quotes, setQuotes] = useState<QuoteMap>({});
   const [loading, setLoading] = useState(true);
@@ -211,12 +212,16 @@ export default function DashboardShell() {
   const load = async () => {
     setLoading(true);
     try {
-      const [tradesRes, settingsRes] = await Promise.all([
+      const [tradesRes, settingsRes, meRes] = await Promise.all([
         fetch("/api/trades"),
         fetch("/api/settings"),
+        fetch("/api/auth/me"),
       ]);
       const tradesData = await tradesRes.json();
       const settingsData = await settingsRes.json();
+      const meData = await meRes.json();
+      setMe(meData);
+
       if (Array.isArray(tradesData)) {
         setTrades(tradesData);
         await loadQuotes(tradesData);
@@ -275,23 +280,27 @@ export default function DashboardShell() {
     setLayout(newLayout);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     const doSave = () => {
-      fetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dashboard_layout: JSON.stringify(newLayout) }),
-      });
+      if (me && !me.guest) {
+        fetch("/api/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dashboard_layout: JSON.stringify(newLayout) }),
+        });
+      }
     };
     if (immediate) doSave();
     else saveTimer.current = setTimeout(doSave, 1000);
-  }, []);
+  }, [me]);
 
   const saveTimeFilter = (tf: TimeFilter) => {
     setTimeFilter(tf);
-    fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dashboard_time_filter: String(tf) }),
-    });
+    if (me && !me.guest) {
+      fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dashboard_time_filter: String(tf) }),
+      });
+    }
   };
 
   // ── Filtered closed trades ──────────────────────────────────────────
