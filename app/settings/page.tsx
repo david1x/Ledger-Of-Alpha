@@ -708,6 +708,37 @@ function SettingsContent() {
                   })}
                 </div>
               </div>
+
+              {/* Pro Tips / Manual Customization */}
+              <div className="pt-6 border-t dark:border-slate-800 border-slate-100">
+                <h3 className="text-sm font-semibold dark:text-emerald-400 text-emerald-600 mb-3 flex items-center gap-2">
+                  <Settings className="w-4 h-4" /> Pro Tips: Manual Tuning
+                </h3>
+                <div className="space-y-4 rounded-xl dark:bg-slate-800/30 bg-slate-50 p-4 border dark:border-slate-800 border-slate-100">
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold dark:text-slate-200 text-slate-700">Set MA to 150 (or any length)</p>
+                    <p className="text-[10px] dark:text-slate-400 text-slate-500 leading-relaxed">
+                      TradingView's free embed always loads indicators with defaults (e.g. 9 or 20). 
+                      To change it: Hover over the "MA" label on the chart → Click the gear icon (Settings) → Change Length to 150. 
+                      Your browser will remember this setting for all symbols!
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold dark:text-slate-200 text-slate-700">Move Volume to a New Pane</p>
+                    <p className="text-[10px] dark:text-slate-400 text-slate-500 leading-relaxed">
+                      If Volume is overlapping your price bars: Right-click the Volume bars on the chart → Select "Move to..." → "New Pane Below". 
+                      This layout is persisted automatically in your browser.
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold dark:text-slate-200 text-slate-700">Sidebar Behavior</p>
+                    <p className="text-[10px] dark:text-slate-400 text-slate-500 leading-relaxed">
+                      Enabling Details, Hotlist, or Calendar will force the right sidebar to open by default. 
+                      Disable them here for a "borderless" look, and manually click the icons on the right of the chart to reveal them when needed.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         )}
