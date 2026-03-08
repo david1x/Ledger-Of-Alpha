@@ -20,27 +20,35 @@
 
 ### Dashboard
 ![Dashboard](docs/screenshots/01-dashboard.png)
-*Total P&L, win rate, avg win/loss, expectancy stats. Unrealized P&L for open positions. Interactive equity curve and recent trades table.*
+*24 drag-reorderable widget cards: cumulative P&L, drawdown, win %, daily volume, weekly calendar, heatmap, and more. Time filtering (30/60/90/All days), privacy mode, and layout persistence.*
 
 ### Trade Log
 ![Trade Log](docs/screenshots/02-trades.png)
-*20 trades with full P&L coloring, status filters, symbol search, column picker. Export/import as CSV or JSON.*
+*Full trade history with P&L coloring, status/direction filters, symbol search, column picker. Live unrealized P&L for open positions. Export/import as CSV or JSON.*
 
-### Trade Log — Symbol Hover
-![Trade Hover](docs/screenshots/07-trade-hover.png)
-*Hover any symbol to see a live mini candlestick chart with entry, stop, and target levels overlaid.*
+### Trade Modal
+![Trade Modal](docs/screenshots/07-trade-modal.png)
+*Tabbed trade editor with setup chart, Wyckoff checklist, color-coded R:R, risk analysis, and position sizing. Edit any trade directly from the trade log.*
 
 ### Trade Journal
 ![Journal](docs/screenshots/03-journal.png)
-*Card-based review with notes, tags, expandable mini charts, potential P&L, and R:R ratio per trade.*
+*Card-based review with notes, tags, expandable mini candlestick charts with entry/stop/target levels, and R:R ratio per trade.*
 
-### Chart — TradingView + Watchlist + Add Trade
+### Chart — TradingView + Watchlist
 ![Chart](docs/screenshots/04-chart.png)
 *Full-screen TradingView chart with multi-tab support, resizable watchlist sidebar with sector grouping, and collapsible Add Trade panel with risk calculator.*
 
+### Price Alert Modal
+![Alert Modal](docs/screenshots/13-alert-modal.png)
+*Set price alerts with above/below/crosses conditions, optional notes, and repeating alert support.*
+
 ### Settings
 ![Settings](docs/screenshots/05-settings.png)
-*Account size, risk %, commission per trade, FMP API key, Discord webhook, and data management (export/import).*
+*Account size, risk %, commission per trade, FMP API key, Discord webhook, and data management.*
+
+### Trade Strategies & Checklists
+![Strategies](docs/screenshots/12-settings-strategies.png)
+*Define multiple custom trading strategies (e.g., Wyckoff Buying/Selling Tests) with configurable checklist items. Strategies are selectable per trade in the trade modal.*
 
 ### Login
 ![Login](docs/screenshots/06-login.png)
@@ -54,7 +62,7 @@
   <tr>
     <td align="center"><b>Dashboard</b><br/><img src="docs/screenshots/08-mobile-dashboard.png" width="220"/></td>
     <td align="center"><b>Trade Log</b><br/><img src="docs/screenshots/09-mobile-trades.png" width="220"/></td>
-    <td align="center"><b>Chart + Add Trade</b><br/><img src="docs/screenshots/10-mobile-chart.png" width="220"/></td>
+    <td align="center"><b>Chart</b><br/><img src="docs/screenshots/10-mobile-chart.png" width="220"/></td>
     <td align="center"><b>Settings</b><br/><img src="docs/screenshots/11-mobile-settings.png" width="220"/></td>
   </tr>
 </table>
@@ -231,6 +239,8 @@ CREATE TABLE trades (
   pnl            REAL,
   notes          TEXT,
   tags           TEXT,
+  emotions       TEXT,
+  wyckoff_checklist TEXT,          -- JSON: strategy ID + checked items
   account_size   REAL,             -- snapshot at time of trade
   commission     REAL,
   risk_per_trade REAL,

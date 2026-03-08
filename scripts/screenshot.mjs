@@ -4,6 +4,7 @@
  */
 import { chromium } from "playwright";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -23,22 +24,25 @@ const GUEST_COOKIE = {
 
 async function shot(page, name, url, { waitFor, beforeShot, width = 1280, height = 800, mobile = false } = {}) {
   await page.setViewportSize({ width, height });
-  await page.goto(`${BASE}${url}`, { waitUntil: "networkidle" });
+  // Use load instead of networkidle — pages with live quotes never go fully idle
+  await page.goto(`${BASE}${url}`, { waitUntil: "load", timeout: 30000 });
 
   if (waitFor) {
-    try { await page.waitForSelector(waitFor, { timeout: 6000 }); } catch {}
+    try { await page.waitForSelector(waitFor, { timeout: 20000 }); } catch {
+      console.log(`⚠ Warning: timeout waiting for ${waitFor} on ${url}`);
+    }
   }
-  // Small settle delay for animations / chart renders
-  await page.waitForTimeout(1200);
+  // Settle delay for animations / chart renders
+  await page.waitForTimeout(2000);
 
   if (beforeShot) {
-    try { await beforeShot(page); } catch { /* non-fatal */ }
+    try { await beforeShot(page); } catch (e) { console.log(`⚠ beforeShot error on ${name}:`, e.message); }
   }
 
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(1000);
   const file = path.join(OUT, `${name}.png`);
   await page.screenshot({ path: file, fullPage: false });
-  console.log(`✓ ${name}.png`);
+  console.log(`✓ ${name}.png (${(fs.statSync(file).size / 1024).toFixed(1)} KB)`);
 }
 
 (async () => {
@@ -89,21 +93,48 @@ async function shot(page, name, url, { waitFor, beforeShot, width = 1280, height
     waitFor: "section",
   });
 
+  // Strategies tab in settings
+  await shot(page, "12-settings-strategies", "/settings?tab=strategies", {
+    waitFor: "button[class*='emerald']", // Add Strategy button
+    beforeShot: async (p) => {
+      await p.waitForTimeout(800);
+    },
+  });
+
   // Login page (no auth needed)
   await shot(page, "06-login", "/login", {
     waitFor: "form",
+  });
+
+  // Alert Modal (newly redesigned)
+  await shot(page, "13-alert-modal", "/chart", {
+    beforeShot: async (p) => {
+      await p.waitForTimeout(2000);
+      // Click the Alert button in the chart toolbar
+      await p.evaluate(() => {
+        const btns = [...document.querySelectorAll("button")];
+        const alertBtn = btns.find(b => b.textContent?.includes("Alert"));
+        if (alertBtn) alertBtn.click();
+      });
+      await p.waitForTimeout(1500);
+    },
+    height: 900,
   });
 
   // Trades page with trade modal open
   await shot(page, "07-trade-modal", "/trades", {
     waitFor: "table",
     beforeShot: async (p) => {
-      // Wait for table rows to appear, then click first edit button
-      await p.waitForSelector("tbody tr", { timeout: 5000 });
-      await p.waitForTimeout(300);
-      const editBtn = p.locator("button[title='Edit']").first();
-      await editBtn.click({ timeout: 5000 });
-      await p.waitForTimeout(1000);
+      // Wait for table rows with data to appear
+      await p.waitForSelector("tbody tr td", { timeout: 10000 });
+      await p.waitForTimeout(500);
+      // The edit button has opacity-0 until hover — use JS click to bypass
+      await p.evaluate(() => {
+        const btn = document.querySelector("button[title='Edit']");
+        if (btn) btn.click();
+      });
+      // Wait for modal to fully animate in
+      await p.waitForTimeout(2000);
     },
     height: 900,
   });
@@ -127,13 +158,6 @@ async function shot(page, name, url, { waitFor, beforeShot, width = 1280, height
     waitFor: "button",
     width: 390,
     height: 844,
-    beforeShot: async (p) => {
-      // Open Add Trade panel on mobile via the FAB
-      await p.waitForTimeout(1500);
-      const fab = p.locator("button.rounded-full").first();
-      await fab.click({ timeout: 5000 });
-      await p.waitForTimeout(800);
-    },
   });
 
   // Mobile settings
