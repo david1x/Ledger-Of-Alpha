@@ -2,7 +2,8 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
-import { Camera, Send, CheckCircle, AlertCircle, Plus, X, ExternalLink, Link, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Pencil, List, Download, Upload, MoreHorizontal, GripVertical, FolderPlus, Bell } from "lucide-react";
+import { X, Camera, Send, CheckCircle, AlertCircle, Plus, ExternalLink, Link, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Pencil, List, Download, Upload, MoreHorizontal, GripVertical, FolderPlus, Bell } from "lucide-react";
+import clsx from "clsx";
 import AlertModal from "@/components/AlertModal";
 import RiskCalculator from "@/components/RiskCalculator";
 import PositionSizer from "@/components/PositionSizer";
@@ -52,7 +53,7 @@ function migrateWatchlist(w: LegacyWatchlist): Watchlist {
   return { id: w.id, name: w.name, items: w.symbols ?? [] };
 }
 
-const DEFAULT_TABS: Tab[] = [{ id: "1", label: "Chart 1", interval: "D" }];
+const DEFAULT_TABS: Tab[] = [{ id: "1", label: "SPY", interval: "D", symbol: "SPY" }];
 const DEFAULT_WATCHLISTS: Watchlist[] = [{ id: "1", name: "Watchlist 1", items: [] }];
 
 const EMOTIONS = [

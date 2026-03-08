@@ -116,4 +116,10 @@ export const DEMO_SETTINGS: Record<string, string> = {
   ]),
   watchlist_width: "240",
   panel_width: "420",
+  tv_hide_side_toolbar: "false",
+  tv_withdateranges: "true",
+  tv_details: "true",
+  tv_hotlist: "true",
+  tv_calendar: "true",
+  tv_studies: JSON.stringify(["Moving Average Simple@tv-basicstudies"]),
 };

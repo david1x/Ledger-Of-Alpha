@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database, Send, Grid3X3, Users, Settings, Trash2, UserCheck, UserX } from "lucide-react";
+import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database, Send, Grid3X3, Users, Settings, Trash2, UserCheck, UserX, LineChart } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { tradesToCsv, csvToTrades } from "@/lib/csv";
@@ -17,6 +17,12 @@ interface Settings {
   heatmap_ranges: string;
   charts_collapsed: string;
   privacy_mode: string;
+  tv_hide_side_toolbar: string;
+  tv_withdateranges: string;
+  tv_details: string;
+  tv_hotlist: string;
+  tv_calendar: string;
+  tv_studies: string;
 }
 
 interface TwoFactorSetup {
@@ -24,11 +30,12 @@ interface TwoFactorSetup {
   qrDataUrl: string;
 }
 
-type Category = "account" | "display" | "integrations" | "security" | "data" | "admin-users" | "admin-settings";
+type Category = "account" | "display" | "chart" | "integrations" | "security" | "data" | "admin-users" | "admin-settings";
 
 const CATEGORIES: { id: Category; label: string; icon: typeof DollarSign; adminOnly?: boolean }[] = [
   { id: "account",        label: "Account",        icon: DollarSign },
   { id: "display",        label: "Display",         icon: Grid3X3 },
+  { id: "chart",          label: "Chart",           icon: LineChart },
   { id: "integrations",   label: "Integrations",    icon: Key },
   { id: "security",       label: "Security",        icon: ShieldCheck },
   { id: "data",           label: "Data",             icon: Database },
@@ -571,6 +578,131 @@ function SettingsContent() {
                 <div className="w-5 h-5 rounded" style={{ background: "#22c55e" }} />
                 <div className="w-5 h-5 rounded" style={{ background: "#16a34a" }} />
                 <span>+${heatRanges.high}+</span>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Chart ── */}
+        {activeCategory === "chart" && (
+          <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-6">
+            <div>
+              <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+                <LineChart className="w-4 h-4 text-emerald-400" /> Chart Configuration
+              </h2>
+              <p className="text-xs dark:text-slate-400 text-slate-500 mt-1">
+                Customize the default appearance and features of the embedded TradingView charts.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="flex items-center justify-between p-3 rounded-lg border dark:border-slate-800 border-slate-100 hover:dark:bg-slate-800/50 hover:bg-slate-50 transition-colors cursor-pointer">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium dark:text-slate-200 text-slate-700">Drawing Toolbar</p>
+                    <p className="text-[10px] dark:text-slate-500 text-slate-400">Show left-side drawing tools</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.tv_hide_side_toolbar !== "true"}
+                    onChange={e => setSettings(s => ({ ...s, tv_hide_side_toolbar: e.target.checked ? "false" : "true" }))}
+                    className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3 rounded-lg border dark:border-slate-800 border-slate-100 hover:dark:bg-slate-800/50 hover:bg-slate-50 transition-colors cursor-pointer">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium dark:text-slate-200 text-slate-700">Date Ranges</p>
+                    <p className="text-[10px] dark:text-slate-500 text-slate-400">Show bottom range selector (1D, 5D, 1M...)</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.tv_withdateranges !== "false"}
+                    onChange={e => setSettings(s => ({ ...s, tv_withdateranges: e.target.checked ? "true" : "false" }))}
+                    className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3 rounded-lg border dark:border-slate-800 border-slate-100 hover:dark:bg-slate-800/50 hover:bg-slate-50 transition-colors cursor-pointer">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium dark:text-slate-200 text-slate-700">Symbol Details</p>
+                    <p className="text-[10px] dark:text-slate-500 text-slate-400">Show description panel on the right</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.tv_details === "true"}
+                    onChange={e => setSettings(s => ({ ...s, tv_details: e.target.checked ? "true" : "false" }))}
+                    className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3 rounded-lg border dark:border-slate-800 border-slate-100 hover:dark:bg-slate-800/50 hover:bg-slate-50 transition-colors cursor-pointer">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium dark:text-slate-200 text-slate-700">Market Hotlist</p>
+                    <p className="text-[10px] dark:text-slate-500 text-slate-400">Show gainers/losers on the right</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.tv_hotlist === "true"}
+                    onChange={e => setSettings(s => ({ ...s, tv_hotlist: e.target.checked ? "true" : "false" }))}
+                    className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3 rounded-lg border dark:border-slate-800 border-slate-100 hover:dark:bg-slate-800/50 hover:bg-slate-50 transition-colors cursor-pointer">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium dark:text-slate-200 text-slate-700">Economic Calendar</p>
+                    <p className="text-[10px] dark:text-slate-500 text-slate-400">Show events panel on the right</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.tv_calendar === "true"}
+                    onChange={e => setSettings(s => ({ ...s, tv_calendar: e.target.checked ? "true" : "false" }))}
+                    className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500"
+                  />
+                </label>
+              </div>
+
+              <div className="pt-2 border-t dark:border-slate-800 border-slate-100">
+                <label className={LABEL}>Default Indicators (Studies)</label>
+                <p className="text-[10px] dark:text-slate-500 text-slate-400 mb-3">Choose indicators to load automatically on every chart.</p>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[
+                    { id: "Moving Average Simple@tv-basicstudies", label: "SMA 150 (Red)" },
+                    { id: "RSI@tv-basicstudies", label: "Relative Strength Index (RSI)" },
+                    { id: "MACD@tv-basicstudies", label: "MACD" },
+                    { id: "StochasticRSI@tv-basicstudies", label: "Stochastic RSI" },
+                    { id: "BollingerBands@tv-basicstudies", label: "Bollinger Bands" },
+                    { id: "Volume@tv-basicstudies", label: "Volume" },
+                  ].map(study => {
+                    const currentStudies = (() => {
+                      try { return JSON.parse(settings.tv_studies || "[]"); } catch { return []; }
+                    })();
+                    const isSelected = currentStudies.includes(study.id);
+                    
+                    return (
+                      <button
+                        key={study.id}
+                        onClick={() => {
+                          const next = isSelected 
+                            ? currentStudies.filter((id: string) => id !== study.id)
+                            : [...currentStudies, study.id];
+                          setSettings(s => ({ ...s, tv_studies: JSON.stringify(next) }));
+                        }}
+                        className={clsx(
+                          "flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-medium transition-all",
+                          isSelected
+                            ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400"
+                            : "dark:bg-slate-800/50 bg-slate-50 dark:border-slate-700 border-slate-200 dark:text-slate-400 text-slate-500 hover:border-slate-400"
+                        )}
+                      >
+                        {study.label}
+                        {isSelected && <CheckCircle className="w-3.5 h-3.5" />}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </section>

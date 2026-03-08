@@ -229,4 +229,19 @@ function runMigrations(db: Database.Database) {
     }
     markMigration(db, "008_emotions");
   }
+
+  // ── 009: Advanced Chart Settings ────────────────────────────────────────
+  if (!hasMigration(db, "009_chart_settings")) {
+    const cols = (db.pragma("table_info(settings)") as { name: string }[]).map(c => c.name);
+    const newCols = [
+      "tv_hide_side_toolbar", "tv_withdateranges", "tv_details", 
+      "tv_hotlist", "tv_calendar", "tv_studies"
+    ];
+    for (const col of newCols) {
+      if (!cols.includes(col)) {
+        db.exec(`ALTER TABLE settings ADD COLUMN ${col} TEXT;`);
+      }
+    }
+    markMigration(db, "009_chart_settings");
+  }
 }

@@ -369,14 +369,14 @@ export default function Navbar() {
       )}
 
       <a
-        href="https://www.tradingview.com"
+        href="https://www.tradingview.com/chart/"
         target="_blank"
         rel="noopener noreferrer"
         className={clsx(
           "flex items-center py-3 text-sm font-medium dark:text-slate-400 text-slate-600 hover:dark:text-white hover:text-slate-900 hover:dark:bg-slate-800/50 hover:bg-slate-100 transition-colors whitespace-nowrap",
           showLabels ? "gap-3 pl-5 pr-4" : "justify-center px-0",
         )}
-        title={!showLabels ? "TradingView" : undefined}
+        title={!showLabels ? "TradingView Chart" : undefined}
       >
         <ExternalLink className="w-5 h-5 shrink-0" />
         {showLabels && <span>TradingView</span>}

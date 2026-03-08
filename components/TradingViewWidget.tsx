@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, memo } from "react";
+import { useEffect, useRef, useState, memo } from "react";
 import { useTheme } from "next-themes";
 
 interface Props {
@@ -7,32 +7,50 @@ interface Props {
   interval?: string;
 }
 
-function TradingViewWidget({ symbol = "NASDAQ:AAPL", interval = "D" }: Props) {
+function TradingViewWidget({ symbol = "SPY", interval = "D" }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const { resolvedTheme } = useTheme();
+  const [settings, setSettings] = useState<any>(null);
+
+  useEffect(() => {
+    fetch("/api/settings").then(r => r.json()).then(setSettings).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!container.current) return;
     container.current.innerHTML = "";
 
+    const isDark = resolvedTheme !== "light";
+    const toolbarBg = isDark ? "#020617" : "#ffffff"; // Matches slate-950 and white
+
     const script = document.createElement("script");
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
     script.type = "text/javascript";
     script.async = true;
+
+    let studies = [];
+    try {
+      if (settings?.tv_studies) studies = JSON.parse(settings.tv_studies);
+    } catch { /* ignore */ }
+
     script.innerHTML = JSON.stringify({
       autosize: true,
       symbol,
       interval,
-      timezone: "America/New_York",
-      theme: resolvedTheme === "light" ? "light" : "dark",
+      timezone: "Etc/UTC",
+      theme: isDark ? "dark" : "light",
       style: "1",
       locale: "en",
+      toolbar_bg: toolbarBg,
       enable_publishing: false,
       allow_symbol_change: true,
-      hide_side_toolbar: false,
-      calendar: false,
+      hide_side_toolbar: settings?.tv_hide_side_toolbar === "true",
+      withdateranges: settings?.tv_withdateranges !== "false",
+      details: settings?.tv_details === "true",
+      hotlist: settings?.tv_hotlist === "true",
+      calendar: settings?.tv_calendar === "true",
+      studies: studies.length > 0 ? studies : undefined,
       support_host: "https://www.tradingview.com",
-      withdateranges: true,
       save_image: true,
       enabled_features: [
         "use_localstorage_for_settings",
@@ -46,7 +64,7 @@ function TradingViewWidget({ symbol = "NASDAQ:AAPL", interval = "D" }: Props) {
     });
 
     container.current.appendChild(script);
-  }, [symbol, interval, resolvedTheme]);
+  }, [symbol, interval, resolvedTheme, settings]);
 
   return (
     <div
