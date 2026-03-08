@@ -443,6 +443,23 @@ export default function Navbar() {
             {sidebarLinks}
           </div>
 
+          {/* Bottom Links (above user) */}
+          <div className="border-t dark:border-slate-800/50 border-slate-100/50 py-1">
+            <a
+              href="https://www.tradingview.com/chart/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={clsx(
+                "flex items-center py-3 text-sm font-medium dark:text-slate-400 text-slate-600 hover:dark:text-white hover:text-slate-900 hover:dark:bg-slate-800/50 hover:bg-slate-100 transition-colors whitespace-nowrap",
+                showLabels ? "gap-3 pl-5 pr-4" : "justify-center px-0",
+              )}
+              title={!showLabels ? "TradingView Chart" : undefined}
+            >
+              <ExternalLink className="w-5 h-5 shrink-0" />
+              {showLabels && <span>TradingView</span>}
+            </a>
+          </div>
+
           {/* User / Settings at bottom */}
           <div className="mt-auto border-t dark:border-slate-800 border-slate-200">
             {me?.name ? (
