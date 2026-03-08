@@ -855,14 +855,14 @@ export default function PersistentChart() {
       {isResizing && <div className="fixed inset-0 z-50" style={{ cursor: "col-resize" }} />}
 
       {/* ── Tab bar ── */}
-      <div className="flex items-center border-b dark:border-slate-800 border-slate-200 dark:bg-slate-950 bg-white shrink-0">
+      <div className="flex items-center dark:bg-slate-950 bg-white shrink-0">
         <div className="flex items-center overflow-x-auto flex-1 min-w-0">
           {tabs.map(tab => (
             <div key={tab.id} onClick={() => setActiveId(tab.id)}
-              className={`flex items-center gap-1 px-3 py-2 border-r dark:border-slate-800 border-slate-200 cursor-pointer text-xs whitespace-nowrap shrink-0 select-none transition-colors ${
+              className={`flex items-center gap-1 px-4 py-2 border-r dark:border-slate-800 border-slate-100 cursor-pointer text-[11px] uppercase tracking-wider whitespace-nowrap shrink-0 select-none transition-colors ${
                 activeId === tab.id
-                  ? "dark:bg-slate-800 bg-slate-100 dark:text-white text-slate-900 font-medium"
-                  : "dark:text-slate-400 text-slate-500 hover:dark:bg-slate-900 hover:bg-slate-50"
+                  ? "dark:bg-slate-900 bg-slate-50 dark:text-emerald-400 text-emerald-600 font-bold"
+                  : "dark:text-slate-500 text-slate-400 hover:dark:bg-slate-900/50 hover:bg-slate-50/50"
               }`}
             >
               {editingId === tab.id ? (
@@ -887,7 +887,7 @@ export default function PersistentChart() {
       </div>
 
       {/* ── Toolbar ── */}
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b dark:border-slate-800 border-slate-200 dark:bg-slate-950 bg-white shrink-0">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 dark:bg-slate-950 bg-white shrink-0">
         {/* Intervals */}
         <div className="flex gap-1">
           {INTERVALS.map(iv => (
@@ -984,7 +984,7 @@ export default function PersistentChart() {
         <div
           className={
             showWatchlist
-              ? "fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col overflow-hidden dark:bg-slate-900 bg-white sm:relative sm:inset-auto sm:z-auto sm:shrink-0 sm:border-r dark:border-slate-800 border-slate-200"
+              ? "fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col overflow-hidden dark:bg-slate-900 bg-white sm:relative sm:inset-auto sm:z-auto sm:shrink-0"
               : "hidden sm:flex sm:flex-col sm:shrink-0 sm:w-0 sm:overflow-hidden sm:transition-[width] sm:duration-200 dark:bg-slate-900 bg-white"
           }
           style={showWatchlist ? { width: undefined, ...(typeof window !== "undefined" && window.innerWidth >= 640 ? { width: wlWidth } : {}) } : undefined}
@@ -1282,7 +1282,7 @@ export default function PersistentChart() {
         <div
           className={
             showPanel
-              ? "fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col overflow-hidden dark:bg-slate-900 bg-white sm:relative sm:inset-auto sm:z-auto sm:shrink-0 sm:border-l dark:border-slate-800 border-slate-200"
+              ? "fixed inset-x-0 bottom-0 top-14 z-50 flex flex-col overflow-hidden dark:bg-slate-900 bg-white sm:relative sm:inset-auto sm:z-auto sm:shrink-0"
               : "hidden sm:flex sm:flex-col sm:shrink-0 sm:w-0 sm:overflow-hidden sm:transition-[width] sm:duration-200 dark:bg-slate-900 bg-white"
           }
           style={showPanel ? { width: typeof window !== "undefined" && window.innerWidth >= 640 ? panelWidth : undefined } : undefined}
