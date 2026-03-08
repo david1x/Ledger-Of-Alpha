@@ -7,7 +7,7 @@ import ThemeToggle from "./ThemeToggle";
 import Logo from "./Logo";
 import AlertModal from "./AlertModal";
 import {
-  BookOpen, LineChart, Settings, TrendingUp, Layout, ChevronDown,
+  BookOpen, LineChart, Settings as SettingsIcon, TrendingUp, Layout, ChevronDown,
   LogOut, User, ShieldCheck, Menu, X, ExternalLink, Bell, Trash2,
   Power, Clock, Pencil, ChevronsLeft, ChevronsRight, Eye, EyeOff,
 } from "lucide-react";
@@ -51,7 +51,6 @@ const NAV_LINKS = [
   { href: "/trades",  label: "Trades",    icon: TrendingUp },
   { href: "/journal", label: "Journal",   icon: BookOpen },
   { href: "/chart",   label: "Chart",     icon: LineChart },
-  { href: "/settings",label: "Settings",  icon: Settings },
 ];
 
 const AUTH_PATHS = ["/login", "/register", "/verify-2fa"];
@@ -97,11 +96,13 @@ export default function Navbar() {
   const checkerRef = useRef<ReturnType<typeof setInterval>>(undefined);
   const [toasts, setToasts] = useState<AlertToast[]>([]);
   const [mounted, setMounted] = useState(false);
+  const [hidden, setHidden] = useState(false);
 
-  // ── Sidebar persistence ──
+  // ── Persistence & Initialization ──
   useEffect(() => {
     const saved = localStorage.getItem("sidebar_expanded");
     if (saved === "true") setExpanded(true);
+    setMounted(true);
   }, []);
 
   useEffect(() => {
@@ -109,18 +110,41 @@ export default function Navbar() {
     document.documentElement.setAttribute("data-sidebar", expanded ? "expanded" : "collapsed");
   }, [expanded]);
 
+  useEffect(() => {
+    if (isAuthPage) return;
+    fetch("/api/settings")
+      .then(r => r.json())
+      .then(data => {
+        const isHidden = data.privacy_mode === "hidden";
+        setHidden(isHidden);
+        localStorage.setItem("privacy_hidden", String(isHidden));
+      })
+      .catch(() => {});
+  }, [isAuthPage]);
+
+  // Handle storage changes across tabs
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "privacy_hidden") setHidden(e.newValue === "true");
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   // Close mobile sidebar on route change
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   const loadAlerts = useCallback(async () => {
+    if (isAuthPage) return;
     try {
       const res = await fetch("/api/alerts");
       if (res.ok) setAlerts(await res.json());
     } catch { /* silent */ }
-  }, []);
+  }, [isAuthPage]);
 
   // ── Alert checker (60s polling) ──
   const checkAlerts = useCallback(async () => {
+    if (isAuthPage) return;
     try {
       const res = await fetch("/api/alerts");
       if (!res.ok) return;
@@ -199,7 +223,7 @@ export default function Navbar() {
         }
       }
     } catch { /* silent */ }
-  }, []);
+  }, [isAuthPage]);
 
   useEffect(() => {
     if (isAuthPage) return;
@@ -218,8 +242,6 @@ export default function Navbar() {
       if (checkerRef.current) clearInterval(checkerRef.current);
     };
   }, [isAuthPage, loadAlerts, checkAlerts]);
-
-  useEffect(() => { setMounted(true); }, []);
 
   // Auto-dismiss toasts after 8s
   useEffect(() => {
@@ -267,26 +289,6 @@ export default function Navbar() {
     loadAlerts();
   }
 
-  const [hidden, setHidden] = useState(false);
-
-  // ── Privacy persistence ──
-  useEffect(() => {
-    fetch("/api/settings")
-      .then(r => r.json())
-      .then(data => {
-        const isHidden = data.privacy_mode === "hidden";
-        setHidden(isHidden);
-        localStorage.setItem("privacy_hidden", String(isHidden));
-      })
-      .catch(() => {});
-      
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === "privacy_hidden") setHidden(e.newValue === "true");
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
-
   const toggleHidden = async () => {
     const next = !hidden;
     setHidden(next);
@@ -307,19 +309,15 @@ export default function Navbar() {
     ? me.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()
     : "?";
 
-  const activeAlerts = alerts.filter(a => a.active);
   const triggeredAlerts = alerts.filter(a => a.triggered_at);
-  const recentTriggered = triggeredAlerts.slice(0, 10);
   const unreadCount = triggeredAlerts.filter(a => {
     if (!a.triggered_at) return false;
     const diff = Date.now() - new Date(a.triggered_at).getTime();
     return diff < 3600_000;
   }).length;
 
-  // Show labels only when expanded (desktop) or mobile overlay open
   const showLabels = expanded || mobileOpen;
 
-  // ── Sidebar nav items rendering ──
   const sidebarLinks = (
     <nav className="flex flex-col py-2">
       {NAV_LINKS.map(({ href, label, icon: Icon }) => {
@@ -341,7 +339,7 @@ export default function Navbar() {
         );
       })}
       
-      {/* Alerts in main menu */}
+      {/* Alerts - only for logged in users */}
       {me && !me.guest && (
         <Link
           href="/alerts"
@@ -368,25 +366,25 @@ export default function Navbar() {
         </Link>
       )}
 
-      <a
-        href="https://www.tradingview.com/chart/"
-        target="_blank"
-        rel="noopener noreferrer"
+      {/* Settings - Always at the end of the main menu */}
+      <Link href="/settings" onClick={() => setMobileOpen(false)}
         className={clsx(
-          "flex items-center py-3 text-sm font-medium dark:text-slate-400 text-slate-600 hover:dark:text-white hover:text-slate-900 hover:dark:bg-slate-800/50 hover:bg-slate-100 transition-colors whitespace-nowrap",
+          "flex items-center py-3 text-sm font-medium transition-colors whitespace-nowrap",
           showLabels ? "gap-3 pl-5 pr-4" : "justify-center px-0",
+          pathname === "/settings"
+            ? "bg-emerald-500/10 text-emerald-400 border-r-2 border-emerald-400"
+            : "dark:text-slate-400 text-slate-600 hover:dark:text-white hover:text-slate-900 hover:dark:bg-slate-800/50 hover:bg-slate-100"
         )}
-        title={!showLabels ? "TradingView Chart" : undefined}
+        title={!showLabels ? "Settings" : undefined}
       >
-        <ExternalLink className="w-5 h-5 shrink-0" />
-        {showLabels && <span>TradingView</span>}
-      </a>
+        <SettingsIcon className="w-5 h-5 shrink-0" />
+        {showLabels && <span>Settings</span>}
+      </Link>
     </nav>
   );
 
   const nav = (
     <>
-      {/* ── Mobile Hamburger ── */}
       <div className="sm:hidden fixed top-4 left-4 z-50">
         <button
           onClick={() => setMobileOpen(v => !v)}
@@ -396,8 +394,6 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* ── Sidebar ── */}
-      {/* Mobile backdrop */}
       {mobileOpen && (
         <div
           className="sm:hidden fixed inset-0 z-40 bg-black/50"
@@ -407,12 +403,9 @@ export default function Navbar() {
 
       <aside className={clsx(
         "fixed top-0 left-0 bottom-0 z-40 flex flex-col border-r dark:border-slate-800 border-slate-200 dark:bg-slate-950 bg-white transition-all duration-200",
-        // Mobile: hidden unless open
         mobileOpen ? "max-sm:w-64" : "max-sm:w-0 max-sm:border-r-0",
-        // Desktop: collapsed or expanded
         expanded ? "sm:w-64" : "sm:w-16",
       )}>
-        {/* Desktop Collapse Toggle on the border line */}
         <button
           onClick={() => setExpanded(v => !v)}
           className="hidden sm:flex absolute top-6 -right-3 z-50 w-6 h-6 items-center justify-center rounded-full border dark:border-slate-800 border-slate-200 dark:bg-slate-900 bg-white dark:text-slate-400 text-slate-500 hover:dark:text-white hover:text-slate-900 shadow-md transition-colors"
@@ -422,7 +415,6 @@ export default function Navbar() {
         </button>
 
         <div className="flex flex-col h-full w-full">
-          {/* Sidebar Logo */}
           <div className={clsx(
             "h-16 flex items-center shrink-0 border-b dark:border-slate-800/50 border-slate-100/50 overflow-hidden",
             showLabels ? "px-5" : "justify-center px-0"
@@ -438,7 +430,6 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Nav links */}
           <div className="flex-1 overflow-y-auto">
             {sidebarLinks}
           </div>
@@ -460,7 +451,6 @@ export default function Navbar() {
             </a>
           </div>
 
-          {/* User / Settings at bottom */}
           <div className="mt-auto border-t dark:border-slate-800 border-slate-200">
             {me?.name ? (
               <div className="relative px-2 py-3" ref={menuRef}>
@@ -505,7 +495,6 @@ export default function Navbar() {
                       </div>
                     )}
 
-                    {/* Theme Toggle inside user menu */}
                     <div className="px-2 py-1.5 border-b dark:border-slate-800 border-slate-100">
                       <div className="flex items-center justify-between px-2 py-1.5">
                         <span className="text-xs dark:text-slate-400 text-slate-500 font-medium">Privacy Mode</span>
@@ -535,7 +524,7 @@ export default function Navbar() {
                       {!me.guest && (
                         <Link href="/settings" onClick={() => setMenuOpen(false)}
                           className="flex items-center gap-2 w-full px-3 py-2 text-sm dark:text-slate-300 text-slate-700 hover:dark:bg-slate-800 hover:bg-slate-50 rounded-lg transition-colors">
-                          <Settings className="w-4 h-4" /> Account Settings
+                          <SettingsIcon className="w-4 h-4" /> Account Settings
                         </Link>
                       )}
                       <button onClick={handleSignOut}
@@ -551,7 +540,6 @@ export default function Navbar() {
         </div>
       </aside>
 
-      {/* Alert modal */}
       <AlertModal
         open={showAlertModal}
         onClose={() => { setShowAlertModal(false); setEditAlert(null); }}
@@ -561,7 +549,6 @@ export default function Navbar() {
     </>
   );
 
-  // Portal toasts outside the nav
   const toastPortal = mounted && toasts.length > 0 ? createPortal(
     <div className="fixed bottom-4 right-4 z-[200] flex flex-col gap-2 pointer-events-none" style={{ maxWidth: 360 }}>
       {toasts.map((t) => (
