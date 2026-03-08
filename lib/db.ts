@@ -232,15 +232,18 @@ function runMigrations(db: Database.Database) {
 
   // ── 009: Advanced Chart Settings ────────────────────────────────────────
   if (!hasMigration(db, "009_chart_settings")) {
-    const cols = (db.pragma("table_info(settings)") as { name: string }[]).map(c => c.name);
-    const newCols = [
-      "tv_hide_side_toolbar", "tv_withdateranges", "tv_details", 
-      "tv_hotlist", "tv_calendar", "tv_studies"
-    ];
-    for (const col of newCols) {
-      if (!cols.includes(col)) {
-        db.exec(`ALTER TABLE settings ADD COLUMN ${col} TEXT;`);
-      }
+    const insertSetting = db.prepare(
+      "INSERT OR IGNORE INTO settings (user_id, key, value) VALUES ('_system', ?, ?)"
+    );
+    for (const [key, value] of [
+      ["tv_hide_side_toolbar", "false"],
+      ["tv_withdateranges", "true"],
+      ["tv_details", "false"],
+      ["tv_hotlist", "false"],
+      ["tv_calendar", "false"],
+      ["tv_studies", JSON.stringify(["Moving Average Simple@tv-basicstudies"])],
+    ]) {
+      insertSetting.run(key, value);
     }
     markMigration(db, "009_chart_settings");
   }

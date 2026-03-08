@@ -125,19 +125,26 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
     }
   };
 
-  const rr = useMemo(() => {
+  const rrData = useMemo(() => {
     const e = form.entry_price;
     const s = form.stop_loss;
     const t = form.take_profit;
     if (!e || !s || !t) return null;
     const risk = Math.abs(e - s);
     const reward = Math.abs(t - e);
-    return risk > 0 ? (reward / risk).toFixed(2) : null;
+    if (risk === 0) return null;
+    const ratio = reward / risk;
+    let color = "text-slate-400 bg-slate-400/10";
+    if (ratio >= 3) color = "text-emerald-400 bg-emerald-400/10";
+    else if (ratio >= 2) color = "text-blue-400 bg-blue-400/10";
+    else if (ratio >= 1) color = "text-amber-400 bg-amber-400/10";
+    else color = "text-red-400 bg-red-400/10";
+    return { ratio: ratio.toFixed(2), color };
   }, [form.entry_price, form.stop_loss, form.take_profit]);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={handleBackdropClick}>
-      <div ref={modalRef} className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl dark:bg-slate-900 bg-white shadow-2xl overflow-hidden border dark:border-slate-800 border-slate-200">
+      <div ref={modalRef} className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl dark:bg-slate-900 bg-white shadow-2xl overflow-hidden border dark:border-slate-800 border-slate-200" onClick={e => e.stopPropagation()}>
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b dark:border-slate-800 border-slate-100">
@@ -154,9 +161,9 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
                 <span className={clsx("text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded", form.direction === "long" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
                   {form.direction}
                 </span>
-                {rr && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">
-                    R:R 1:{rr}
+                {rrData && (
+                  <span className={clsx("text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded", rrData.color)}>
+                    R:R 1:{rrData.ratio}
                   </span>
                 )}
               </div>
