@@ -77,6 +77,7 @@ function SettingsContent() {
   const [settings, setSettings] = useState<Settings>({
     discord_webhook: "", alert_discord_webhook: "", fmp_api_key: "", account_size: "10000", risk_per_trade: "1", commission_per_trade: "0",
     heatmap_ranges: JSON.stringify({ high: 500, mid: 200, low: 1 }), charts_collapsed: "false", privacy_mode: "revealed",
+    tv_hide_side_toolbar: "false", tv_withdateranges: "true", tv_details: "false", tv_hotlist: "false", tv_calendar: "false", tv_studies: JSON.stringify(["Moving Average Simple@tv-basicstudies"])
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);

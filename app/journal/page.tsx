@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Trade } from "@/lib/types";
-import { ArrowUpRight, ArrowDownRight, Tag, FileText, Pencil, Trash2, ChevronDown, ChevronUp, LineChart, ExternalLink, Search, LayoutGrid, List, Columns, RefreshCw } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Tag, FileText, Pencil, Trash2, ChevronDown, ChevronUp, LineChart, ExternalLink, Search, LayoutGrid, List, Columns, RefreshCw, ShieldCheck } from "lucide-react";
 import AccountBanner from "@/components/AccountBanner";
 import { useRouter } from "next/navigation";
 import TradeModal from "@/components/TradeModal";

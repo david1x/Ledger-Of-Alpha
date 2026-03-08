@@ -191,7 +191,7 @@ export default function TradeTable({
     if (!selected.size || !onBulkDelete) return;
     if (!confirm(`Delete ${selected.size} trade${selected.size > 1 ? "s" : ""}?`)) return;
     onBulkDelete([...selected]);
-    setSelected(new Set());
+    setInternalSelected(new Set());
   };
 
   // Symbol hover popover state
@@ -266,7 +266,10 @@ export default function TradeTable({
             Delete Selected
           </button>
           <button
-            onClick={() => setSelected(new Set())}
+            onClick={() => {
+              if (onSelectAll) onSelectAll([]);
+              else setInternalSelected(new Set());
+            }}
             className="text-xs dark:text-slate-400 text-slate-500 hover:dark:text-white hover:text-slate-900 transition-colors ml-auto"
           >
             Clear

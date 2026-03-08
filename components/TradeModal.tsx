@@ -1,11 +1,11 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Trade } from "@/lib/types";
 import SymbolSearch from "./SymbolSearch";
 import RiskCalculator from "./RiskCalculator";
 import PositionSizer from "./PositionSizer";
 import SetupChart from "./SetupChart";
-import { X, ChevronDown, ChevronUp } from "lucide-react";
+import { X, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import clsx from "clsx";
 
 interface Props {

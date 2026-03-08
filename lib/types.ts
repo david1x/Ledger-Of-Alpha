@@ -47,6 +47,7 @@ export interface Trade {
   commission?: number | null;
   risk_per_trade?: number | null;
   created_at: string;
+  user_id: string | null;
 }
 
 export interface Settings {
