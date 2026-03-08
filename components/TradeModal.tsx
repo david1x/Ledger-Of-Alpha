@@ -34,21 +34,37 @@ const EMPTY: Partial<Trade> = {
 
 export default function TradeModal({ trade, onClose, onSaved, accountSize: accountSizeProp, riskPercent: riskPercentProp }: Props) {
   const [form, setForm] = useState<Partial<Trade>>(trade ?? EMPTY);
+  const [activeTab, setActiveTab] = useState<"setup" | "execution" | "reflection">("setup");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [accountSize, setAccountSize] = useState(accountSizeProp ?? 10000);
   const [riskPercent, setRiskPercent] = useState(riskPercentProp ?? 1);
   const [defaultCommission, setDefaultCommission] = useState(0);
   const [showTradeSettings, setShowTradeSettings] = useState(false);
+  
+  const modalRef = useRef<HTMLDivElement>(null);
 
-  // Always fetch settings so the modal is correct even when parent didn't pass them
+  // Close on outside click
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+      onClose();
+    }
+  };
+
+  // Close on Escape
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [onClose]);
+
+  // Always fetch settings
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => r.json())
       .then((s) => {
         if (!accountSizeProp && s.account_size) {
           const startBal = parseFloat(s.account_size);
-          // Fetch trades to compute current balance
           fetch("/api/trades").then(r => r.json()).then(trades => {
             if (Array.isArray(trades)) {
               const totalPnl = trades.filter((t: { status: string; pnl?: number }) => t.status === "closed")
@@ -65,9 +81,7 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
       .catch(() => {});
   }, [accountSizeProp, riskPercentProp]);
 
-  useEffect(() => {
-    setForm(trade ?? EMPTY);
-  }, [trade]);
+  useEffect(() => { setForm(trade ?? EMPTY); }, [trade]);
 
   const set = (key: keyof Trade, val: unknown) => setForm((f) => ({ ...f, [key]: val }));
 
@@ -86,7 +100,6 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
     setSaving(true);
     setError("");
 
-    // Auto-close trade when exit price is provided
     const payload = { ...form };
     if (payload.exit_price != null && payload.status !== "closed") {
       payload.status = "closed";
@@ -112,225 +125,218 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
     }
   };
 
+  const rr = useMemo(() => {
+    const e = form.entry_price;
+    const s = form.stop_loss;
+    const t = form.take_profit;
+    if (!e || !s || !t) return null;
+    const risk = Math.abs(e - s);
+    const reward = Math.abs(t - e);
+    return risk > 0 ? (reward / risk).toFixed(2) : null;
+  }, [form.entry_price, form.stop_loss, form.take_profit]);
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl dark:bg-slate-900 bg-white shadow-2xl">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={handleBackdropClick}>
+      <div ref={modalRef} className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl dark:bg-slate-900 bg-white shadow-2xl overflow-hidden border dark:border-slate-800 border-slate-200">
+        
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b dark:border-slate-700 border-slate-200">
-          <h2 className="font-semibold dark:text-white text-slate-900">
-            {trade ? "Edit Trade" : "New Trade"}
-          </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors">
+        <div className="flex items-center justify-between p-4 border-b dark:border-slate-800 border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className={clsx("w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white", form.direction === "long" ? "bg-emerald-600" : "bg-red-600")}>
+              {form.symbol ? form.symbol[0].toUpperCase() : "?"}
+            </div>
+            <div>
+              <h2 className="font-bold dark:text-white text-slate-900 flex items-center gap-2 text-lg">
+                {trade ? "Edit Trade" : "New Trade Setup"} 
+                {form.symbol && <span className="text-slate-500 font-medium">/ {form.symbol.toUpperCase()}</span>}
+              </h2>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className={clsx("text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded", form.direction === "long" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
+                  {form.direction}
+                </span>
+                {rr && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">
+                    R:R 1:{rr}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors">
             <X className="w-5 h-5 dark:text-slate-400 text-slate-500" />
           </button>
         </div>
 
-        <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Left: Form */}
-          <div className="space-y-4">
-            {/* Symbol */}
-            <div>
-              <label className={LABEL}>Symbol</label>
-              <SymbolSearch
-                value={form.symbol ?? ""}
-                onChange={(v) => set("symbol", v)}
-                placeholder="Search or type symbol..."
-              />
-            </div>
+        {/* Navigation Tabs */}
+        <div className="flex px-4 pt-2 border-b dark:border-slate-800 border-slate-100 dark:bg-slate-950 bg-slate-50/50">
+          {[
+            { id: "setup", label: "Setup & Logic" },
+            { id: "execution", label: "Execution" },
+            { id: "reflection", label: "Reflections" },
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id as any)}
+              className={clsx(
+                "px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all border-b-2",
+                activeTab === t.id 
+                  ? "border-emerald-500 text-emerald-400" 
+                  : "border-transparent dark:text-slate-500 text-slate-400 hover:dark:text-slate-300 hover:text-slate-600"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-            {/* Direction + Status */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={LABEL}>Direction</label>
-                <select value={form.direction} onChange={(e) => set("direction", e.target.value)} className={INPUT}>
-                  <option value="long">Long</option>
-                  <option value="short">Short</option>
-                </select>
-              </div>
-              <div>
-                <label className={LABEL}>Status</label>
-                <select value={form.status} onChange={(e) => set("status", e.target.value)} className={INPUT}>
-                  <option value="planned">Planned</option>
-                  <option value="open">Open</option>
-                  <option value="closed">Closed</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Prices */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div>
-                <label className={LABEL}>Entry Price</label>
-                <input placeholder="0.00" {...numField("entry_price")} />
-              </div>
-              <div>
-                <label className={LABEL}>Stop Loss</label>
-                <input placeholder="0.00" {...numField("stop_loss")} />
-              </div>
-              <div>
-                <label className={LABEL}>Take Profit</label>
-                <input placeholder="0.00" {...numField("take_profit")} />
-              </div>
-            </div>
-
-            {/* Shares + Exit */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={LABEL}>Shares</label>
-                <input placeholder="0" {...numField("shares")} />
-              </div>
-              <div>
-                <label className={LABEL}>Exit Price</label>
-                <input placeholder="0.00" {...numField("exit_price")} />
-              </div>
-            </div>
-
-            {/* Dates */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={LABEL}>Entry Date</label>
-                <input
-                  type="date"
-                  value={form.entry_date ?? ""}
-                  onChange={(e) => set("entry_date", e.target.value || null)}
-                  className={INPUT}
-                />
-              </div>
-              <div>
-                <label className={LABEL}>Exit Date</label>
-                <input
-                  type="date"
-                  value={form.exit_date ?? ""}
-                  onChange={(e) => set("exit_date", e.target.value || null)}
-                  className={INPUT}
-                />
-              </div>
-            </div>
-
-            {/* Trade Settings (per-trade overrides) */}
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowTradeSettings(v => !v)}
-                className="flex items-center gap-1.5 text-xs font-medium dark:text-slate-400 text-slate-500 hover:dark:text-slate-300 hover:text-slate-700 transition-colors"
-              >
-                {showTradeSettings ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                Trade Settings
-              </button>
-              {showTradeSettings && (
-                <div className="grid grid-cols-3 gap-3 mt-2">
-                  <div>
-                    <label className={LABEL}>Account Size ($)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={form.account_size ?? ""}
-                      onChange={(e) => set("account_size", e.target.value === "" ? null : parseFloat(e.target.value))}
-                      placeholder={String(accountSize)}
-                      className={INPUT}
-                    />
-                    <p className="text-[10px] dark:text-slate-500 text-slate-400 mt-0.5">Leave blank for default</p>
+        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            {/* Left Column: Form Fields */}
+            <div className="lg:col-span-7 space-y-6">
+              
+              {activeTab === "setup" && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-left-2 duration-300">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={LABEL}>Symbol</label>
+                      <SymbolSearch value={form.symbol ?? ""} onChange={(v) => set("symbol", v)} placeholder="Type symbol..." />
+                    </div>
+                    <div>
+                      <label className={LABEL}>Direction</label>
+                      <div className="flex h-10 p-1 rounded-xl dark:bg-slate-800 bg-slate-100">
+                        <button onClick={() => set("direction", "long")} className={clsx("flex-1 rounded-lg text-xs font-bold transition-all", form.direction === "long" ? "bg-emerald-600 text-white shadow-md" : "dark:text-slate-400 text-slate-500")}>Long</button>
+                        <button onClick={() => set("direction", "short")} className={clsx("flex-1 rounded-lg text-xs font-bold transition-all", form.direction === "short" ? "bg-red-600 text-white shadow-md" : "dark:text-slate-400 text-slate-500")}>Short</button>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className={LABEL}>Risk (%)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={form.risk_per_trade ?? ""}
-                      onChange={(e) => set("risk_per_trade", e.target.value === "" ? null : parseFloat(e.target.value))}
-                      placeholder={String(riskPercent)}
-                      className={INPUT}
-                    />
-                    <p className="text-[10px] dark:text-slate-500 text-slate-400 mt-0.5">Leave blank for default</p>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div><label className={LABEL}>Target Entry</label><input placeholder="0.00" {...numField("entry_price")} /></div>
+                    <div><label className={LABEL}>Stop Loss</label><input placeholder="0.00" {...numField("stop_loss")} /></div>
+                    <div><label className={LABEL}>Take Profit</label><input placeholder="0.00" {...numField("take_profit")} /></div>
                   </div>
-                  <div>
-                    <label className={LABEL}>Commission ($)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={form.commission ?? ""}
-                      onChange={(e) => set("commission", e.target.value === "" ? null : parseFloat(e.target.value))}
-                      placeholder={String(defaultCommission)}
-                      className={INPUT}
-                    />
-                    <p className="text-[10px] dark:text-slate-500 text-slate-400 mt-0.5">Per side (×2 round trip)</p>
+
+                  <div className="space-y-3">
+                    <label className={LABEL}>Pre-trade Confluence Checklist</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {["Trend Alignment", "Support/Resistance", "Volume Confirmation", "News Checked", "Market Context", "Proper Sizing"].map(item => (
+                        <label key={item} className="flex items-center gap-2.5 p-3 rounded-xl border dark:border-slate-800 border-slate-100 dark:bg-slate-800/30 bg-slate-50 cursor-pointer hover:border-emerald-500/50 transition-colors">
+                          <input type="checkbox" className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500" />
+                          <span className="text-xs font-medium dark:text-slate-300 text-slate-600">{item}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
+
+              {activeTab === "execution" && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-left-2 duration-300">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={LABEL}>Current Status</label>
+                      <select value={form.status} onChange={(e) => set("status", e.target.value)} className={INPUT}>
+                        <option value="planned">Planned</option>
+                        <option value="open">Open</option>
+                        <option value="closed">Closed</option>
+                      </select>
+                    </div>
+                    <div><label className={LABEL}>Execution Date</label><input type="date" value={form.entry_date ?? ""} onChange={(e) => set("entry_date", e.target.value || null)} className={INPUT} /></div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><label className={LABEL}>Quantity (Shares)</label><input placeholder="0" {...numField("shares")} /></div>
+                    <div><label className={LABEL}>Exit Price</label><input placeholder="0.00" {...numField("exit_price")} /></div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl border-2 border-dashed dark:border-slate-800 border-slate-100 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Position Overrides</h3>
+                      <button onClick={() => setShowTradeSettings(!showTradeSettings)} className="text-[10px] font-bold text-emerald-400 hover:underline">
+                        {showTradeSettings ? "Hide" : "Show Settings"}
+                      </button>
+                    </div>
+                    {showTradeSettings && (
+                      <div className="grid grid-cols-3 gap-3 animate-in fade-in zoom-in-95 duration-200">
+                        <div><label className={LABEL}>Account ($)</label><input type="number" step="0.01" value={form.account_size ?? ""} onChange={(e) => set("account_size", e.target.value === "" ? null : parseFloat(e.target.value))} placeholder={String(accountSize)} className={INPUT} /></div>
+                        <div><label className={LABEL}>Risk (%)</label><input type="number" step="0.1" value={form.risk_per_trade ?? ""} onChange={(e) => set("risk_per_trade", e.target.value === "" ? null : parseFloat(e.target.value))} placeholder={String(riskPercent)} className={INPUT} /></div>
+                        <div><label className={LABEL}>Comm. ($)</label><input type="number" step="0.01" value={form.commission ?? ""} onChange={(e) => set("commission", e.target.value === "" ? null : parseFloat(e.target.value))} placeholder={String(defaultCommission)} className={INPUT} /></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "reflection" && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-left-2 duration-300">
+                  <TagsInput value={form.tags ?? ""} onChange={(v) => set("tags", v)} />
+                  <EmotionsInput value={form.emotions ?? ""} onChange={(v) => set("emotions", v)} />
+                  <div>
+                    <label className={LABEL}>Notes / Rationale</label>
+                    <textarea value={form.notes ?? ""} onChange={(e) => set("notes", e.target.value)} placeholder="What did you see? How did you feel? What did you learn?" rows={8} className={INPUT + " resize-none min-h-[200px] p-4"} />
+                  </div>
+                </div>
+              )}
+
             </div>
 
-            {/* Tags */}
-            <TagsInput
-              value={form.tags ?? ""}
-              onChange={(v) => set("tags", v)}
-            />
-
-            {/* Emotions */}
-            <EmotionsInput
-              value={form.emotions ?? ""}
-              onChange={(v) => set("emotions", v)}
-            />
-
-            {/* Notes */}
-            <div>
-              <label className={LABEL}>Notes / Journal</label>
-              <textarea
-                value={form.notes ?? ""}
-                onChange={(e) => set("notes", e.target.value)}
-                placeholder="Trade thesis, setup details, lessons learned..."
-                rows={3}
-                className={INPUT + " resize-none"}
-              />
+            {/* Right Column: Calculators & Visuals */}
+            <div className="lg:col-span-5 space-y-6 border-l dark:border-slate-800 border-slate-100 lg:pl-8">
+              <div className="rounded-2xl overflow-hidden border dark:border-slate-800 border-slate-100 shadow-inner">
+                <SetupChart
+                  symbol={form.symbol ?? ""}
+                  entry={form.entry_price ?? null}
+                  stopLoss={form.stop_loss ?? null}
+                  takeProfit={form.take_profit ?? null}
+                  direction={form.direction ?? "long"}
+                  onEntryChange={p => set("entry_price", p)}
+                  onStopChange={p => set("stop_loss", p)}
+                  onTargetChange={p => set("take_profit", p)}
+                  height={280}
+                />
+              </div>
+              
+              <div className="space-y-4">
+                <RiskCalculator
+                  entry={form.entry_price ?? null}
+                  stopLoss={form.stop_loss ?? null}
+                  takeProfit={form.take_profit ?? null}
+                  shares={form.shares ?? null}
+                  direction={form.direction ?? "long"}
+                  commission={form.commission ?? defaultCommission}
+                />
+                <PositionSizer
+                  accountSize={form.account_size ?? accountSize}
+                  riskPercent={form.risk_per_trade ?? riskPercent}
+                  entry={form.entry_price ?? null}
+                  stopLoss={form.stop_loss ?? null}
+                  direction={form.direction ?? "long"}
+                  manualShares={form.shares ?? null}
+                  onApplyShares={(s) => set("shares", s)}
+                  commission={form.commission ?? defaultCommission}
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Right: Calculators */}
-          <div className="space-y-4">
-            <SetupChart
-              symbol={form.symbol ?? ""}
-              entry={form.entry_price ?? null}
-              stopLoss={form.stop_loss ?? null}
-              takeProfit={form.take_profit ?? null}
-              direction={form.direction ?? "long"}
-              onEntryChange={p => set("entry_price", p)}
-              onStopChange={p => set("stop_loss", p)}
-              onTargetChange={p => set("take_profit", p)}
-              height={260}
-            />
-            <RiskCalculator
-              entry={form.entry_price ?? null}
-              stopLoss={form.stop_loss ?? null}
-              takeProfit={form.take_profit ?? null}
-              shares={form.shares ?? null}
-              direction={form.direction ?? "long"}
-              commission={form.commission ?? defaultCommission}
-            />
-            <PositionSizer
-              accountSize={form.account_size ?? accountSize}
-              riskPercent={form.risk_per_trade ?? riskPercent}
-              entry={form.entry_price ?? null}
-              stopLoss={form.stop_loss ?? null}
-              direction={form.direction ?? "long"}
-              manualShares={form.shares ?? null}
-              onApplyShares={(s) => set("shares", s)}
-              commission={form.commission ?? defaultCommission}
-            />
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t dark:border-slate-700 border-slate-200">
-          {error ? <p className="text-red-400 text-sm">{error}</p> : <div />}
-          <div className="flex gap-2">
-            <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors">
+        <div className="flex items-center justify-between p-4 border-t dark:border-slate-800 border-slate-100 dark:bg-slate-950 bg-slate-50/50">
+          <div className="flex-1">
+            {error && <p className="text-red-400 text-sm font-medium animate-pulse">{error}</p>}
+          </div>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="px-6 py-2.5 rounded-xl text-sm font-bold dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors">
               Cancel
             </button>
             <button
               onClick={save}
               disabled={saving}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-500 hover:bg-emerald-400 text-white transition-colors disabled:opacity-50"
+              className="px-8 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all disabled:opacity-50 shadow-lg shadow-emerald-500/20 active:scale-95"
             >
-              {saving ? "Saving..." : trade ? "Update Trade" : "Add Trade"}
+              {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : trade ? "Update Trade" : "Save Trade Setup"}
             </button>
           </div>
         </div>
