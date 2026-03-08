@@ -55,11 +55,56 @@ function migrateWatchlist(w: LegacyWatchlist): Watchlist {
 const DEFAULT_TABS: Tab[] = [{ id: "1", label: "Chart 1", interval: "D" }];
 const DEFAULT_WATCHLISTS: Watchlist[] = [{ id: "1", name: "Watchlist 1", items: [] }];
 
+const EMOTIONS = [
+  "Fear", "Greed", "Frustration", "Impatience", "FOMO", 
+  "Overconfidence", "Anxiety", "Regret", "Hope", "Boredom", "Satisfaction"
+];
+
+function EmotionsInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const selected = value ? value.split(",").map(t => t.trim()).filter(Boolean) : [];
+
+  const toggle = (emo: string) => {
+    let next: string[];
+    if (selected.includes(emo)) {
+      next = selected.filter(s => s !== emo);
+    } else {
+      next = [...selected, emo];
+    }
+    onChange(next.join(", "));
+  };
+
+  return (
+    <div className="space-y-1">
+      <label className="text-xs dark:text-slate-400 text-slate-500 block">Emotions / Feelings</label>
+      <div className="flex flex-wrap gap-1.5">
+        {EMOTIONS.map(emo => {
+          const isSelected = selected.includes(emo);
+          return (
+            <button
+              key={emo}
+              type="button"
+              onClick={() => toggle(emo)}
+              className={clsx(
+                "px-2 py-0.5 rounded-full text-[10px] font-medium border transition-all duration-200",
+                isSelected 
+                  ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400" 
+                  : "dark:bg-slate-800/50 bg-slate-50 dark:border-slate-700 border-slate-200 dark:text-slate-400 text-slate-500 hover:border-slate-400"
+              )}
+            >
+              {emo}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const EMPTY_FORM = {
   symbol: "", direction: "long" as "long" | "short",
   status: "planned" as "planned" | "open" | "closed",
   entry_price: "", stop_loss: "", take_profit: "", exit_price: "",
-  shares: "", notes: "", tags: "",
+  shares: "", notes: "", tags: "", emotions: "",
   commission: "", risk_percent: "", account_size: "",
   entry_date: "", exit_date: "",
 };
@@ -768,6 +813,7 @@ export default function PersistentChart() {
           shares: form.shares ? parseFloat(form.shares) : null,
           notes: form.notes || null,
           tags: form.tags || null,
+          emotions: form.emotions || null,
           entry_date: form.entry_date || new Date().toISOString().slice(0, 10),
           exit_date: form.exit_date || null,
           commission: form.commission ? parseFloat(form.commission) : commission || null,
@@ -1464,6 +1510,12 @@ export default function PersistentChart() {
                   className="w-full px-3 py-2 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
+
+              {/* Emotions */}
+              <EmotionsInput
+                value={form.emotions}
+                onChange={v => setField("emotions", v)}
+              />
 
               {/* Notes */}
               <div>
