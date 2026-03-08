@@ -262,6 +262,7 @@ Navigate to **Settings** (gear icon in the navbar) to configure:
 |---|---|---|
 | **Account Size** | Yes | Your trading account balance in USD (default: $10,000) |
 | **Risk Per Trade** | Yes | Percentage of account risked per trade (default: 1%) |
+| **Trade Strategies** | Yes | Define custom checklists for different trading styles (e.g., Wyckoff, SMC) |
 | **FMP API Key** | Optional | Enables live symbol search autocomplete. Get a free key at [financialmodelingprep.com](https://financialmodelingprep.com/developer/docs) |
 | **Discord Webhook** | Optional | Paste a Discord webhook URL to enable posting chart snapshots directly to a channel |
 

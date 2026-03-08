@@ -68,14 +68,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         symbol = ?, direction = ?, status = ?,
         entry_price = ?, stop_loss = ?, take_profit = ?,
         exit_price = ?, shares = ?, entry_date = ?, exit_date = ?,
-        pnl = ?, notes = ?, tags = ?, emotions = ?, account_size = ?, commission = ?, risk_per_trade = ?
+        pnl = ?, notes = ?, tags = ?, emotions = ?, wyckoff_checklist = ?, account_size = ?, commission = ?, risk_per_trade = ?
       WHERE id = ? AND user_id = ?
     `).run(
       String(merged.symbol).toUpperCase(), merged.direction, merged.status,
       merged.entry_price ?? null, merged.stop_loss ?? null, merged.take_profit ?? null,
       merged.exit_price ?? null, merged.shares ?? null, merged.entry_date ?? null,
       merged.exit_date ?? null, pnl ?? null, merged.notes ?? null, merged.tags ?? null,
-      merged.emotions ?? null, merged.account_size ?? null, merged.commission ?? null, merged.risk_per_trade ?? null,
+      merged.emotions ?? null, merged.wyckoff_checklist ?? null, merged.account_size ?? null, merged.commission ?? null, merged.risk_per_trade ?? null,
       id, user.id,
     );
 

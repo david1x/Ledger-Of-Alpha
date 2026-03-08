@@ -247,4 +247,13 @@ function runMigrations(db: Database.Database) {
     }
     markMigration(db, "009_chart_settings");
   }
+
+  // ── 010: Wyckoff Checklist ──────────────────────────────────────────────
+  if (!hasMigration(db, "010_wyckoff_checklist")) {
+    const cols = (db.pragma("table_info(trades)") as { name: string }[]).map(c => c.name);
+    if (!cols.includes("wyckoff_checklist")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN wyckoff_checklist TEXT;`);
+    }
+    markMigration(db, "010_wyckoff_checklist");
+  }
 }

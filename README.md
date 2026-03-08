@@ -74,6 +74,7 @@
 ### 📋 Trade Log
 - Full trade history with live filters: symbol search, status (planned / open / closed), direction (long / short)
 - P&L coloring, live unrealized P&L for open positions (refreshes every 60s via Yahoo Finance)
+- **Dynamic Trade Strategies** — define and manage multiple custom checklists (e.g., Wyckoff, SMC, Trend Following) in settings and select them per trade
 - Edit and delete any trade without leaving the page
 - Hover any symbol to preview a mini candlestick chart with trade levels
 - **Export** trades as CSV or JSON for backup and analysis
@@ -97,12 +98,15 @@
 - **Add Trade panel** — collapsible sidebar with:
   - Interactive mini-chart (click to set entry / stop / target, drag to reposition)
   - Live RiskCalculator and PositionSizer as you type
+  - **Dynamic Checklist** — select your strategy and verify your entry criteria before saving
   - Per-trade account size, risk %, and commission fields
   - Save as Planned or **Save + Share to Discord** in one click
+- **Price Alerts** — redesigned modal with background-click protection and Escape-key support to quickly set alerts from any chart
 - **Discord snapshot** — screen capture with 3-second countdown, or paste a TradingView snapshot link
 
 ### ⚙️ Settings
 - Account size, risk-per-trade percentage, and commission per trade
+- **Strategy Manager** — add, rename, and edit multiple trading strategies and their respective checklists
 - Financial Modeling Prep (FMP) API key + on-demand symbol list refresh
 - Discord webhook URL for chart snapshot delivery
 - **Data Management** — export/import trades directly from settings
