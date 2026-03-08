@@ -165,6 +165,22 @@ export default function JournalPage() {
     }
   };
 
+  const handleReviewDelete = async () => {
+    if (!selectedTrade) return;
+    if (!confirm("Delete this trade?")) return;
+    try {
+      const res = await fetch(`/api/trades/${selectedTrade.id}`, { method: "DELETE" });
+      if (res.ok) {
+        await load();
+      } else {
+        const d = await res.json();
+        alert(d.error || "Failed to delete trade.");
+      }
+    } catch {
+      alert("A network error occurred.");
+    }
+  };
+
   const toggleReviewEmotion = (emo: string) => {
     const selected = editFormData.emotions ? editFormData.emotions.split(",").map(t => t.trim()).filter(Boolean) : [];
     let next: string[];
@@ -184,13 +200,22 @@ export default function JournalPage() {
   const handleBulkDelete = async () => {
     if (!selected.size) return;
     if (!confirm(`Delete ${selected.size} trade${selected.size > 1 ? "s" : ""}?`)) return;
-    await fetch("/api/trades", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: [...selected] }),
-    });
-    setSelected(new Set());
-    load();
+    try {
+      const res = await fetch("/api/trades", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...selected] }),
+      });
+      if (res.ok) {
+        setSelected(new Set());
+        await load();
+      } else {
+        const d = await res.json();
+        alert(d.error || "Failed to delete trades.");
+      }
+    } catch {
+      alert("A network error occurred.");
+    }
   };
 
   const STATUS_COLOR: Record<string, string> = {
@@ -610,8 +635,16 @@ export default function JournalPage() {
                         <button
                           onClick={() => router.push(buildChartUrl(selectedTrade))}
                           className="p-2.5 rounded-lg dark:bg-slate-800 bg-slate-100 hover:dark:bg-slate-700 transition-colors"
+                          title="View in Chart"
                         >
                           <LineChart className="w-5 h-5 dark:text-slate-400 text-slate-500" />
+                        </button>
+                        <button
+                          onClick={handleReviewDelete}
+                          className="p-2.5 rounded-lg dark:bg-slate-800 bg-slate-100 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                          title="Delete Trade"
+                        >
+                          <Trash2 className="w-5 h-5 dark:text-slate-400 text-slate-500" />
                         </button>
                       </div>
                     </div>
