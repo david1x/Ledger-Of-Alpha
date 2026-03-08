@@ -6,6 +6,7 @@ import RiskCalculator from "./RiskCalculator";
 import PositionSizer from "./PositionSizer";
 import SetupChart from "./SetupChart";
 import { X, ChevronDown, ChevronUp } from "lucide-react";
+import clsx from "clsx";
 
 interface Props {
   trade?: Trade | null;
@@ -28,6 +29,7 @@ const EMPTY: Partial<Trade> = {
   exit_date: null,
   notes: "",
   tags: "",
+  emotions: "",
 };
 
 export default function TradeModal({ trade, onClose, onSaved, accountSize: accountSizeProp, riskPercent: riskPercentProp }: Props) {
@@ -263,6 +265,12 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
               onChange={(v) => set("tags", v)}
             />
 
+            {/* Emotions */}
+            <EmotionsInput
+              value={form.emotions ?? ""}
+              onChange={(v) => set("emotions", v)}
+            />
+
             {/* Notes */}
             <div>
               <label className={LABEL}>Notes / Journal</label>
@@ -389,7 +397,7 @@ function TagsInput({ value, onChange }: { value: string; onChange: (v: string) =
   };
 
   return (
-    <div>
+    <div className="space-y-2">
       <label className={LABEL}>Tags</label>
       <div
         className="flex flex-wrap gap-1.5 min-h-[38px] px-2.5 py-1.5 rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white focus-within:ring-2 focus-within:ring-emerald-500 cursor-text"
@@ -434,6 +442,51 @@ function TagsInput({ value, onChange }: { value: string; onChange: (v: string) =
           placeholder={tags.length === 0 ? "Type and press comma or enter..." : ""}
           className="flex-1 min-w-[80px] bg-transparent text-sm dark:text-white text-slate-900 outline-none py-0.5"
         />
+      </div>
+    </div>
+  );
+}
+
+const EMOTIONS = [
+  "Fear", "Greed", "Frustration", "Impatience", "FOMO", 
+  "Overconfidence", "Anxiety", "Regret", "Hope", "Boredom", "Satisfaction"
+];
+
+function EmotionsInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const selected = value ? value.split(",").map(t => t.trim()).filter(Boolean) : [];
+
+  const toggle = (emo: string) => {
+    let next: string[];
+    if (selected.includes(emo)) {
+      next = selected.filter(s => s !== emo);
+    } else {
+      next = [...selected, emo];
+    }
+    onChange(next.join(", "));
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className={LABEL}>Emotions / Feelings</label>
+      <div className="flex flex-wrap gap-2">
+        {EMOTIONS.map(emo => {
+          const isSelected = selected.includes(emo);
+          return (
+            <button
+              key={emo}
+              type="button"
+              onClick={() => toggle(emo)}
+              className={clsx(
+                "px-2.5 py-1 rounded-full text-xs font-medium border transition-all duration-200",
+                isSelected 
+                  ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400" 
+                  : "dark:bg-slate-800/50 bg-slate-50 dark:border-slate-700 border-slate-200 dark:text-slate-400 text-slate-500 hover:border-slate-400"
+              )}
+            >
+              {emo}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ export const TRADE_FIELDS = [
   "symbol", "direction", "status",
   "entry_price", "stop_loss", "take_profit",
   "exit_price", "shares", "entry_date", "exit_date",
-  "notes", "tags", "account_size", "commission", "risk_per_trade",
+  "notes", "tags", "emotions", "account_size", "commission", "risk_per_trade",
 ] as const;
 
 /** Pick only allowed trade fields from an object. */

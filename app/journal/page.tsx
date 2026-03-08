@@ -138,7 +138,7 @@ export default function JournalPage() {
     setSavingReview(true);
     try {
       const res = await fetch(`/api/trades/${selectedTrade.id}`, {
-        method: "PATCH",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editFormData),
       });
@@ -152,6 +152,22 @@ export default function JournalPage() {
       setSavingReview(false);
     }
   };
+
+  const toggleReviewEmotion = (emo: string) => {
+    const selected = editFormData.emotions ? editFormData.emotions.split(",").map(t => t.trim()).filter(Boolean) : [];
+    let next: string[];
+    if (selected.includes(emo)) {
+      next = selected.filter(s => s !== emo);
+    } else {
+      next = [...selected, emo];
+    }
+    setEditFormData({ ...editFormData, emotions: next.join(", ") });
+  };
+
+  const EMOTIONS = [
+    "Fear", "Greed", "Frustration", "Impatience", "FOMO", 
+    "Overconfidence", "Anxiety", "Regret", "Hope", "Boredom", "Satisfaction"
+  ];
 
   const handleBulkDelete = async () => {
     if (!selected.size) return;
@@ -502,6 +518,31 @@ export default function JournalPage() {
                     </div>
 
                     <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Emotions / Feelings</label>
+                      <div className="flex flex-wrap gap-2">
+                        {EMOTIONS.map(emo => {
+                          const selected = editFormData.emotions ? editFormData.emotions.split(",").map(t => t.trim()).filter(Boolean) : [];
+                          const isSelected = selected.includes(emo);
+                          return (
+                            <button
+                              key={emo}
+                              type="button"
+                              onClick={() => toggleReviewEmotion(emo)}
+                              className={clsx(
+                                "px-2.5 py-1 rounded-full text-xs font-medium border transition-all duration-200",
+                                isSelected 
+                                  ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400" 
+                                  : "dark:bg-slate-800/50 bg-slate-50 dark:border-slate-700 border-slate-200 dark:text-slate-400 text-slate-500 hover:border-slate-400"
+                              )}
+                            >
+                              {emo}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
                       <label className="text-[10px] font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Notes & Reflection</label>
                       <textarea 
                         rows={8}
@@ -572,6 +613,19 @@ export default function JournalPage() {
                         </p>
                       </div>
                     </div>
+
+                    {selectedTrade.emotions && (
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Emotions / Feelings</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedTrade.emotions.split(",").map(emo => (
+                            <span key={emo} className="px-2.5 py-1 rounded-full text-xs font-medium dark:bg-emerald-500/10 bg-emerald-50 text-emerald-400 border dark:border-emerald-500/20 border-emerald-100">
+                              {emo.trim()}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="space-y-3">
                       <h3 className="text-sm font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Notes & Reflection</h3>

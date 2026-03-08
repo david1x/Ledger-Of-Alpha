@@ -42,6 +42,7 @@ export interface Trade {
   pnl: number | null;
   notes: string | null;
   tags: string | null;
+  emotions: string | null;
   account_size?: number | null;
   commission?: number | null;
   risk_per_trade?: number | null;

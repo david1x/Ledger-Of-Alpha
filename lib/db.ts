@@ -220,4 +220,13 @@ function runMigrations(db: Database.Database) {
     `);
     markMigration(db, "007_alerts");
   }
+
+  // ── 008: trade emotions ────────────────────────────────────────────────
+  if (!hasMigration(db, "008_emotions")) {
+    const cols = (db.pragma("table_info(trades)") as { name: string }[]).map(c => c.name);
+    if (!cols.includes("emotions")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN emotions TEXT;`);
+    }
+    markMigration(db, "008_emotions");
+  }
 }
