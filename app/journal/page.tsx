@@ -650,6 +650,8 @@ export default function JournalPage() {
                         stopLoss={selectedTrade.stop_loss}
                         takeProfit={selectedTrade.take_profit}
                         height={350}
+                        showPriceScale={true}
+                        showTimeframeToggle={true}
                       />
                     </div>
                   </div>

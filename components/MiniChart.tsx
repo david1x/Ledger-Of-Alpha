@@ -4,6 +4,7 @@ import {
   createChart, ColorType, LineStyle,
   type IChartApi, type ISeriesApi, type IPriceLine,
 } from "lightweight-charts";
+import clsx from "clsx";
 
 interface MiniChartProps {
   symbol: string;
@@ -11,10 +12,20 @@ interface MiniChartProps {
   stopLoss?: number | null;
   takeProfit?: number | null;
   height?: number;
+  showPriceScale?: boolean;
+  showTimeframeToggle?: boolean;
 }
+
+const TIMEFRAMES = [
+  { label: "15m", interval: "15m", range: "1d" },
+  { label: "1h", interval: "1h", range: "5d" },
+  { label: "1d", interval: "1d", range: "3mo" },
+];
 
 export default function MiniChart({
   symbol, entry, stopLoss, takeProfit, height = 160,
+  showPriceScale = false,
+  showTimeframeToggle = false,
 }: MiniChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -26,6 +37,7 @@ export default function MiniChart({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [timeframe, setTimeframe] = useState(TIMEFRAMES[2]); // Default 1d
 
   // Create chart once
   useEffect(() => {
@@ -48,8 +60,12 @@ export default function MiniChart({
         vertLine: { color: "#475569", labelBackgroundColor: "#1e293b" },
         horzLine: { color: "#475569", labelBackgroundColor: "#1e293b" },
       },
-      rightPriceScale: { borderColor: "#1e293b", visible: false },
-      timeScale: { borderColor: "#1e293b", visible: false },
+      rightPriceScale: { 
+        borderColor: "#1e293b", 
+        visible: showPriceScale,
+        scaleMargins: { top: 0.1, bottom: 0.1 }
+      },
+      timeScale: { borderColor: "#1e293b", visible: showPriceScale },
       handleScroll: true,
       handleScale: true,
     });
@@ -77,14 +93,14 @@ export default function MiniChart({
       chartRef.current = null;
       seriesRef.current = null;
     };
-  }, [height]);
+  }, [height, showPriceScale]);
 
-  // Fetch data when symbol changes
+  // Fetch data when symbol or timeframe changes
   useEffect(() => {
     if (!symbol || !seriesRef.current) return;
     setLoading(true);
     setError("");
-    fetch(`/api/ohlcv?symbol=${encodeURIComponent(symbol)}&interval=1d&range=3mo`)
+    fetch(`/api/ohlcv?symbol=${encodeURIComponent(symbol)}&interval=${timeframe.interval}&range=${timeframe.range}`)
       .then(r => r.ok ? r.json() : Promise.reject())
       .then((bars: { time: number; open: number; high: number; low: number; close: number }[]) => {
         if (!seriesRef.current || !bars.length) { setError("No data"); return; }
@@ -93,7 +109,7 @@ export default function MiniChart({
       })
       .catch(() => setError("Failed to load"))
       .finally(() => setLoading(false));
-  }, [symbol]);
+  }, [symbol, timeframe]);
 
   // Price lines
   useEffect(() => {
@@ -103,10 +119,10 @@ export default function MiniChart({
     if (entry && entry > 0) {
       entryLineRef.current = s.createPriceLine({
         price: entry, color: "#94a3b8", lineWidth: 2,
-        lineStyle: LineStyle.Solid, axisLabelVisible: false, title: "Entry",
+        lineStyle: LineStyle.Solid, axisLabelVisible: showPriceScale, title: "Entry",
       });
     }
-  }, [entry]);
+  }, [entry, showPriceScale]);
 
   useEffect(() => {
     const s = seriesRef.current;
@@ -115,10 +131,10 @@ export default function MiniChart({
     if (stopLoss && stopLoss > 0) {
       stopLineRef.current = s.createPriceLine({
         price: stopLoss, color: "#ef4444", lineWidth: 2,
-        lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: "Stop",
+        lineStyle: LineStyle.Dashed, axisLabelVisible: showPriceScale, title: "Stop",
       });
     }
-  }, [stopLoss]);
+  }, [stopLoss, showPriceScale]);
 
   useEffect(() => {
     const s = seriesRef.current;
@@ -127,13 +143,32 @@ export default function MiniChart({
     if (takeProfit && takeProfit > 0) {
       targetLineRef.current = s.createPriceLine({
         price: takeProfit, color: "#34d399", lineWidth: 2,
-        lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: "T/P",
+        lineStyle: LineStyle.Dashed, axisLabelVisible: showPriceScale, title: "T/P",
       });
     }
-  }, [takeProfit]);
+  }, [takeProfit, showPriceScale]);
 
   return (
     <div className="relative rounded-lg overflow-hidden border dark:border-slate-700 border-slate-200">
+      {showTimeframeToggle && (
+        <div className="absolute top-2 left-2 z-10 flex gap-1 bg-slate-900/80 p-1 rounded-lg border border-slate-700/50 backdrop-blur-sm">
+          {TIMEFRAMES.map((tf) => (
+            <button
+              key={tf.label}
+              onClick={() => setTimeframe(tf)}
+              className={clsx(
+                "px-2 py-0.5 text-[10px] font-bold rounded transition-colors",
+                timeframe.label === tf.label
+                  ? "bg-emerald-500 text-white"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800"
+              )}
+            >
+              {tf.label}
+            </button>
+          ))}
+        </div>
+      )}
+      
       <div ref={containerRef} style={{ height, background: "#0f172a" }} />
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-950/50">
