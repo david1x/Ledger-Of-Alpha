@@ -665,11 +665,15 @@ function SettingsContent() {
 
               <div className="pt-2 border-t dark:border-slate-800 border-slate-100">
                 <label className={LABEL}>Default Indicators (Studies)</label>
-                <p className="text-[10px] dark:text-slate-500 text-slate-400 mb-3">Choose indicators to load automatically on every chart.</p>
+                <p className="text-[10px] dark:text-slate-400 text-slate-500 mb-3">
+                  Choose indicators to load by default. <span className="text-emerald-400">Note:</span> The free version uses default lengths (e.g. 20). 
+                  You can manually change the length (e.g. 150) and color (e.g. Red) directly on the chart, and it will be remembered.
+                </p>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {[
-                    { id: "Moving Average Simple@tv-basicstudies", label: "SMA 150 (Red)" },
+                    { id: "MAExp@tv-basicstudies", label: "Moving Average Exponential (EMA)" },
+                    { id: "MASimple@tv-basicstudies", label: "Moving Average Simple (SMA)" },
                     { id: "RSI@tv-basicstudies", label: "Relative Strength Index (RSI)" },
                     { id: "MACD@tv-basicstudies", label: "MACD" },
                     { id: "StochasticRSI@tv-basicstudies", label: "Stochastic RSI" },
