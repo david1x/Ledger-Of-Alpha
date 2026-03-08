@@ -17,6 +17,7 @@ interface MiniChartProps {
 }
 
 const TIMEFRAMES = [
+  { label: "5m", interval: "5m", range: "1d" },
   { label: "15m", interval: "15m", range: "1d" },
   { label: "1h", interval: "1h", range: "5d" },
   { label: "1d", interval: "1d", range: "3mo" },
@@ -38,6 +39,20 @@ export default function MiniChart({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [timeframe, setTimeframe] = useState(TIMEFRAMES[2]); // Default 1d
+
+  // Load persisted timeframe
+  useEffect(() => {
+    const saved = localStorage.getItem("minichart_timeframe");
+    if (saved) {
+      const found = TIMEFRAMES.find(tf => tf.label === saved);
+      if (found) setTimeframe(found);
+    }
+  }, []);
+
+  const handleTimeframeChange = (tf: typeof TIMEFRAMES[0]) => {
+    setTimeframe(tf);
+    localStorage.setItem("minichart_timeframe", tf.label);
+  };
 
   // Create chart once
   useEffect(() => {
@@ -155,7 +170,7 @@ export default function MiniChart({
           {TIMEFRAMES.map((tf) => (
             <button
               key={tf.label}
-              onClick={() => setTimeframe(tf)}
+              onClick={() => handleTimeframeChange(tf)}
               className={clsx(
                 "px-2 py-0.5 text-[10px] font-bold rounded transition-colors",
                 timeframe.label === tf.label
