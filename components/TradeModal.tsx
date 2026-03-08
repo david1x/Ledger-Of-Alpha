@@ -1,11 +1,11 @@
 "use client";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Trade } from "@/lib/types";
+import { Trade, TradeStrategy } from "@/lib/types";
 import SymbolSearch from "./SymbolSearch";
 import RiskCalculator from "./RiskCalculator";
 import PositionSizer from "./PositionSizer";
 import SetupChart from "./SetupChart";
-import { X, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
+import { X, ChevronDown, ChevronUp, RefreshCw, ListChecks } from "lucide-react";
 import clsx from "clsx";
 
 interface Props {
@@ -30,7 +30,16 @@ const EMPTY: Partial<Trade> = {
   notes: "",
   tags: "",
   emotions: "",
+  wyckoff_checklist: "",
 };
+
+const LABEL = "block text-xs font-medium dark:text-slate-400 text-slate-500 mb-1";
+const INPUT = "w-full px-3 py-2 rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500";
+
+const DEFAULT_STRATEGIES: TradeStrategy[] = [
+  { id: "wyckoff_buy", name: "Wyckoff Buying Tests", checklist: ["Downside objective accomplished", "Activity bullish (Vol increase on rallies)", "Preliminary support / Selling climax", "Relative strength (Bullish vs Market)", "Downward trendline broken", "Higher lows", "Higher highs", "Base forming (Cause)", "RR Potential 3:1 or better"] },
+  { id: "wyckoff_sell", name: "Wyckoff Selling Tests", checklist: ["Upside objective accomplished", "Activity bearish (Vol increase on drops)", "Preliminary supply / Buying climax", "Relative weakness (Bearish vs Market)", "Upward trendline broken", "Lower highs", "Lower lows", "Top forming (Cause)", "RR Potential 3:1 or better"] }
+];
 
 export default function TradeModal({ trade, onClose, onSaved, accountSize: accountSizeProp, riskPercent: riskPercentProp }: Props) {
   const [form, setForm] = useState<Partial<Trade>>(trade ?? EMPTY);
@@ -41,12 +50,18 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
   const [riskPercent, setRiskPercent] = useState(riskPercentProp ?? 1);
   const [defaultCommission, setDefaultCommission] = useState(0);
   const [showTradeSettings, setShowTradeSettings] = useState(false);
+  const [strategies, setStrategies] = useState<TradeStrategy[]>([]);
   
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Close on outside click
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+  const mouseDownTarget = useRef<EventTarget | null>(null);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    mouseDownTarget.current = e.target;
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget && mouseDownTarget.current === e.currentTarget) {
       onClose();
     }
   };
@@ -63,6 +78,21 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
     fetch("/api/settings")
       .then((r) => r.json())
       .then((s) => {
+        if (s.strategies) {
+          try {
+            const parsed = JSON.parse(s.strategies);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setStrategies(parsed);
+            } else {
+              setStrategies(DEFAULT_STRATEGIES);
+            }
+          } catch (e) {
+            console.error("Failed to parse strategies", e);
+            setStrategies(DEFAULT_STRATEGIES);
+          }
+        } else {
+          setStrategies(DEFAULT_STRATEGIES);
+        }
         if (!accountSizeProp && s.account_size) {
           const startBal = parseFloat(s.account_size);
           fetch("/api/trades").then(r => r.json()).then(trades => {
@@ -143,8 +173,12 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
   }, [form.entry_price, form.stop_loss, form.take_profit]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={handleBackdropClick}>
-      <div ref={modalRef} className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl dark:bg-slate-900 bg-white shadow-2xl overflow-hidden border dark:border-slate-800 border-slate-200" onClick={e => e.stopPropagation()}>
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" 
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+    >
+      <div ref={modalRef} className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl dark:bg-slate-900 bg-white shadow-2xl overflow-hidden border dark:border-slate-800 border-slate-200">
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b dark:border-slate-800 border-slate-100">
@@ -224,17 +258,12 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
                     <div><label className={LABEL}>Take Profit</label><input placeholder="0.00" {...numField("take_profit")} /></div>
                   </div>
 
-                  <div className="space-y-3">
-                    <label className={LABEL}>Pre-trade Confluence Checklist</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {["Trend Alignment", "Support/Resistance", "Volume Confirmation", "News Checked", "Market Context", "Proper Sizing"].map(item => (
-                        <label key={item} className="flex items-center gap-2.5 p-3 rounded-xl border dark:border-slate-800 border-slate-100 dark:bg-slate-800/30 bg-slate-50 cursor-pointer hover:border-emerald-500/50 transition-colors">
-                          <input type="checkbox" className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500" />
-                          <span className="text-xs font-medium dark:text-slate-300 text-slate-600">{item}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
+                  <StrategyChecklist 
+                    strategies={strategies}
+                    direction={form.direction ?? "long"} 
+                    value={form.wyckoff_checklist ?? ""} 
+                    onChange={(v) => set("wyckoff_checklist", v)} 
+                  />
                 </div>
               )}
 
@@ -352,8 +381,112 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
   );
 }
 
-const LABEL = "block text-xs font-medium dark:text-slate-400 text-slate-500 mb-1";
-const INPUT = "w-full px-3 py-2 rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500";
+function StrategyChecklist({ strategies, direction, value, onChange }: { strategies: TradeStrategy[]; direction: string; value: string; onChange: (v: string) => void }) {
+  // Parse value. Format can be: 
+  // 1. "Item 1, Item 2" (Legacy Wyckoff)
+  // 2. "JSON:{"strategyId":"...","items":["..."]}" (New format)
+  
+  let currentStratId = "";
+  let selected: string[] = [];
+
+  if (value.startsWith("JSON:")) {
+    try {
+      const parsed = JSON.parse(value.substring(5));
+      currentStratId = parsed.strategyId;
+      selected = parsed.items;
+    } catch {
+      selected = value.split(",").map(t => t.trim()).filter(Boolean);
+    }
+  } else {
+    selected = value.split(",").map(t => t.trim()).filter(Boolean);
+    // Try to guess strategy ID for legacy data
+    if (selected.length > 0) {
+      if (direction === "long") currentStratId = "wyckoff_buy";
+      else currentStratId = "wyckoff_sell";
+    }
+  }
+
+  // If no strategy selected, try to find a matching one for the direction
+  if (!currentStratId && strategies.length > 0) {
+    const defaultStrat = strategies.find(s => 
+      direction === "long" ? s.id.includes("buy") : s.id.includes("sell")
+    ) || strategies[0];
+    currentStratId = defaultStrat.id;
+  }
+
+  const currentStrat = strategies.find(s => s.id === currentStratId) || strategies[0];
+
+  const update = (stratId: string, items: string[]) => {
+    onChange(`JSON:${JSON.stringify({ strategyId: stratId, items })}`);
+  };
+
+  const toggle = (item: string) => {
+    let next: string[];
+    if (selected.includes(item)) {
+      next = selected.filter(s => s !== item);
+    } else {
+      next = [...selected, item];
+    }
+    update(currentStratId, next);
+  };
+
+  if (strategies.length === 0) return null;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-1.5">
+        <label className={LABEL}>Trade Strategy & Checklist</label>
+        <div className="flex items-center gap-3">
+          <div className="flex-1 relative">
+            <select 
+              value={currentStratId}
+              onChange={(e) => update(e.target.value, [])}
+              className={clsx(INPUT, "appearance-none pr-10 truncate")}
+            >
+              {strategies.map(s => (
+                <option key={s.id} value={s.id} className="dark:bg-slate-900 bg-white">{s.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 dark:text-slate-500 text-slate-400 pointer-events-none" />
+          </div>
+          <div className="px-3 py-2 rounded-lg dark:bg-slate-800 bg-slate-100 dark:text-slate-400 text-slate-500 text-xs font-bold whitespace-nowrap border dark:border-slate-700 border-slate-200">
+            {selected.length} / {currentStrat?.checklist.length || 0}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {currentStrat?.checklist.map(item => {
+          const isSelected = selected.includes(item);
+          return (
+            <label 
+              key={item} 
+              className={clsx(
+                "flex items-center gap-2.5 p-3 rounded-xl border transition-all cursor-pointer",
+                isSelected 
+                  ? "dark:border-emerald-500/50 border-emerald-500/50 dark:bg-emerald-500/5 bg-emerald-50/50" 
+                  : "dark:border-slate-800 border-slate-100 dark:bg-slate-800/30 bg-slate-50 hover:border-slate-300 dark:hover:border-slate-600"
+              )}
+            >
+              <input 
+                type="checkbox" 
+                checked={isSelected}
+                onChange={() => toggle(item)}
+                className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500" 
+              />
+              <span className={clsx(
+                "text-xs font-medium transition-colors",
+                isSelected ? "dark:text-emerald-400 text-emerald-600" : "dark:text-slate-400 text-slate-600"
+              )}>
+                {item}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function TagsInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const tags = value ? value.split(",").map(t => t.trim()).filter(Boolean) : [];

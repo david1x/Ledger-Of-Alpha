@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database, Send, Grid3X3, Users, Settings, Trash2, UserCheck, UserX, LineChart } from "lucide-react";
+import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database, Send, Grid3X3, Users, Settings, Trash2, UserCheck, UserX, LineChart, ListChecks, Plus, GripVertical } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useCallback } from "react";
 import { tradesToCsv, csvToTrades } from "@/lib/csv";
 import { TRADE_FIELDS } from "@/lib/validate-trade";
 import clsx from "clsx";
@@ -23,6 +23,7 @@ interface Settings {
   tv_hotlist: string;
   tv_calendar: string;
   tv_studies: string;
+  strategies: string;
 }
 
 interface TwoFactorSetup {
@@ -30,12 +31,13 @@ interface TwoFactorSetup {
   qrDataUrl: string;
 }
 
-type Category = "account" | "display" | "chart" | "integrations" | "security" | "data" | "admin-users" | "admin-settings";
+type Category = "account" | "display" | "chart" | "strategies" | "integrations" | "security" | "data" | "admin-users" | "admin-settings";
 
 const CATEGORIES: { id: Category; label: string; icon: typeof DollarSign; adminOnly?: boolean }[] = [
   { id: "account",        label: "Account",        icon: DollarSign },
   { id: "display",        label: "Display",         icon: Grid3X3 },
   { id: "chart",          label: "Chart",           icon: LineChart },
+  { id: "strategies",     label: "Strategies",      icon: ListChecks },
   { id: "integrations",   label: "Integrations",    icon: Key },
   { id: "security",       label: "Security",        icon: ShieldCheck },
   { id: "data",           label: "Data",             icon: Database },
@@ -77,8 +79,50 @@ function SettingsContent() {
   const [settings, setSettings] = useState<Settings>({
     discord_webhook: "", alert_discord_webhook: "", fmp_api_key: "", account_size: "10000", risk_per_trade: "1", commission_per_trade: "0",
     heatmap_ranges: JSON.stringify({ high: 500, mid: 200, low: 1 }), charts_collapsed: "false", privacy_mode: "revealed",
-    tv_hide_side_toolbar: "false", tv_withdateranges: "true", tv_details: "false", tv_hotlist: "false", tv_calendar: "false", tv_studies: JSON.stringify(["Moving Average Simple@tv-basicstudies"])
+    tv_hide_side_toolbar: "false", tv_withdateranges: "true", tv_details: "false", tv_hotlist: "false", tv_calendar: "false", tv_studies: JSON.stringify(["Moving Average Simple@tv-basicstudies"]),
+    strategies: JSON.stringify([
+      { id: "wyckoff_buy", name: "Wyckoff Buying Tests", checklist: ["Downside objective accomplished", "Activity bullish (Vol increase on rallies)", "Preliminary support / Selling climax", "Relative strength (Bullish vs Market)", "Downward trendline broken", "Higher lows", "Higher highs", "Base forming (Cause)", "RR Potential 3:1 or better"] },
+      { id: "wyckoff_sell", name: "Wyckoff Selling Tests", checklist: ["Upside objective accomplished", "Activity bearish (Vol increase on drops)", "Preliminary supply / Buying climax", "Relative weakness (Bearish vs Market)", "Upward trendline broken", "Lower highs", "Lower lows", "Top forming (Cause)", "RR Potential 3:1 or better"] }
+    ])
   });
+
+  // Strategy helpers
+  const strategies = (() => { try { return JSON.parse(settings.strategies || "[]"); } catch { return []; } })();
+  
+  const updateStrategies = (newStrats: any[]) => {
+    setSettings(s => ({ ...s, strategies: JSON.stringify(newStrats) }));
+  };
+
+  const addStrategy = () => {
+    const newStrat = { id: crypto.randomUUID(), name: "New Strategy", checklist: ["Checklist Item 1"] };
+    updateStrategies([...strategies, newStrat]);
+  };
+
+  const removeStrategy = (id: string) => {
+    updateStrategies(strategies.filter((s: any) => s.id !== id));
+  };
+
+  const updateStrategyName = (id: string, name: string) => {
+    updateStrategies(strategies.map((s: any) => s.id === id ? { ...s, name } : s));
+  };
+
+  const addChecklistItem = (stratId: string) => {
+    updateStrategies(strategies.map((s: any) => s.id === stratId ? { ...s, checklist: [...s.checklist, ""] } : s));
+  };
+
+  const updateChecklistItem = (stratId: string, idx: number, val: string) => {
+    updateStrategies(strategies.map((s: any) => s.id === stratId ? { 
+      ...s, 
+      checklist: s.checklist.map((item: string, i: number) => i === idx ? val : item) 
+    } : s));
+  };
+
+  const removeChecklistItem = (stratId: string, idx: number) => {
+    updateStrategies(strategies.map((s: any) => s.id === stratId ? { 
+      ...s, 
+      checklist: s.checklist.filter((_: any, i: number) => i !== idx) 
+    } : s));
+  };
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -740,6 +784,81 @@ function SettingsContent() {
                   </div>
                 </div>
               </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Strategies ── */}
+        {activeCategory === "strategies" && (
+          <section className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+                  <ListChecks className="w-4 h-4 text-emerald-400" /> Trade Strategies & Checklists
+                </h2>
+                <p className="text-xs dark:text-slate-400 text-slate-500 mt-1">
+                  Define custom checklists for different trading strategies.
+                </p>
+              </div>
+              <button
+                onClick={addStrategy}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-lg shadow-emerald-500/10"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Strategy
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {strategies.map((strat: any) => (
+                <div key={strat.id} className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white overflow-hidden">
+                  <div className="p-4 border-b dark:border-slate-800 border-slate-100 dark:bg-slate-800/30 bg-slate-50/50 flex items-center gap-3">
+                    <GripVertical className="w-4 h-4 dark:text-slate-600 text-slate-400 cursor-grab" />
+                    <input
+                      type="text"
+                      value={strat.name}
+                      onChange={e => updateStrategyName(strat.id, e.target.value)}
+                      className="flex-1 bg-transparent border-none p-0 font-bold dark:text-white text-slate-900 focus:ring-0 text-sm"
+                      placeholder="Strategy Name"
+                    />
+                    <button
+                      onClick={() => removeStrategy(strat.id)}
+                      className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-400 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <div className="space-y-2">
+                      {strat.checklist.map((item: string, idx: number) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <div className="w-5 h-5 rounded-md border dark:border-slate-700 border-slate-300 flex items-center justify-center text-[10px] dark:text-slate-500 text-slate-400 font-bold">
+                            {idx + 1}
+                          </div>
+                          <input
+                            type="text"
+                            value={item}
+                            onChange={e => updateChecklistItem(strat.id, idx, e.target.value)}
+                            className="flex-1 px-3 py-1.5 text-xs rounded-lg border dark:border-slate-800 border-slate-200 dark:bg-slate-950 bg-white dark:text-slate-300 text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="Checklist item..."
+                          />
+                          <button
+                            onClick={() => removeChecklistItem(strat.id, idx)}
+                            className="p-1.5 text-slate-400 hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => addChecklistItem(strat.id)}
+                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-colors mt-2"
+                    >
+                      <Plus className="w-3 h-3" /> Add Item
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
         )}

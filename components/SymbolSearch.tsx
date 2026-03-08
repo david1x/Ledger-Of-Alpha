@@ -99,10 +99,10 @@ export default function SymbolSearch({ value, onChange, onSelectFull, placeholde
               className="w-full flex items-center justify-between px-3 py-2 text-left hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors"
             >
               <div>
-                <span className="font-bold text-emerald-400 text-sm">{s.symbol}</span>
-                <span className="ml-2 text-xs dark:text-slate-400 text-slate-500 truncate max-w-[180px] inline-block align-bottom">{s.name}</span>
+                <span className="font-bold dark:text-emerald-400 text-emerald-600 text-sm">{s.symbol}</span>
+                <span className="ml-2 text-xs dark:text-slate-200 text-slate-700 truncate max-w-[180px] inline-block align-bottom font-medium">{s.name}</span>
               </div>
-              <span className="text-xs dark:text-slate-500 text-slate-400 ml-2 shrink-0">{fmtCap(s.market_cap)}</span>
+              <span className="text-xs dark:text-slate-400 text-slate-500 ml-2 shrink-0 font-medium">{fmtCap(s.market_cap)}</span>
             </button>
           ))}
         </div>

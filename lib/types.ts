@@ -43,11 +43,18 @@ export interface Trade {
   notes: string | null;
   tags: string | null;
   emotions: string | null;
+  wyckoff_checklist: string | null;
   account_size?: number | null;
   commission?: number | null;
   risk_per_trade?: number | null;
   created_at: string;
   user_id: string | null;
+}
+
+export interface TradeStrategy {
+  id: string;
+  name: string;
+  checklist: string[];
 }
 
 export interface Settings {
@@ -56,6 +63,7 @@ export interface Settings {
   account_size: string;
   risk_per_trade: string;
   commission_per_trade: string;
+  strategies?: string; // JSON string of TradeStrategy[]
 }
 
 export interface StockSymbol {
