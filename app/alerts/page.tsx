@@ -154,15 +154,18 @@ export default function AlertsPage() {
                 <td className="px-4 py-3">
                   <span className={clsx(
                     "text-xs px-2 py-0.5 rounded-full font-medium uppercase tracking-tighter",
-                    a.condition === "above" ? "bg-emerald-500/10 text-emerald-400" :
-                    a.condition === "below" ? "bg-red-500/10 text-red-400" :
+                    a.condition === "above" || a.condition === "percent_up" ? "bg-emerald-500/10 text-emerald-400" :
+                    a.condition === "below" || a.condition === "percent_down" ? "bg-red-500/10 text-red-400" :
                     "bg-blue-500/10 text-blue-400"
                   )}>
-                    {a.condition}
+                    {a.condition === "percent_up" ? `+${a.percent_value}%` : a.condition === "percent_down" ? `-${a.percent_value}%` : a.condition}
                   </span>
                 </td>
                 <td className="px-4 py-3 font-mono text-sm dark:text-slate-300 text-slate-700">
-                  ${a.target_price.toLocaleString()}
+                  <div>${a.target_price.toLocaleString()}</div>
+                  {a.anchor_price && (
+                    <div className="text-[10px] dark:text-slate-500 text-slate-400">from ${a.anchor_price.toLocaleString()}</div>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   {a.triggered_at ? (

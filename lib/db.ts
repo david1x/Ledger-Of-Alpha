@@ -256,4 +256,31 @@ function runMigrations(db: Database.Database) {
     }
     markMigration(db, "010_wyckoff_checklist");
   }
+
+  // ── 011: Percent-based alerts ─────────────────────────────────────────
+  if (!hasMigration(db, "011_percent_alerts")) {
+    // Recreate alerts table with updated CHECK constraint and new columns
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS alerts_new (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id      TEXT NOT NULL,
+        symbol       TEXT NOT NULL,
+        condition    TEXT NOT NULL CHECK(condition IN ('above','below','crosses','percent_up','percent_down')),
+        target_price REAL NOT NULL,
+        percent_value REAL,
+        anchor_price  REAL,
+        repeating    INTEGER NOT NULL DEFAULT 0,
+        active       INTEGER NOT NULL DEFAULT 1,
+        triggered_at TEXT,
+        created_at   TEXT DEFAULT (datetime('now')),
+        note         TEXT
+      );
+      INSERT INTO alerts_new (id, user_id, symbol, condition, target_price, repeating, active, triggered_at, created_at, note)
+        SELECT id, user_id, symbol, condition, target_price, repeating, active, triggered_at, created_at, note FROM alerts;
+      DROP TABLE alerts;
+      ALTER TABLE alerts_new RENAME TO alerts;
+      CREATE INDEX IF NOT EXISTS idx_alerts_user_active ON alerts(user_id, active);
+    `);
+    markMigration(db, "011_percent_alerts");
+  }
 }

@@ -19,6 +19,8 @@ interface AlertToast {
   symbol: string;
   condition: string;
   target_price: number;
+  percent_value: number | null;
+  anchor_price: number | null;
   note: string | null;
   ts: number;
 }
@@ -167,6 +169,12 @@ export default function Navbar() {
             const crossedDown = prev > alert.target_price && price <= alert.target_price;
             triggered = crossedUp || crossedDown;
           }
+        } else if (alert.condition === "percent_up" && alert.anchor_price) {
+          const pctMove = ((price - alert.anchor_price) / alert.anchor_price) * 100;
+          triggered = pctMove >= (alert.percent_value ?? 0);
+        } else if (alert.condition === "percent_down" && alert.anchor_price) {
+          const pctMove = ((alert.anchor_price - price) / alert.anchor_price) * 100;
+          triggered = pctMove >= (alert.percent_value ?? 0);
         }
         if (triggered) {
           triggeredIds.push(alert.id);
@@ -194,7 +202,7 @@ export default function Navbar() {
           });
           playAlertSound();
           const newToasts: AlertToast[] = triggeredDetails.map(a => ({
-            id: a.id, symbol: a.symbol, condition: a.condition, target_price: a.target_price, note: a.note, ts: Date.now(),
+            id: a.id, symbol: a.symbol, condition: a.condition, target_price: a.target_price, percent_value: a.percent_value, anchor_price: a.anchor_price, note: a.note, ts: Date.now(),
           }));
           setToasts(prev => [...prev, ...newToasts]);
         }
@@ -423,7 +431,7 @@ export default function Navbar() {
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5"><Bell className="w-4 h-4 text-emerald-400" /></div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2"><span className="text-sm font-bold text-emerald-400">{t.symbol}</span><span className={`text-xs px-1.5 py-0.5 rounded font-medium ${t.condition === "above" ? "bg-emerald-500/10 text-emerald-400" : t.condition === "below" ? "bg-red-500/10 text-red-400" : "bg-blue-500/10 text-blue-400"}`}>{t.condition} ${t.target_price}</span></div>
+              <div className="flex items-center gap-2"><span className="text-sm font-bold text-emerald-400">{t.symbol}</span><span className={`text-xs px-1.5 py-0.5 rounded font-medium ${t.condition === "above" || t.condition === "percent_up" ? "bg-emerald-500/10 text-emerald-400" : t.condition === "below" || t.condition === "percent_down" ? "bg-red-500/10 text-red-400" : "bg-blue-500/10 text-blue-400"}`}>{t.condition === "percent_up" ? `+${t.percent_value}%` : t.condition === "percent_down" ? `-${t.percent_value}%` : `${t.condition} $${t.target_price}`}</span></div>
               {t.note && <p className="text-xs dark:text-slate-400 text-slate-500 mt-1 truncate">{t.note}</p>}
               <p className="text-[10px] dark:text-slate-500 text-slate-400 mt-1">Price alert triggered</p>
             </div>

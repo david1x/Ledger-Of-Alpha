@@ -91,7 +91,7 @@ export interface PositionSizeResult {
 export type QuoteMap = Record<string, number>;
 
 // ── Alerts ───────────────────────────────────────────────────────────────
-export type AlertCondition = "above" | "below" | "crosses";
+export type AlertCondition = "above" | "below" | "crosses" | "percent_up" | "percent_down";
 
 export interface Alert {
   id: number;
@@ -99,6 +99,8 @@ export interface Alert {
   symbol: string;
   condition: AlertCondition;
   target_price: number;
+  percent_value: number | null;  // for percent_up / percent_down alerts
+  anchor_price: number | null;   // price when percent alert was created
   repeating: number;       // 0 | 1
   active: number;          // 0 | 1
   triggered_at: string | null;

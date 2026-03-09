@@ -1,10 +1,12 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { X, Bell, RefreshCw } from "lucide-react";
+import { X, Bell, RefreshCw, DollarSign, Percent } from "lucide-react";
 import SymbolSearch from "./SymbolSearch";
 import type { Alert, AlertCondition } from "@/lib/types";
 import clsx from "clsx";
+
+type AlertMode = "price" | "percent";
 
 interface Props {
   open: boolean;
@@ -19,38 +21,86 @@ const LABEL = "block text-xs font-medium dark:text-slate-400 text-slate-500 uppe
 const INPUT = "w-full px-3 py-2 text-sm rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all";
 
 export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defaultPrice, editAlert }: Props) {
+  const [mode, setMode] = useState<AlertMode>("price");
   const [symbol, setSymbol] = useState("");
   const [targetPrice, setTargetPrice] = useState("");
   const [condition, setCondition] = useState<AlertCondition>("above");
+  const [percentValue, setPercentValue] = useState("");
+  const [percentDirection, setPercentDirection] = useState<"percent_up" | "percent_down">("percent_up");
   const [repeating, setRepeating] = useState(false);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [fetchingPrice, setFetchingPrice] = useState(false);
 
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
+  // Fetch current price when symbol changes (for percent mode)
+  const fetchCurrentPrice = useCallback(async (sym: string) => {
+    if (!sym.trim()) { setCurrentPrice(null); return; }
+    setFetchingPrice(true);
+    try {
+      const res = await fetch(`/api/quotes?symbols=${sym.toUpperCase()}`);
+      if (res.ok) {
+        const quotes: Record<string, number> = await res.json();
+        const price = quotes[sym.toUpperCase()];
+        if (price) setCurrentPrice(price);
+        else setCurrentPrice(null);
+      }
+    } catch { /* silent */ }
+    finally { setFetchingPrice(false); }
+  }, []);
+
+  // Compute target price from percent
+  useEffect(() => {
+    if (mode !== "percent" || !currentPrice || !percentValue) return;
+    const pct = parseFloat(percentValue);
+    if (isNaN(pct) || pct <= 0) return;
+    const target = percentDirection === "percent_up"
+      ? currentPrice * (1 + pct / 100)
+      : currentPrice * (1 - pct / 100);
+    setTargetPrice(target.toFixed(2));
+  }, [mode, currentPrice, percentValue, percentDirection]);
+
   // Sync state when modal opens
   useEffect(() => {
     if (open) {
       if (editAlert) {
+        const isPercent = editAlert.condition === "percent_up" || editAlert.condition === "percent_down";
+        setMode(isPercent ? "percent" : "price");
         setSymbol(editAlert.symbol);
         setTargetPrice(String(editAlert.target_price));
         setCondition(editAlert.condition);
+        if (isPercent) {
+          setPercentDirection(editAlert.condition as "percent_up" | "percent_down");
+          setPercentValue(editAlert.percent_value ? String(editAlert.percent_value) : "");
+          setCurrentPrice(editAlert.anchor_price);
+        } else {
+          setPercentValue("");
+          setPercentDirection("percent_up");
+          setCurrentPrice(null);
+        }
         setRepeating(!!editAlert.repeating);
         setNote(editAlert.note ?? "");
       } else {
+        setMode("price");
         setSymbol(defaultSymbol ?? "");
         setTargetPrice(defaultPrice?.toString() ?? "");
         setCondition("above");
+        setPercentValue("");
+        setPercentDirection("percent_up");
         setRepeating(false);
         setNote("");
+        setCurrentPrice(null);
+        if (defaultSymbol) fetchCurrentPrice(defaultSymbol);
       }
       setError("");
     }
-  }, [open, defaultSymbol, defaultPrice, editAlert]);
+  }, [open, defaultSymbol, defaultPrice, editAlert, fetchCurrentPrice]);
 
   // Close on Escape
   useEffect(() => {
@@ -63,6 +113,7 @@ export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defa
   if (!open || !mounted) return null;
 
   const isEdit = !!editAlert;
+  const isPercentMode = mode === "percent";
 
   const handleMouseDown = (e: React.MouseEvent) => {
     mouseDownTarget.current = e.target;
@@ -74,54 +125,110 @@ export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defa
     }
   };
 
+  const handleSymbolChange = (sym: string) => {
+    setSymbol(sym);
+    if (sym.trim()) fetchCurrentPrice(sym);
+    else setCurrentPrice(null);
+  };
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!symbol.trim()) { setError("Symbol is required"); return; }
-    const price = parseFloat(targetPrice);
-    if (!price || price <= 0) { setError("Enter a valid price"); return; }
 
-    setSaving(true);
-    setError("");
-    try {
-      let res: Response;
-      if (isEdit) {
-        res = await fetch(`/api/alerts/${editAlert!.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            target_price: price,
-            note: note.trim() || null,
-          }),
-        });
-      } else {
-        res = await fetch("/api/alerts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            symbol: symbol.toUpperCase(),
-            condition,
-            target_price: price,
-            repeating,
-            note: note.trim() || null,
-          }),
-        });
+    if (isPercentMode) {
+      const pct = parseFloat(percentValue);
+      if (!pct || pct <= 0) { setError("Enter a valid percentage"); return; }
+      if (!currentPrice || currentPrice <= 0) { setError("Could not fetch current price for this symbol"); return; }
+      const computedTarget = parseFloat(targetPrice);
+      if (!computedTarget || computedTarget <= 0) { setError("Invalid computed target price"); return; }
+
+      setSaving(true);
+      setError("");
+      try {
+        let res: Response;
+        if (isEdit) {
+          res = await fetch(`/api/alerts/${editAlert!.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              target_price: computedTarget,
+              note: note.trim() || null,
+            }),
+          });
+        } else {
+          res = await fetch("/api/alerts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              symbol: symbol.toUpperCase(),
+              condition: percentDirection,
+              target_price: computedTarget,
+              percent_value: pct,
+              anchor_price: currentPrice,
+              repeating,
+              note: note.trim() || null,
+            }),
+          });
+        }
+        if (!res.ok) {
+          const data = await res.json();
+          setError(data.error || `Failed to ${isEdit ? "update" : "create"} alert`);
+          return;
+        }
+        onSaved();
+        onClose();
+      } catch {
+        setError("Network error");
+      } finally {
+        setSaving(false);
       }
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || `Failed to ${isEdit ? "update" : "create"} alert`);
-        return;
+    } else {
+      const price = parseFloat(targetPrice);
+      if (!price || price <= 0) { setError("Enter a valid price"); return; }
+
+      setSaving(true);
+      setError("");
+      try {
+        let res: Response;
+        if (isEdit) {
+          res = await fetch(`/api/alerts/${editAlert!.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              target_price: price,
+              note: note.trim() || null,
+            }),
+          });
+        } else {
+          res = await fetch("/api/alerts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              symbol: symbol.toUpperCase(),
+              condition,
+              target_price: price,
+              repeating,
+              note: note.trim() || null,
+            }),
+          });
+        }
+        if (!res.ok) {
+          const data = await res.json();
+          setError(data.error || `Failed to ${isEdit ? "update" : "create"} alert`);
+          return;
+        }
+        onSaved();
+        onClose();
+      } catch {
+        setError("Network error");
+      } finally {
+        setSaving(false);
       }
-      onSaved();
-      onClose();
-    } catch {
-      setError("Network error");
-    } finally {
-      setSaving(false);
     }
   }
 
   return createPortal(
-    <div 
+    <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
@@ -154,45 +261,154 @@ export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defa
                 {symbol.toUpperCase()}
               </div>
             ) : (
-              <SymbolSearch value={symbol} onChange={setSymbol} placeholder="e.g. AAPL" />
+              <SymbolSearch value={symbol} onChange={handleSymbolChange} placeholder="e.g. AAPL" />
             )}
           </div>
 
-          {/* Target Price */}
-          <div>
-            <label className={LABEL}>Target Price</label>
-            <input
-              type="number"
-              step="any"
-              value={targetPrice}
-              onChange={e => setTargetPrice(e.target.value)}
-              placeholder="0.00"
-              className={INPUT}
-            />
-          </div>
-
-          {/* Condition */}
-          <div>
-            <label className={LABEL}>Condition</label>
-            <div className="flex p-1 rounded-xl dark:bg-slate-800 bg-slate-100">
-              {(["above", "below", "crosses"] as AlertCondition[]).map(c => (
+          {/* Mode Toggle (Price vs Percent) */}
+          {!isEdit && (
+            <div>
+              <label className={LABEL}>Alert Type</label>
+              <div className="flex p-1 rounded-xl dark:bg-slate-800 bg-slate-100">
                 <button
-                  key={c}
                   type="button"
-                  disabled={isEdit}
-                  onClick={() => setCondition(c)}
+                  onClick={() => setMode("price")}
                   className={clsx(
-                    "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all",
-                    condition === c
+                    "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5",
+                    mode === "price"
                       ? "bg-white dark:bg-slate-700 dark:text-emerald-400 text-emerald-600 shadow-sm"
-                      : "dark:text-slate-400 text-slate-500 hover:dark:text-slate-300 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      : "dark:text-slate-400 text-slate-500 hover:dark:text-slate-300 hover:text-slate-700"
                   )}
                 >
-                  {c === "above" ? "Above" : c === "below" ? "Below" : "Crosses"}
+                  <DollarSign className="w-3.5 h-3.5" />
+                  Price Level
                 </button>
-              ))}
+                <button
+                  type="button"
+                  onClick={() => setMode("percent")}
+                  className={clsx(
+                    "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5",
+                    mode === "percent"
+                      ? "bg-white dark:bg-slate-700 dark:text-emerald-400 text-emerald-600 shadow-sm"
+                      : "dark:text-slate-400 text-slate-500 hover:dark:text-slate-300 hover:text-slate-700"
+                  )}
+                >
+                  <Percent className="w-3.5 h-3.5" />
+                  % Move
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {isPercentMode ? (
+            <>
+              {/* Percent Direction */}
+              <div>
+                <label className={LABEL}>Direction</label>
+                <div className="flex p-1 rounded-xl dark:bg-slate-800 bg-slate-100">
+                  <button
+                    type="button"
+                    disabled={isEdit}
+                    onClick={() => setPercentDirection("percent_up")}
+                    className={clsx(
+                      "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all",
+                      percentDirection === "percent_up"
+                        ? "bg-white dark:bg-slate-700 dark:text-emerald-400 text-emerald-600 shadow-sm"
+                        : "dark:text-slate-400 text-slate-500 hover:dark:text-slate-300 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    )}
+                  >
+                    Moves Up
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isEdit}
+                    onClick={() => setPercentDirection("percent_down")}
+                    className={clsx(
+                      "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all",
+                      percentDirection === "percent_down"
+                        ? "bg-white dark:bg-slate-700 dark:text-red-400 text-red-600 shadow-sm"
+                        : "dark:text-slate-400 text-slate-500 hover:dark:text-slate-300 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    )}
+                  >
+                    Moves Down
+                  </button>
+                </div>
+              </div>
+
+              {/* Percent Value */}
+              <div>
+                <label className={LABEL}>Percentage (%)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="any"
+                    min="0.01"
+                    value={percentValue}
+                    onChange={e => setPercentValue(e.target.value)}
+                    placeholder="5.0"
+                    className={INPUT}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm dark:text-slate-500 text-slate-400">%</span>
+                </div>
+              </div>
+
+              {/* Computed Info */}
+              <div className="p-3 rounded-xl border dark:border-slate-800 border-slate-100 dark:bg-slate-800/30 bg-slate-50/50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs dark:text-slate-500 text-slate-400 font-medium">Current Price</span>
+                  <span className="text-sm font-bold dark:text-slate-300 text-slate-700">
+                    {fetchingPrice ? "..." : currentPrice ? `$${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+                  </span>
+                </div>
+                {targetPrice && currentPrice && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs dark:text-slate-500 text-slate-400 font-medium">Target Price</span>
+                    <span className={clsx("text-sm font-bold", percentDirection === "percent_up" ? "text-emerald-400" : "text-red-400")}>
+                      ${parseFloat(targetPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Target Price */}
+              <div>
+                <label className={LABEL}>Target Price</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={targetPrice}
+                  onChange={e => setTargetPrice(e.target.value)}
+                  placeholder="0.00"
+                  className={INPUT}
+                />
+              </div>
+
+              {/* Condition */}
+              <div>
+                <label className={LABEL}>Condition</label>
+                <div className="flex p-1 rounded-xl dark:bg-slate-800 bg-slate-100">
+                  {(["above", "below", "crosses"] as AlertCondition[]).map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      disabled={isEdit}
+                      onClick={() => setCondition(c)}
+                      className={clsx(
+                        "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all",
+                        condition === c
+                          ? "bg-white dark:bg-slate-700 dark:text-emerald-400 text-emerald-600 shadow-sm"
+                          : "dark:text-slate-400 text-slate-500 hover:dark:text-slate-300 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      )}
+                    >
+                      {c === "above" ? "Above" : c === "below" ? "Below" : "Crosses"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Repeating */}
           <div className="flex items-center justify-between p-3 rounded-xl border dark:border-slate-800 border-slate-100 dark:bg-slate-800/30 bg-slate-50/50">
@@ -231,15 +447,15 @@ export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defa
           )}
 
           <div className="flex gap-3 pt-2">
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={onClose}
               className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
             >
               Cancel
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={saving}
               className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-all disabled:opacity-50 shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center"
             >

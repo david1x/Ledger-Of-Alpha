@@ -54,9 +54,17 @@ export async function POST(req: NextRequest) {
 
       // Post to Discord if webhook configured
       if (webhook) {
-        const condLabel = alert.condition === "above" ? "above" : alert.condition === "below" ? "below" : "crossed";
+        let headline: string;
+        if (alert.condition === "percent_up") {
+          headline = `**Price Alert** — **${alert.symbol}** moved up ${alert.percent_value}% (from $${alert.anchor_price} to $${alert.target_price})`;
+        } else if (alert.condition === "percent_down") {
+          headline = `**Price Alert** — **${alert.symbol}** moved down ${alert.percent_value}% (from $${alert.anchor_price} to $${alert.target_price})`;
+        } else {
+          const condLabel = alert.condition === "above" ? "above" : alert.condition === "below" ? "below" : "crossed";
+          headline = `**Price Alert** — **${alert.symbol}** is ${condLabel} $${alert.target_price}`;
+        }
         const content = [
-          `**Price Alert** — **${alert.symbol}** is ${condLabel} $${alert.target_price}`,
+          headline,
           alert.note ? `> ${alert.note}` : "",
           alert.repeating ? "_Repeating alert_" : "_One-shot alert (now inactive)_",
         ].filter(Boolean).join("\n");

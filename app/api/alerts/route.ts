@@ -32,27 +32,38 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { symbol, condition, target_price, repeating, note } = body;
+    const { symbol, condition, target_price, percent_value, anchor_price, repeating, note } = body;
 
     if (!symbol || typeof symbol !== "string") {
       return NextResponse.json({ error: "symbol is required" }, { status: 400 });
     }
-    if (!["above", "below", "crosses"].includes(condition)) {
-      return NextResponse.json({ error: "condition must be above, below, or crosses" }, { status: 400 });
+    if (!["above", "below", "crosses", "percent_up", "percent_down"].includes(condition)) {
+      return NextResponse.json({ error: "condition must be above, below, crosses, percent_up, or percent_down" }, { status: 400 });
     }
     if (typeof target_price !== "number" || target_price <= 0) {
       return NextResponse.json({ error: "target_price must be a positive number" }, { status: 400 });
     }
+    const isPercent = condition === "percent_up" || condition === "percent_down";
+    if (isPercent) {
+      if (typeof percent_value !== "number" || percent_value <= 0) {
+        return NextResponse.json({ error: "percent_value must be a positive number" }, { status: 400 });
+      }
+      if (typeof anchor_price !== "number" || anchor_price <= 0) {
+        return NextResponse.json({ error: "anchor_price must be a positive number" }, { status: 400 });
+      }
+    }
 
     const db = getDb();
     const result = db.prepare(`
-      INSERT INTO alerts (user_id, symbol, condition, target_price, repeating, note)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO alerts (user_id, symbol, condition, target_price, percent_value, anchor_price, repeating, note)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       user.id,
       symbol.toUpperCase(),
       condition,
       target_price,
+      isPercent ? percent_value : null,
+      isPercent ? anchor_price : null,
       repeating ? 1 : 0,
       note || null
     );
