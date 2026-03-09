@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database, Send, Grid3X3, Users, Settings, Trash2, UserCheck, UserX, LineChart, ListChecks, Plus, GripVertical } from "lucide-react";
+import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database, Send, Grid3X3, Users, Settings, Trash2, UserCheck, UserX, LineChart, ListChecks, Plus, GripVertical, ChevronDown, ChevronRight } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback } from "react";
 import { tradesToCsv, csvToTrades } from "@/lib/csv";
@@ -147,6 +147,7 @@ function SettingsContent() {
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
   const [importing, setImporting] = useState(false);
   const [testingChart, setTestingChart] = useState(false);
+  const [expandedStrategies, setExpandedStrategies] = useState<Set<string>>(new Set());
   const [testingAlert, setTestingAlert] = useState(false);
   const [chartTestMsg, setChartTestMsg] = useState<{ text: string; type: "ok" | "err" } | null>(null);
   const [alertTestMsg, setAlertTestMsg] = useState<{ text: string; type: "ok" | "err" } | null>(null);
@@ -809,10 +810,20 @@ function SettingsContent() {
             </div>
 
             <div className="space-y-4">
-              {strategies.map((strat: any) => (
+              {strategies.map((strat: any) => {
+                const isCollapsed = !expandedStrategies.has(strat.id);
+                const toggleCollapse = () => setExpandedStrategies(prev => {
+                  const next = new Set(prev);
+                  if (next.has(strat.id)) next.delete(strat.id); else next.add(strat.id);
+                  return next;
+                });
+                return (
                 <div key={strat.id} className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white overflow-hidden">
-                  <div className="p-4 border-b dark:border-slate-800 border-slate-100 dark:bg-slate-800/30 bg-slate-50/50 flex items-center gap-3">
+                  <div className="p-4 dark:bg-slate-800/30 bg-slate-50/50 flex items-center gap-3">
                     <GripVertical className="w-4 h-4 dark:text-slate-600 text-slate-400 cursor-grab" />
+                    <button type="button" onClick={toggleCollapse} className="p-0.5 rounded hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors shrink-0">
+                      {isCollapsed ? <ChevronRight className="w-4 h-4 dark:text-slate-400 text-slate-500" /> : <ChevronDown className="w-4 h-4 dark:text-slate-400 text-slate-500" />}
+                    </button>
                     <input
                       type="text"
                       value={strat.name}
@@ -820,6 +831,7 @@ function SettingsContent() {
                       className="flex-1 bg-transparent border-none p-0 font-bold dark:text-white text-slate-900 focus:ring-0 text-sm"
                       placeholder="Strategy Name"
                     />
+                    <span className="text-[10px] font-medium dark:text-slate-500 text-slate-400 tabular-nums shrink-0">{strat.checklist.length} items</span>
                     <button
                       onClick={() => removeStrategy(strat.id)}
                       className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-400 transition-colors"
@@ -827,7 +839,8 @@ function SettingsContent() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="p-4 space-y-3">
+                  {!isCollapsed && (
+                  <div className="p-4 space-y-3 border-t dark:border-slate-800 border-slate-100">
                     <div className="space-y-2">
                       {strat.checklist.map((item: string, idx: number) => (
                         <div key={idx} className="flex items-center gap-2">
@@ -857,8 +870,10 @@ function SettingsContent() {
                       <Plus className="w-3 h-3" /> Add Item
                     </button>
                   </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         )}

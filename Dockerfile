@@ -28,7 +28,7 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=3002
+ENV PORT=5555
 ENV HOSTNAME=0.0.0.0
 
 # Non-root user for security
@@ -49,6 +49,6 @@ RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-EXPOSE 3002
+EXPOSE 5555
 
 CMD ["/app/entrypoint.sh"]

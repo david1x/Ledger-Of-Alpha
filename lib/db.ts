@@ -265,7 +265,7 @@ function runMigrations(db: Database.Database) {
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id      TEXT NOT NULL,
         symbol       TEXT NOT NULL,
-        condition    TEXT NOT NULL CHECK(condition IN ('above','below','crosses','percent_up','percent_down')),
+        condition    TEXT NOT NULL CHECK(condition IN ('above','below','crosses','percent_up','percent_down','percent_move')),
         target_price REAL NOT NULL,
         percent_value REAL,
         anchor_price  REAL,

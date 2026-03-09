@@ -91,7 +91,7 @@ export interface PositionSizeResult {
 export type QuoteMap = Record<string, number>;
 
 // ── Alerts ───────────────────────────────────────────────────────────────
-export type AlertCondition = "above" | "below" | "crosses" | "percent_up" | "percent_down";
+export type AlertCondition = "above" | "below" | "crosses" | "percent_up" | "percent_down" | "percent_move";
 
 export interface Alert {
   id: number;

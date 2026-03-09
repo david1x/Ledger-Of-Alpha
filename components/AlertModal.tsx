@@ -26,7 +26,7 @@ export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defa
   const [targetPrice, setTargetPrice] = useState("");
   const [condition, setCondition] = useState<AlertCondition>("above");
   const [percentValue, setPercentValue] = useState("");
-  const [percentDirection, setPercentDirection] = useState<"percent_up" | "percent_down">("percent_up");
+  const [percentDirection, setPercentDirection] = useState<"percent_up" | "percent_down" | "percent_move">("percent_up");
   const [repeating, setRepeating] = useState(false);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -60,9 +60,10 @@ export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defa
     if (mode !== "percent" || !currentPrice || !percentValue) return;
     const pct = parseFloat(percentValue);
     if (isNaN(pct) || pct <= 0) return;
-    const target = percentDirection === "percent_up"
-      ? currentPrice * (1 + pct / 100)
-      : currentPrice * (1 - pct / 100);
+    // For percent_move (either direction), store the up target — the check logic uses anchor_price + abs(%)
+    const target = percentDirection === "percent_down"
+      ? currentPrice * (1 - pct / 100)
+      : currentPrice * (1 + pct / 100);
     setTargetPrice(target.toFixed(2));
   }, [mode, currentPrice, percentValue, percentDirection]);
 
@@ -70,13 +71,13 @@ export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defa
   useEffect(() => {
     if (open) {
       if (editAlert) {
-        const isPercent = editAlert.condition === "percent_up" || editAlert.condition === "percent_down";
+        const isPercent = editAlert.condition === "percent_up" || editAlert.condition === "percent_down" || editAlert.condition === "percent_move";
         setMode(isPercent ? "percent" : "price");
         setSymbol(editAlert.symbol);
         setTargetPrice(String(editAlert.target_price));
         setCondition(editAlert.condition);
         if (isPercent) {
-          setPercentDirection(editAlert.condition as "percent_up" | "percent_down");
+          setPercentDirection(editAlert.condition as "percent_up" | "percent_down" | "percent_move");
           setPercentValue(editAlert.percent_value ? String(editAlert.percent_value) : "");
           setCurrentPrice(editAlert.anchor_price);
         } else {
@@ -332,6 +333,19 @@ export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defa
                   >
                     Moves Down
                   </button>
+                  <button
+                    type="button"
+                    disabled={isEdit}
+                    onClick={() => setPercentDirection("percent_move")}
+                    className={clsx(
+                      "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all",
+                      percentDirection === "percent_move"
+                        ? "bg-white dark:bg-slate-700 dark:text-purple-400 text-purple-600 shadow-sm"
+                        : "dark:text-slate-400 text-slate-500 hover:dark:text-slate-300 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    )}
+                  >
+                    Either
+                  </button>
                 </div>
               </div>
 
@@ -360,13 +374,24 @@ export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defa
                     {fetchingPrice ? "..." : currentPrice ? `$${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
                   </span>
                 </div>
-                {targetPrice && currentPrice && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs dark:text-slate-500 text-slate-400 font-medium">Target Price</span>
-                    <span className={clsx("text-sm font-bold", percentDirection === "percent_up" ? "text-emerald-400" : "text-red-400")}>
-                      ${parseFloat(targetPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
+                {targetPrice && currentPrice && percentValue && (
+                  percentDirection === "percent_move" ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs dark:text-slate-500 text-slate-400 font-medium">Trigger Range</span>
+                      <span className="text-sm font-bold text-purple-400">
+                        ${(currentPrice * (1 - parseFloat(percentValue) / 100)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {" — "}
+                        ${(currentPrice * (1 + parseFloat(percentValue) / 100)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs dark:text-slate-500 text-slate-400 font-medium">Target Price</span>
+                      <span className={clsx("text-sm font-bold", percentDirection === "percent_up" ? "text-emerald-400" : "text-red-400")}>
+                        ${parseFloat(targetPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )
                 )}
               </div>
             </>

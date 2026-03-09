@@ -156,9 +156,10 @@ export default function AlertsPage() {
                     "text-xs px-2 py-0.5 rounded-full font-medium uppercase tracking-tighter",
                     a.condition === "above" || a.condition === "percent_up" ? "bg-emerald-500/10 text-emerald-400" :
                     a.condition === "below" || a.condition === "percent_down" ? "bg-red-500/10 text-red-400" :
+                    a.condition === "percent_move" ? "bg-purple-500/10 text-purple-400" :
                     "bg-blue-500/10 text-blue-400"
                   )}>
-                    {a.condition === "percent_up" ? `+${a.percent_value}%` : a.condition === "percent_down" ? `-${a.percent_value}%` : a.condition}
+                    {a.condition === "percent_up" ? `+${a.percent_value}%` : a.condition === "percent_down" ? `-${a.percent_value}%` : a.condition === "percent_move" ? `\u00B1${a.percent_value}%` : a.condition}
                   </span>
                 </td>
                 <td className="px-4 py-3 font-mono text-sm dark:text-slate-300 text-slate-700">

@@ -37,13 +37,13 @@ export async function POST(req: NextRequest) {
     if (!symbol || typeof symbol !== "string") {
       return NextResponse.json({ error: "symbol is required" }, { status: 400 });
     }
-    if (!["above", "below", "crosses", "percent_up", "percent_down"].includes(condition)) {
-      return NextResponse.json({ error: "condition must be above, below, crosses, percent_up, or percent_down" }, { status: 400 });
+    if (!["above", "below", "crosses", "percent_up", "percent_down", "percent_move"].includes(condition)) {
+      return NextResponse.json({ error: "Invalid condition" }, { status: 400 });
     }
     if (typeof target_price !== "number" || target_price <= 0) {
       return NextResponse.json({ error: "target_price must be a positive number" }, { status: 400 });
     }
-    const isPercent = condition === "percent_up" || condition === "percent_down";
+    const isPercent = condition === "percent_up" || condition === "percent_down" || condition === "percent_move";
     if (isPercent) {
       if (typeof percent_value !== "number" || percent_value <= 0) {
         return NextResponse.json({ error: "percent_value must be a positive number" }, { status: 400 });

@@ -12,9 +12,9 @@ services:
     build: .
 
     # ── Ports ──────────────────────────────────────────────────
-    # Change 3000 on the left to expose on a different host port.
+    # Change 5555 on the left to expose on a different host port.
     ports:
-      - "3000:3000"
+      - "5555:5555"
 
     # ── Volumes ────────────────────────────────────────────────
     # The SQLite database lives in ./data on the host.
@@ -49,7 +49,7 @@ services:
     restart: unless-stopped
 
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/auth/me"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:5555/api/auth/me"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -153,7 +153,7 @@ Open `docker-compose.yml` in your editor and update the `environment` section:
 ```yaml
 environment:
   # Public URL — change to your domain if deploying remotely
-  NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+  NEXT_PUBLIC_APP_URL: "http://localhost:5555"
 
   # JWT Secret — REQUIRED. Generate with: openssl rand -base64 32
   JWT_SECRET: "paste-your-generated-secret-here"
@@ -168,20 +168,20 @@ environment:
   SMTP_FROM: "Ledger Of Alpha <noreply@your-domain.com>"
 ```
 
-**Changing the port**: Edit the `ports` mapping and the `NEXT_PUBLIC_APP_URL` to match. For example, to run on port 3002:
+**Changing the port**: Edit the `ports` mapping and the `NEXT_PUBLIC_APP_URL` to match. The default Docker port is **5555**. For example, to run on port 8080:
 
 ```yaml
 ports:
-  - "3002:3002"
+  - "8080:8080"
 environment:
-  NEXT_PUBLIC_APP_URL: "http://localhost:3002"
+  NEXT_PUBLIC_APP_URL: "http://localhost:8080"
 ```
 
 Then update the `PORT` environment variable in the Dockerfile or pass it as an env var:
 
 ```yaml
 environment:
-  PORT: "3002"
+  PORT: "8080"
 ```
 
 ### 4. Build and Start
@@ -195,7 +195,7 @@ This runs a multi-stage Docker build:
 2. **builder** — Builds the Next.js production bundle (standalone output)
 3. **runner** — Minimal Alpine image, runs as non-root `nextjs` user
 
-Once complete, open the URL you configured (default: **http://localhost:3000**).
+Once complete, open the URL you configured (default: **http://localhost:5555**).
 
 The SQLite database is stored in `./data/` on the host via the volume mount and persists across container restarts and rebuilds.
 

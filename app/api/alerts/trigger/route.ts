@@ -59,6 +59,8 @@ export async function POST(req: NextRequest) {
           headline = `**Price Alert** — **${alert.symbol}** moved up ${alert.percent_value}% (from $${alert.anchor_price} to $${alert.target_price})`;
         } else if (alert.condition === "percent_down") {
           headline = `**Price Alert** — **${alert.symbol}** moved down ${alert.percent_value}% (from $${alert.anchor_price} to $${alert.target_price})`;
+        } else if (alert.condition === "percent_move") {
+          headline = `**Price Alert** — **${alert.symbol}** moved \u00B1${alert.percent_value}% from $${alert.anchor_price}`;
         } else {
           const condLabel = alert.condition === "above" ? "above" : alert.condition === "below" ? "below" : "crossed";
           headline = `**Price Alert** — **${alert.symbol}** is ${condLabel} $${alert.target_price}`;
