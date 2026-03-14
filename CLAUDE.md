@@ -16,11 +16,11 @@ Next.js 15 (App Router), TypeScript, Tailwind CSS v3, better-sqlite3, recharts, 
 ## Project Structure
 - `app/` — Next.js App Router pages + API routes
 - `components/` — React components (all client-side "use client")
-- `lib/` — Server utilities (db.ts, auth.ts, rate-limit.ts, validate-trade.ts, csv.ts, demo-data.ts)
+- `lib/` — Server utilities (db.ts, auth.ts, rate-limit.ts, validate-trade.ts, csv.ts, demo-data.ts, account-context.tsx)
 - `data/` — SQLite database (auto-created on first API call, gitignored)
 
 ## Key Files
-- `components/dashboard/DashboardShell.tsx` — Main dashboard orchestrator (~770 lines). 24 widget cards with drag-reorder, hide/show, 3 size modes (large/medium/compact), time filtering (30/60/90/All), layout persistence via settings API.
+- `components/dashboard/DashboardShell.tsx` — Main dashboard orchestrator (~770 lines). 24 widget cards with drag-reorder, hide/show, 3 size modes (large/medium/compact), time filtering (30/60/90/All), layout persistence via settings API. Account-aware: scopes data by active account.
 - `components/dashboard/WeeklyCalendar.tsx` — Weekly calendar strip with daily P&L, trade counts, click-to-popup trade details
 - `components/dashboard/HeatmapWidget.tsx` — Monthly calendar heatmap with click-to-popup trade details
 - `components/dashboard/ChartWidgets.tsx` — Area/Bar chart widget renderers (cumulative P&L, drawdown, win%, etc.)
@@ -33,8 +33,11 @@ Next.js 15 (App Router), TypeScript, Tailwind CSS v3, better-sqlite3, recharts, 
 - `components/SetupChart.tsx` — Interactive lightweight-charts candlestick chart for trade setup
 - `components/MiniChart.tsx` — Read-only mini chart for journal cards and trade hover
 - `components/Tooltip.tsx` — Reusable hover tooltip with auto-positioning
+- `components/Navbar.tsx` — Sidebar navigation with account switcher dropdown (Wallet icon)
+- `components/TradeModal.tsx` — Trade create/edit modal with account selector
 - `lib/db.ts` — Database initialization + inline migrations (no separate migration files)
 - `lib/auth.ts` — JWT auth (via `jose`), 2FA (TOTP), requireAdmin helper
+- `lib/account-context.tsx` — React context for multi-account state (accounts, activeAccountId, switcher)
 - `middleware.ts` — Route protection (JWT session + guest cookie), admin guards, 2FA enforcement
 
 ## Architecture Notes
@@ -48,7 +51,8 @@ Next.js 15 (App Router), TypeScript, Tailwind CSS v3, better-sqlite3, recharts, 
 
 ### API Routes
 All API routes live under `app/api/`. Key patterns:
-- `trades/` — CRUD for trades; `trades/import/` for bulk import; `trades/[id]/` for single trade
+- `accounts/` — CRUD for trading accounts; `accounts/[id]/` for single account ops (GET/PUT/DELETE)
+- `trades/` — CRUD for trades (account-scoped via `?account_id=`); `trades/import/` for bulk import; `trades/[id]/` for single trade
 - `settings/` — Key-value store for all app + UI settings
 - `quotes/` — Live prices via Yahoo Finance; `ohlcv/` — candle data for charts
 - `symbols/` — FMP-powered symbol search with local cache
@@ -75,14 +79,25 @@ All API routes live under `app/api/`. Key patterns:
 
 ### Sidebar / Navbar
 - **Collapse Toggle**: A floating button positioned on the sidebar's right border line.
+- **Account Switcher**: Dropdown between logo and nav links (Wallet icon). Shows current account name or "All Accounts". Includes "Manage Accounts" link to settings.
 - **Admin Panel**: Accessible via the User Dropdown menu (for admins).
 - **Persistence**: Sidebar expanded/collapsed state is persisted in `localStorage`.
 
-### Dynamic Account Balance
-- `account_size` setting stores the **starting balance** (default $10,000)
-- **Current balance** is computed client-side as `startingBalance + totalRealizedPnl` — no DB changes needed
+### Multi-Account System
+- Each user can have multiple trading accounts (e.g. "Main", "Paper Trading", "Futures")
+- **`accounts` table**: id, user_id, name, starting_balance, risk_per_trade, commission_value, is_default, created_at
+- **`account_id` on trades**: every trade belongs to an account; migration 015 backfills existing trades
+- **AccountProvider** (`lib/account-context.tsx`): React context wrapping the app in `layout.tsx`
+  - Provides `accounts`, `activeAccountId`, `activeAccount`, `setActiveAccountId`, `refreshAccounts`
+  - `activeAccountId = null` means "All Accounts" aggregate view
+  - Persists active selection in `localStorage` key `active_account_id`
+- **Account switcher** in Navbar sidebar: dropdown with Wallet icon, lists all accounts + "All Accounts"
+- **Account selector** in TradeModal: shown when user has >1 account, defaults to active account
+- **Account-aware pages**: Dashboard, Trades, Journal all scope data by active account
+- **Accounts management** in Settings: "Accounts" tab for inline editing name/balance/risk/commission, add/delete
+- **Guest mode**: single demo account (`DEMO_ACCOUNTS` in `lib/demo-data.ts`)
+- **Current balance** is computed client-side as `startingBalance + totalRealizedPnl`
 - PositionSizer (chart page + trade modal) uses `currentBalance` for position sizing
-- Settings page labels `account_size` as "Starting Balance" and shows computed current balance below
 
 ### Settings Persistence
 All UI state is persisted via `/api/settings` as JSON strings:
@@ -95,6 +110,7 @@ All UI state is persisted via `/api/settings` as JSON strings:
 
 ### Settings Page
 - Admin pages (Users, System Settings) are integrated into the settings sidebar
+- **Accounts tab**: Manage trading accounts (add, edit name/balance/risk/commission, delete). Shows computed current balance per account.
 - Uses `?tab=` query param for navigation between sections
 
 ### Database
