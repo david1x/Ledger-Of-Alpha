@@ -57,6 +57,9 @@ export default function AccountBanner({ trades, quotes, accountSize, hidden, onT
           <span className={`text-sm font-bold ${isUp ? "text-emerald-400" : "text-red-400"}`}>
             {hidden ? mask : `${stats.totalPnl >= 0 ? "+" : "-"}${fmt(stats.totalPnl)}`}
           </span>
+          <span className={`text-xs font-semibold ${isUp ? "text-emerald-400/70" : "text-red-400/70"}`}>
+            {hidden ? "" : `(${stats.totalPnl >= 0 ? "+" : ""}${(stats.totalPnl / accountSize * 100).toFixed(2)}%)`}
+          </span>
         </div>
 
         <div className="w-px h-5 dark:bg-slate-700 bg-slate-200" />

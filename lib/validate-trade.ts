@@ -4,6 +4,8 @@ export const TRADE_FIELDS = [
   "entry_price", "stop_loss", "take_profit",
   "exit_price", "shares", "entry_date", "exit_date",
   "notes", "tags", "emotions", "wyckoff_checklist", "account_size", "commission", "risk_per_trade",
+  "rating", "mistakes", "market_context", "lessons",
+  "chart_tf", "chart_saved_at",
 ] as const;
 
 /** Pick only allowed trade fields from an object. */
@@ -51,6 +53,36 @@ export function validateTradeFields(body: Record<string, unknown>): string | nul
   for (const field of ["entry_price", "stop_loss", "take_profit", "exit_price", "shares", "account_size", "commission", "risk_per_trade"] as const) {
     if (!isFinitePositiveOrNull(body[field])) {
       return `${field} must be a positive number or null.`;
+    }
+  }
+
+  // Rating: 1-5 integer or null
+  if (body.rating !== undefined && body.rating !== null) {
+    const r = body.rating;
+    if (typeof r !== "number" || !Number.isInteger(r) || r < 1 || r > 5) {
+      return "Rating must be an integer between 1 and 5.";
+    }
+  }
+
+  // Market context: enum or null
+  const MARKET_CONTEXTS = ["trending_up", "trending_down", "ranging", "volatile", "choppy", "news_driven"];
+  if (body.market_context !== undefined && body.market_context !== null) {
+    if (typeof body.market_context !== "string" || !MARKET_CONTEXTS.includes(body.market_context)) {
+      return "Invalid market context value.";
+    }
+  }
+
+  // Lessons: max 5000 chars
+  if (body.lessons !== undefined && body.lessons !== null) {
+    if (typeof body.lessons !== "string" || body.lessons.length > 5000) {
+      return "Lessons must be at most 5000 characters.";
+    }
+  }
+
+  // Mistakes: max 2000 chars (JSON array stored as string)
+  if (body.mistakes !== undefined && body.mistakes !== null) {
+    if (typeof body.mistakes !== "string" || body.mistakes.length > 2000) {
+      return "Mistakes must be at most 2000 characters.";
     }
   }
 

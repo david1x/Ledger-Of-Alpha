@@ -68,7 +68,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         symbol = ?, direction = ?, status = ?,
         entry_price = ?, stop_loss = ?, take_profit = ?,
         exit_price = ?, shares = ?, entry_date = ?, exit_date = ?,
-        pnl = ?, notes = ?, tags = ?, emotions = ?, wyckoff_checklist = ?, account_size = ?, commission = ?, risk_per_trade = ?
+        pnl = ?, notes = ?, tags = ?, emotions = ?, wyckoff_checklist = ?, account_size = ?, commission = ?, risk_per_trade = ?,
+        rating = ?, mistakes = ?, market_context = ?, lessons = ?,
+        chart_tf = ?, chart_saved_at = ?
       WHERE id = ? AND user_id = ?
     `).run(
       String(merged.symbol).toUpperCase(), merged.direction, merged.status,
@@ -76,6 +78,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       merged.exit_price ?? null, merged.shares ?? null, merged.entry_date ?? null,
       merged.exit_date ?? null, pnl ?? null, merged.notes ?? null, merged.tags ?? null,
       merged.emotions ?? null, merged.wyckoff_checklist ?? null, merged.account_size ?? null, merged.commission ?? null, merged.risk_per_trade ?? null,
+      merged.rating ?? null, merged.mistakes ?? null, merged.market_context ?? null, merged.lessons ?? null,
+      merged.chart_tf ?? null, merged.chart_saved_at ?? null,
       id, user.id,
     );
 

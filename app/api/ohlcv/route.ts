@@ -21,17 +21,32 @@ export async function GET(req: NextRequest) {
   const symbol = (searchParams.get("symbol") ?? "").trim().toUpperCase();
   const interval = searchParams.get("interval") ?? "1d";
   const range = searchParams.get("range") ?? "3mo";
+  const period2Param = searchParams.get("period2"); // unix seconds — cap data at this time
 
   if (!symbol) return NextResponse.json([]);
 
-  const key = `${symbol}:${interval}:${range}`;
+  const RANGE_MS: Record<string, number> = {
+    "1d": 86400_000, "2d": 2 * 86400_000, "5d": 5 * 86400_000,
+    "14d": 14 * 86400_000, "1mo": 30 * 86400_000, "3mo": 90 * 86400_000, "1y": 365 * 86400_000,
+  };
+
+  const usePeriod = !!period2Param;
+  const period2 = usePeriod ? Number(period2Param) : 0;
+  const rangeDuration = RANGE_MS[range] ?? 90 * 86400_000;
+  const period1 = usePeriod ? Math.floor((period2 * 1000 - rangeDuration) / 1000) : 0;
+
+  const key = usePeriod
+    ? `${symbol}:${interval}:${period1}:${period2}`
+    : `${symbol}:${interval}:${range}`;
   const cached = cache.get(key);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
     return NextResponse.json(cached.data);
   }
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}`;
+    const url = usePeriod
+      ? `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&period1=${period1}&period2=${period2}`
+      : `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}`;
     const res = await fetch(url, {
       signal: AbortSignal.timeout(8000),
       headers: { "User-Agent": "Mozilla/5.0" },

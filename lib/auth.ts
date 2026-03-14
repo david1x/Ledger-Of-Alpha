@@ -127,6 +127,22 @@ export async function hashToken(raw: string): Promise<string> {
     .join("");
 }
 
+// ── Cookie helpers ────────────────────────────────────────────────────────
+/** Derive the `secure` flag from the app URL, not NODE_ENV.
+ *  This prevents login loops when running production behind plain HTTP. */
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const IS_HTTPS = appUrl.startsWith("https://");
+
+export function cookieOpts(maxAge: number) {
+  return {
+    httpOnly: true,
+    sameSite: "strict" as const,
+    secure: IS_HTTPS,
+    path: "/",
+    maxAge,
+  };
+}
+
 /** Generates a 6-digit numeric OTP string. */
 export function generateOtp(): string {
   const arr = new Uint8Array(4);

@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { getSessionUser, signJwt } from "@/lib/auth";
-
-function cookieOpts(maxAge: number) {
-  return {
-    httpOnly: true,
-    sameSite: "strict" as const,
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge,
-  };
-}
+import { getSessionUser, signJwt, cookieOpts } from "@/lib/auth";
 
 /** Promote the current user to admin — only works when no admins exist yet. */
 export async function POST(req: NextRequest) {

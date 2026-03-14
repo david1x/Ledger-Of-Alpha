@@ -1,18 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { verifyJwt, signJwt, hashToken } from "@/lib/auth";
+import { verifyJwt, signJwt, hashToken, cookieOpts } from "@/lib/auth";
 import { verifyTotp } from "@/lib/totp";
 import type { User } from "@/lib/types";
-
-function cookieOpts(maxAge: number) {
-  return {
-    httpOnly: true,
-    sameSite: "strict" as const,
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge,
-  };
-}
 
 export async function POST(req: NextRequest) {
   try {

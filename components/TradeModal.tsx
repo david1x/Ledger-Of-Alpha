@@ -1,11 +1,11 @@
 "use client";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Trade, TradeStrategy } from "@/lib/types";
+import { Trade, TradeStrategy, TradeTemplate } from "@/lib/types";
 import SymbolSearch from "./SymbolSearch";
 import RiskCalculator from "./RiskCalculator";
 import PositionSizer from "./PositionSizer";
 import SetupChart from "./SetupChart";
-import { X, ChevronDown, ChevronUp, RefreshCw, ListChecks } from "lucide-react";
+import { X, ChevronDown, ChevronUp, RefreshCw, ListChecks, Star, AlertTriangle, Cloud, Lightbulb } from "lucide-react";
 import clsx from "clsx";
 
 interface Props {
@@ -31,6 +31,12 @@ const EMPTY: Partial<Trade> = {
   tags: "",
   emotions: "",
   wyckoff_checklist: "",
+  rating: null,
+  mistakes: "",
+  market_context: null,
+  lessons: "",
+  chart_tf: null,
+  chart_saved_at: null,
 };
 
 const LABEL = "block text-xs font-medium dark:text-slate-400 text-slate-500 mb-1";
@@ -51,7 +57,13 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
   const [defaultCommission, setDefaultCommission] = useState(0);
   const [showTradeSettings, setShowTradeSettings] = useState(false);
   const [strategies, setStrategies] = useState<TradeStrategy[]>([]);
-  
+  const [defaultMistakes, setDefaultMistakes] = useState<string[]>(["Entered too early", "Exited too early", "Exited too late", "Moved stop loss", "Oversized position", "No stop loss", "Chased the trade", "Revenge trade", "Ignored plan", "FOMO entry"]);
+  const [defaultTags, setDefaultTags] = useState<string[]>([]);
+  const [templates, setTemplates] = useState<TradeTemplate[]>([]);
+  const [showTemplateSave, setShowTemplateSave] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [chartInterval, setChartInterval] = useState(trade?.chart_tf ?? "1D");
+
   const modalRef = useRef<HTMLDivElement>(null);
 
   const mouseDownTarget = useRef<EventTarget | null>(null);
@@ -93,6 +105,15 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
         } else {
           setStrategies(DEFAULT_STRATEGIES);
         }
+        if (s.default_mistakes) {
+          try { const m = JSON.parse(s.default_mistakes); if (Array.isArray(m)) setDefaultMistakes(m); } catch {}
+        }
+        if (s.default_tags) {
+          try { const t = JSON.parse(s.default_tags); if (Array.isArray(t)) setDefaultTags(t); } catch {}
+        }
+        if (s.trade_templates) {
+          try { const t = JSON.parse(s.trade_templates); if (Array.isArray(t)) setTemplates(t); } catch {}
+        }
         if (!accountSizeProp && s.account_size) {
           const startBal = parseFloat(s.account_size);
           fetch("/api/trades").then(r => r.json()).then(trades => {
@@ -131,9 +152,16 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
     setError("");
 
     const payload = { ...form };
+    // Inject default commission if user didn't explicitly set one
+    if (payload.commission == null && defaultCommission > 0) {
+      payload.commission = defaultCommission;
+    }
     if (payload.exit_price != null && payload.status !== "closed") {
       payload.status = "closed";
     }
+    // Save chart timeframe and current timestamp so the chart can be restored
+    payload.chart_tf = chartInterval;
+    payload.chart_saved_at = new Date().toISOString();
 
     try {
       const url = trade ? `/api/trades/${trade.id}` : "/api/trades";
@@ -153,6 +181,29 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
     } finally {
       setSaving(false);
     }
+  };
+
+  const loadTemplate = (tmpl: TradeTemplate) => {
+    setForm(f => ({ ...f, ...tmpl.fields }));
+  };
+
+  const saveAsTemplate = async () => {
+    if (!templateName.trim()) return;
+    const { id, created_at, user_id, pnl, ...fields } = form as any;
+    const newTemplate: TradeTemplate = {
+      id: crypto.randomUUID(),
+      name: templateName.trim(),
+      fields,
+    };
+    const updated = [...templates, newTemplate];
+    setTemplates(updated);
+    setShowTemplateSave(false);
+    setTemplateName("");
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trade_templates: JSON.stringify(updated) }),
+    });
   };
 
   const rrData = useMemo(() => {
@@ -238,6 +289,26 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
               
               {activeTab === "setup" && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-left-2 duration-300">
+                  {/* Template controls */}
+                  {templates.length > 0 && !trade && (
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-medium dark:text-slate-500 text-slate-400 shrink-0">Load Template:</label>
+                      <div className="relative flex-1">
+                        <select
+                          value=""
+                          onChange={e => {
+                            const tmpl = templates.find(t => t.id === e.target.value);
+                            if (tmpl) loadTemplate(tmpl);
+                          }}
+                          className={clsx(INPUT, "appearance-none pr-8 text-xs")}
+                        >
+                          <option value="">— Select template —</option>
+                          {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 dark:text-slate-500 text-slate-400 pointer-events-none" />
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className={LABEL}>Symbol</label>
@@ -286,6 +357,22 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
                     <div><label className={LABEL}>Exit Price</label><input placeholder="0.00" {...numField("exit_price")} /></div>
                   </div>
 
+                  {form.status === "closed" && form.entry_price && form.exit_price && form.stop_loss && (() => {
+                    const risk = Math.abs(form.entry_price! - form.stop_loss!);
+                    if (risk === 0) return null;
+                    const reward = form.direction === "long"
+                      ? form.exit_price! - form.entry_price!
+                      : form.entry_price! - form.exit_price!;
+                    const rr = reward / risk;
+                    const color = rr >= 2 ? "text-emerald-400" : rr >= 1 ? "text-blue-400" : rr >= 0 ? "text-amber-400" : "text-red-400";
+                    return (
+                      <div className="p-3 rounded-xl dark:bg-slate-800/50 bg-slate-50 flex items-center gap-3">
+                        <span className="text-xs font-medium dark:text-slate-400 text-slate-500">R:R Achieved</span>
+                        <span className={`text-sm font-bold ${color}`}>{rr.toFixed(2)}R</span>
+                      </div>
+                    );
+                  })()}
+
                   <div className="p-4 rounded-2xl border-2 border-dashed dark:border-slate-800 border-slate-100 space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-xs font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Position Overrides</h3>
@@ -306,11 +393,97 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
 
               {activeTab === "reflection" && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-left-2 duration-300">
-                  <TagsInput value={form.tags ?? ""} onChange={(v) => set("tags", v)} />
+                  {/* Star Rating */}
+                  <div>
+                    <label className={LABEL}>Trade Rating</label>
+                    <div className="flex items-center gap-1 mt-1">
+                      {[1, 2, 3, 4, 5].map(n => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => set("rating", form.rating === n ? null : n)}
+                          className="p-0.5 transition-colors"
+                        >
+                          <Star
+                            className={clsx("w-6 h-6", (form.rating ?? 0) >= n ? "text-amber-400 fill-amber-400" : "dark:text-slate-600 text-slate-300")}
+                          />
+                        </button>
+                      ))}
+                      {form.rating && (
+                        <span className="text-xs dark:text-slate-400 text-slate-500 ml-2">{form.rating}/5</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Mistakes Pill Selector */}
+                  <div>
+                    <label className={LABEL}>Mistakes</label>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {defaultMistakes.map(mistake => {
+                        const selected = form.mistakes ? form.mistakes.split(",").map(s => s.trim()).filter(Boolean) : [];
+                        const isSelected = selected.includes(mistake);
+                        return (
+                          <button
+                            key={mistake}
+                            type="button"
+                            onClick={() => {
+                              const current = form.mistakes ? form.mistakes.split(",").map(s => s.trim()).filter(Boolean) : [];
+                              const next = isSelected ? current.filter(s => s !== mistake) : [...current, mistake];
+                              set("mistakes", next.join(","));
+                            }}
+                            className={clsx(
+                              "px-2.5 py-1 rounded-full text-xs font-medium border transition-all duration-200",
+                              isSelected
+                                ? "bg-red-500/20 border-red-500/50 text-red-400"
+                                : "dark:bg-slate-800/50 bg-slate-50 dark:border-slate-700 border-slate-200 dark:text-slate-400 text-slate-500 hover:border-slate-400"
+                            )}
+                          >
+                            {mistake}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Market Context Dropdown */}
+                  <div>
+                    <label className={LABEL}>Market Context</label>
+                    <div className="relative">
+                      <select
+                        value={form.market_context ?? ""}
+                        onChange={(e) => set("market_context", e.target.value || null)}
+                        className={clsx(INPUT, "appearance-none pr-10")}
+                      >
+                        <option value="">— Select —</option>
+                        <option value="trending_up">Trending Up</option>
+                        <option value="trending_down">Trending Down</option>
+                        <option value="ranging">Ranging</option>
+                        <option value="volatile">Volatile</option>
+                        <option value="choppy">Choppy</option>
+                        <option value="news_driven">News Driven</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 dark:text-slate-500 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <TagsInput value={form.tags ?? ""} onChange={(v) => set("tags", v)} defaultTags={defaultTags} />
                   <EmotionsInput value={form.emotions ?? ""} onChange={(v) => set("emotions", v)} />
+
+                  {/* Lessons Textarea */}
+                  <div>
+                    <label className={LABEL}>Lessons Learned</label>
+                    <textarea
+                      value={form.lessons ?? ""}
+                      onChange={(e) => set("lessons", e.target.value)}
+                      placeholder="What would you do differently? What worked well?"
+                      rows={4}
+                      className={INPUT + " resize-none min-h-[100px] p-4"}
+                    />
+                  </div>
+
                   <div>
                     <label className={LABEL}>Notes / Rationale</label>
-                    <textarea value={form.notes ?? ""} onChange={(e) => set("notes", e.target.value)} placeholder="What did you see? How did you feel? What did you learn?" rows={8} className={INPUT + " resize-none min-h-[200px] p-4"} />
+                    <textarea value={form.notes ?? ""} onChange={(e) => set("notes", e.target.value)} placeholder="What did you see? How did you feel? What did you learn?" rows={6} className={INPUT + " resize-none min-h-[150px] p-4"} />
                   </div>
                 </div>
               )}
@@ -330,6 +503,9 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
                   onStopChange={p => set("stop_loss", p)}
                   onTargetChange={p => set("take_profit", p)}
                   height={280}
+                  initialInterval={trade?.chart_tf ?? undefined}
+                  onIntervalChange={setChartInterval}
+                  savedAt={trade?.chart_saved_at}
                 />
               </div>
               
@@ -358,10 +534,32 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
           </div>
         </div>
 
+        {/* Save as Template popup */}
+        {showTemplateSave && (
+          <div className="px-4 py-3 border-t dark:border-slate-800 border-slate-100 dark:bg-slate-950/50 bg-slate-50/30 flex items-center gap-3">
+            <input
+              type="text"
+              value={templateName}
+              onChange={e => setTemplateName(e.target.value)}
+              placeholder="Template name..."
+              className={INPUT + " flex-1 text-xs"}
+              autoFocus
+              onKeyDown={e => { if (e.key === "Enter") saveAsTemplate(); if (e.key === "Escape") setShowTemplateSave(false); }}
+            />
+            <button onClick={saveAsTemplate} disabled={!templateName.trim()} className="px-3 py-2 rounded-lg text-xs font-bold bg-emerald-600 text-white disabled:opacity-50">Save</button>
+            <button onClick={() => setShowTemplateSave(false)} className="px-3 py-2 rounded-lg text-xs font-bold dark:text-slate-400 text-slate-500">Cancel</button>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t dark:border-slate-800 border-slate-100 dark:bg-slate-950 bg-slate-50/50">
-          <div className="flex-1">
+          <div className="flex-1 flex items-center gap-3">
             {error && <p className="text-red-400 text-sm font-medium animate-pulse">{error}</p>}
+            {!trade && !showTemplateSave && (
+              <button onClick={() => setShowTemplateSave(true)} className="text-xs dark:text-slate-500 text-slate-400 hover:text-emerald-400 transition-colors">
+                Save as Template
+              </button>
+            )}
           </div>
           <div className="flex gap-3">
             <button onClick={onClose} className="px-6 py-2.5 rounded-xl text-sm font-bold dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors">
@@ -488,7 +686,7 @@ function StrategyChecklist({ strategies, direction, value, onChange }: { strateg
   );
 }
 
-function TagsInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function TagsInput({ value, onChange, defaultTags = [] }: { value: string; onChange: (v: string) => void; defaultTags?: string[] }) {
   const tags = value ? value.split(",").map(t => t.trim()).filter(Boolean) : [];
   const [input, setInput] = useState("");
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
@@ -545,6 +743,20 @@ function TagsInput({ value, onChange }: { value: string; onChange: (v: string) =
   return (
     <div className="space-y-2">
       <label className={LABEL}>Tags</label>
+      {defaultTags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-1.5">
+          {defaultTags.filter(dt => !tags.includes(dt)).map(dt => (
+            <button
+              key={dt}
+              type="button"
+              onClick={() => onChange([...tags, dt].join(", "))}
+              className="px-2 py-0.5 rounded-md text-[10px] font-medium dark:bg-slate-700/50 bg-slate-100 dark:text-slate-400 text-slate-500 hover:dark:bg-slate-600 hover:bg-slate-200 transition-colors border dark:border-slate-600 border-slate-200"
+            >
+              + {dt}
+            </button>
+          ))}
+        </div>
+      )}
       <div
         className="flex flex-wrap gap-1.5 min-h-[38px] px-2.5 py-1.5 rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white focus-within:ring-2 focus-within:ring-emerald-500 cursor-text"
         onClick={() => inputRef.current?.focus()}

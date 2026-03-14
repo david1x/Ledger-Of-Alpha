@@ -18,6 +18,7 @@ export function getDb(): Database.Database {
     db.pragma("foreign_keys = ON");
     initSchema(db);
     runMigrations(db);
+    promoteAdminFromEnv(db);
   }
   return db;
 }
@@ -282,5 +283,56 @@ function runMigrations(db: Database.Database) {
       CREATE INDEX IF NOT EXISTS idx_alerts_user_active ON alerts(user_id, active);
     `);
     markMigration(db, "011_percent_alerts");
+  }
+
+  // ── 012: trade rating ──────────────────────────────────────────────────
+  if (!hasMigration(db, "012_trade_rating")) {
+    const cols = (db.pragma("table_info(trades)") as { name: string }[]).map(c => c.name);
+    if (!cols.includes("rating")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN rating INTEGER;`);
+    }
+    markMigration(db, "012_trade_rating");
+  }
+
+  // ── 013: trade reflection fields ──────────────────────────────────────
+  if (!hasMigration(db, "013_trade_reflection")) {
+    const cols = (db.pragma("table_info(trades)") as { name: string }[]).map(c => c.name);
+    if (!cols.includes("mistakes")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN mistakes TEXT;`);
+    }
+    if (!cols.includes("market_context")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN market_context TEXT;`);
+    }
+    if (!cols.includes("lessons")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN lessons TEXT;`);
+    }
+    markMigration(db, "013_trade_reflection");
+  }
+
+  // ── 014: chart snapshot fields ──────────────────────────────────────
+  if (!hasMigration(db, "014_chart_snapshot")) {
+    const cols = (db.pragma("table_info(trades)") as { name: string }[]).map(c => c.name);
+    if (!cols.includes("chart_tf")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN chart_tf TEXT;`);
+    }
+    if (!cols.includes("chart_saved_at")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN chart_saved_at TEXT;`);
+    }
+    markMigration(db, "014_chart_snapshot");
+  }
+}
+
+// ── Auto-promote admin from env var ─────────────────────────────────────
+function promoteAdminFromEnv(db: Database.Database) {
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  if (!adminEmail) return;
+
+  const user = db.prepare("SELECT id, is_admin FROM users WHERE email = ?").get(adminEmail) as
+    | { id: string; is_admin: number }
+    | undefined;
+
+  if (user && !user.is_admin) {
+    db.prepare("UPDATE users SET is_admin = 1 WHERE id = ?").run(user.id);
+    console.log(`✔ Promoted ${adminEmail} to admin via ADMIN_EMAIL env var.`);
   }
 }

@@ -1,0 +1,2079 @@
+
+ ▐▛███▜▌   Claude Code v2.1.71
+▝▜█████▛▘  Opus 4.6 · Claude Pro
+  ▘▘ ▝▝    D:\Code\Projects\claude-test\Ledger-Of-Alpha
+
+  ✻ Voice mode is now available · /voice to enable
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ Plan to implement                                                            │
+│                                                                              │
+│ Feature Plan: New Trade Data, Journal Fields & Settings                      │
+│                                                                              │
+│ Context                                                                      │
+│                                                                              │
+│ User wants richer trade data (R:R, % return, hold time, grading), journal    │
+│ reflection fields (mistakes, market context, lessons), and new settings      │
+│ (daily loss limit, default tags, templates, commission model).               │
+│                                                                              │
+│ ---                                                                          │
+│ Phase 1: Computed Display Fields (no DB changes)                             │
+│                                                                              │
+│ New file: lib/trade-utils.ts — pure functions reused by TradeTable, journal, │
+│  TradeModal:                                                                 │
+│                                                                              │
+│ - calcRRAchieved(t) — (exit - entry) / (entry - stop) adjusted for           │
+│ direction. Returns number | null.                                            │
+│ - calcPercentReturn(t, accountSize) — (pnl / accountSize) * 100. Uses        │
+│ t.account_size if set, else global.                                          │
+│ - formatHoldDuration(entryDate, exitDate?) — returns "3d 4h", "1h 30m", "<   │
+│ 1h". Uses current time for open trades.                                      │
+│                                                                              │
+│ Files to update:                                                             │
+│ - components/TradeTable.tsx — add rr_achieved, pct_return, hold_duration to  │
+│ ALL_COLUMNS (default hidden). Add sort logic.                                │
+│ - app/journal/page.tsx — show R:R and % return badges on cards and review    │
+│ mode.                                                                        │
+│ - components/TradeModal.tsx — show computed R:R achieved read-only in        │
+│ Execution tab for closed trades.                                             │
+│                                                                              │
+│ ---                                                                          │
+│ Phase 2: New Trade DB Fields                                                 │
+│                                                                              │
+│ Migration 012: rating                                                        │
+│                                                                              │
+│ ALTER TABLE trades ADD COLUMN rating INTEGER;                                │
+│                                                                              │
+│ Migration 013: mistakes, market_context, lessons                             │
+│                                                                              │
+│ ALTER TABLE trades ADD COLUMN mistakes TEXT;                                 │
+│ ALTER TABLE trades ADD COLUMN market_context TEXT;                           │
+│ ALTER TABLE trades ADD COLUMN lessons TEXT;                                  │
+│                                                                              │
+│ Market context values: trending_up, trending_down, ranging, volatile,        │
+│ choppy, news_driven                                                          │
+│                                                                              │
+│ Default mistakes list (stored as setting default_mistakes, customizable):    │
+│ ["Entered too early", "Exited too early", "Exited too late", "Moved stop     │
+│ loss", "Oversized position", "No stop loss", "Chased the trade", "Revenge    │
+│ trade", "Ignored plan", "FOMO entry"]                                        │
+│                                                                              │
+│ Files to update:                                                             │
+│ - lib/db.ts — migrations 012, 013                                            │
+│ - lib/types.ts — add rating, mistakes, market_context, lessons to Trade      │
+│ - lib/validate-trade.ts — add to TRADE_FIELDS, validate rating 1-5,          │
+│ market_context enum, lessons max 5000                                        │
+│ - app/api/trades/route.ts — include in INSERT                                │
+│ - app/api/trades/[id]/route.ts — include in UPDATE                           │
+│ - app/api/trades/import/route.ts — include in import INSERT                  │
+│ - components/TradeModal.tsx — Reflection tab: star rating (Star icon),       │
+│ mistakes pill selector, market context dropdown, lessons textarea            │
+│ - app/journal/page.tsx — cards: mistakes as red pills, market context badge, │
+│  lessons section (lightbulb icon), stars. Review mode: same + edit form      │
+│ - components/TradeTable.tsx — add rating, market_context to ALL_COLUMNS      │
+│ - lib/demo-data.ts — sample values                                           │
+│                                                                              │
+│ ---                                                                          │
+│ Phase 3: Settings                                                            │
+│                                                                              │
+│ Daily Loss Limit                                                             │
+│                                                                              │
+│ - Settings keys: daily_loss_limit (number), daily_loss_limit_type ("dollar"  │
+│ | "percent")                                                                 │
+│ - app/settings/page.tsx — inputs in Account section                          │
+│ - components/dashboard/DashboardShell.tsx — compute today's realized P&L,    │
+│ show warning banner if limit exceeded                                        │
+│ - components/AccountBanner.tsx — optional daily loss indicator               │
+│                                                                              │
+│ Default Tags                                                                 │
+│                                                                              │
+│ - Setting key: default_tags (JSON string array)                              │
+│ - app/settings/page.tsx — pill list with add/remove in a new Tags section    │
+│ - components/TradeModal.tsx — show default tags as quick-select pills above  │
+│ the freeform tags input                                                      │
+│                                                                              │
+│ Trade Templates                                                              │
+│                                                                              │
+│ - Setting key: trade_templates (JSON array of { id, name, fields:            │
+│ Partial<Trade> })                                                            │
+│ - app/settings/page.tsx — Templates section: list, edit, delete              │
+│ - components/TradeModal.tsx — "Load Template" dropdown in Setup tab, "Save   │
+│ as Template" option                                                          │
+│ - lib/types.ts — TradeTemplate interface                                     │
+│                                                                              │
+│ Commission Model                                                             │
+│                                                                              │
+│ - Setting keys: commission_model ("flat" | "per_share" | "percent"),         │
+│ commission_value (number)                                                    │
+│ - New file: lib/commission.ts — calcCommission(model, value, entryPrice,     │
+│ exitPrice, shares) → dollar amount                                           │
+│   - flat: value * 2                                                          │
+│   - per_share: value * shares * 2                                            │
+│   - percent: value/100 * (entryPrice * shares + exitPrice * shares)          │
+│ - Per-trade commission field stores the computed dollar amount at save time  │
+│ (backward compatible)                                                        │
+│ - app/settings/page.tsx — model dropdown + value input replacing single      │
+│ commission field                                                             │
+│ - app/api/trades/route.ts + [id]/route.ts — use calcCommission for PnL       │
+│ calculation                                                                  │
+│ - components/TradeModal.tsx — show model-aware commission label              │
+│                                                                              │
+│ ---                                                                          │
+│ Phase 4: Dashboard Widgets (optional polish)                                 │
+│                                                                              │
+│ New widget IDs in DashboardShell:                                            │
+│ - avg-rr — Average R:R Achieved (stat)                                       │
+│ - avg-rating — Average Trade Rating (stat, stars)                            │
+│ - top-mistakes — Most Common Mistakes (bar chart)                            │
+│ - daily-loss-status — Today's P&L vs Limit (comparison)                      │
+│                                                                              │
+│ ---                                                                          │
+│ Implementation Order                                                         │
+│                                                                              │
+│ 1. lib/trade-utils.ts (computed fields)                                      │
+│ 2. TradeTable + journal computed columns                                     │
+│ 3. DB migrations 012, 013                                                    │
+│ 4. Types + validation + API routes                                           │
+│ 5. TradeModal Reflection tab (rating, mistakes, context, lessons)            │
+│ 6. Journal page display updates                                              │
+│ 7. Settings: daily loss limit                                                │
+│ 8. Settings: default tags + TradeModal integration                           │
+│ 9. Settings: trade templates                                                 │
+│ 10. Settings: commission model + lib/commission.ts                           │
+│ 11. Demo data updates                                                        │
+│ 12. Dashboard widgets (optional)                                             │
+│                                                                              │
+│ Verification                                                                 │
+│                                                                              │
+│ - Run npm run build after each phase                                         │
+│ - Test trade create/edit with new fields                                     │
+│ - Verify computed columns sort correctly in TradeTable                       │
+│ - Test commission model changes on new trades (existing trades unaffected)   │
+│ - Test daily loss limit warning on dashboard                                 │
+│ - Guest mode: verify demo data shows new fields                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+● I'll start implementing this plan phase by phase. Let me first read the key
+  files I'll need to work with.
+
+● Searched for 1 pattern, read 7 files (ctrl+o to expand)
+
+● Now let me read the UI files I need to modify.
+
+● Read 3 files (ctrl+o to expand)
+
+● Let me read the remaining key files.
+
+● Read 4 files (ctrl+o to expand)
+
+● Let me read the journal page fully since it was truncated.
+
+● Read 2 files (ctrl+o to expand)
+
+● Now I have a good understanding of the codebase. This is a large
+  implementation spanning many files. Let me implement it systematically,
+  starting with the foundational pieces and working up. I'll use parallel agents
+   for independent work.
+
+  Let me start with Phase 1 & 2 (the foundation): trade-utils.ts, commission.ts,
+   DB migrations, types, validation, and API routes.
+
+● Write(lib\trade-utils.ts)
+  ⎿  Wrote 41 lines to lib\trade-utils.ts
+       1 import type { Trade } from "./types";
+       2 
+       3 /** Compute achieved R:R — (exit - entry) / (entry - stop), adju
+         sted for direction. */
+       4 export function calcRRAchieved(t: Trade): number | null {
+       5   if (t.entry_price == null || t.exit_price == null || t.stop_lo
+         ss == null) return null;
+       6   const risk = Math.abs(t.entry_price - t.stop_loss);
+       7   if (risk === 0) return null;
+       8   const reward = t.direction === "long"
+       9     ? t.exit_price - t.entry_price
+      10     : t.entry_price - t.exit_price;
+     … +31 lines (ctrl+o to expand)
+
+● Write(lib\commission.ts)
+  ⎿  Wrote 26 lines to lib\commission.ts
+       1 export type CommissionModel = "flat" | "per_share" | "percent";
+       2 
+       3 /**
+       4  * Calculate commission in dollars.
+       5  * - flat: value × 2 (round trip)
+       6  * - per_share: value × shares × 2 (round trip)
+       7  * - percent: value/100 × (entryPrice × shares + exitPrice × sha
+         res)
+       8  */
+       9 export function calcCommission(
+      10   model: CommissionModel,
+     … +16 lines (ctrl+o to expand)
+
+● Now update the types, validation, DB migrations, and API routes.
+
+● Update(lib\types.ts)
+  ⎿  Added 12 lines
+      27  export type TradeDirection = "long" | "short";
+      28  export type TradeStatus = "planned" | "open" | "closed";
+      29  
+      30 +export type MarketContext = "trending_up" | "trending_down" | "
+         +ranging" | "volatile" | "choppy" | "news_driven";              
+      31 +                                                               
+      32  export interface Trade {
+      33    id: number;
+      34    symbol: string;
+     ...
+      49    account_size?: number | null;
+      50    commission?: number | null;
+      51    risk_per_trade?: number | null;
+      52 +  rating?: number | null;                                      
+      53 +  mistakes?: string | null;                                    
+      54 +  market_context?: string | null;                              
+      55 +  lessons?: string | null;                                     
+      56    created_at: string;
+      57    user_id: string | null;
+      58  }
+      59  
+      60 +export interface TradeTemplate {                               
+      61 +  id: string;                                                  
+      62 +  name: string;                                                
+      63 +  fields: Partial<Trade>;                                      
+      64 +}                                                              
+      65 +                                                               
+      66  export interface TradeStrategy {
+      67    id: string;
+      68    name: string;
+
+● Update(lib\validate-trade.ts)
+  ⎿  Added 1 line
+       4    "entry_price", "stop_loss", "take_profit",
+       5    "exit_price", "shares", "entry_date", "exit_date",
+       6    "notes", "tags", "emotions", "wyckoff_checklist", "account_si
+          ze", "commission", "risk_per_trade",
+       7 +  "rating", "mistakes", "market_context", "lessons",           
+       8  ] as const;
+       9  
+      10  /** Pick only allowed trade fields from an object. */
+
+● Update(lib\validate-trade.ts)
+  ⎿  Added 30 lines
+      55      }
+      56    }
+      57  
+      58 +  // Rating: 1-5 integer or null                               
+      59 +  if (body.rating !== undefined && body.rating !== null) {     
+      60 +    const r = body.rating;                                     
+      61 +    if (typeof r !== "number" || !Number.isInteger(r) || r < 1 
+         +|| r > 5) {                                                    
+      62 +      return "Rating must be an integer between 1 and 5.";     
+      63 +    }                                                          
+      64 +  }                                                            
+      65 +                                                               
+      66 +  // Market context: enum or null                              
+      67 +  const MARKET_CONTEXTS = ["trending_up", "trending_down", "ran
+         +ging", "volatile", "choppy", "news_driven"];                   
+      68 +  if (body.market_context !== undefined && body.market_context 
+         +!== null) {                                                    
+      69 +    if (typeof body.market_context !== "string" || !MARKET_CONT
+         +EXTS.includes(body.market_context)) {                          
+      70 +      return "Invalid market context value.";                  
+      71 +    }                                                          
+      72 +  }                                                            
+      73 +                                                               
+      74 +  // Lessons: max 5000 chars                                   
+      75 +  if (body.lessons !== undefined && body.lessons !== null) {   
+      76 +    if (typeof body.lessons !== "string" || body.lessons.length
+         + > 5000) {                                                     
+      77 +      return "Lessons must be at most 5000 characters.";       
+      78 +    }                                                          
+      79 +  }                                                            
+      80 +                                                               
+      81 +  // Mistakes: max 2000 chars (JSON array stored as string)    
+      82 +  if (body.mistakes !== undefined && body.mistakes !== null) { 
+      83 +    if (typeof body.mistakes !== "string" || body.mistakes.leng
+         +th > 2000) {                                                   
+      84 +      return "Mistakes must be at most 2000 characters.";      
+      85 +    }                                                          
+      86 +  }                                                            
+      87 +                                                               
+      88    return null;
+      89  }
+
+● Now add DB migrations 012 and 013.
+
+● Update(lib\db.ts)
+  ⎿  Added 24 lines
+      284      `);
+      285      markMigration(db, "011_percent_alerts");
+      286    }
+      287 +                                                              
+      288 +  // ── 012: trade rating ────────────────────────────────────
+          +──────────────                                                
+      289 +  if (!hasMigration(db, "012_trade_rating")) {                
+      290 +    const cols = (db.pragma("table_info(trades)") as { name: s
+          +tring }[]).map(c => c.name);                                  
+      291 +    if (!cols.includes("rating")) {                           
+      292 +      db.exec(`ALTER TABLE trades ADD COLUMN rating INTEGER;`)
+          +;                                                             
+      293 +    }                                                         
+      294 +    markMigration(db, "012_trade_rating");                    
+      295 +  }                                                           
+      296 +                                                              
+      297 +  // ── 013: trade reflection fields ─────────────────────────
+          +─────────────                                                 
+      298 +  if (!hasMigration(db, "013_trade_reflection")) {            
+      299 +    const cols = (db.pragma("table_info(trades)") as { name: s
+          +tring }[]).map(c => c.name);                                  
+      300 +    if (!cols.includes("mistakes")) {                         
+      301 +      db.exec(`ALTER TABLE trades ADD COLUMN mistakes TEXT;`);
+      302 +    }                                                         
+      303 +    if (!cols.includes("market_context")) {                   
+      304 +      db.exec(`ALTER TABLE trades ADD COLUMN market_context TE
+          +XT;`);                                                        
+      305 +    }                                                         
+      306 +    if (!cols.includes("lessons")) {                          
+      307 +      db.exec(`ALTER TABLE trades ADD COLUMN lessons TEXT;`); 
+      308 +    }                                                         
+      309 +    markMigration(db, "013_trade_reflection");                
+      310 +  }                                                           
+      311  }
+      312  
+      313  // ── Auto-promote admin from env var ────────────────────────
+           ─────────────
+
+● Now update the API routes to include the new fields.
+
+● Update(app\api\trades\route.ts)
+  ⎿  Added 1 line
+      92        entry_price, stop_loss, take_profit,
+      93        exit_price, shares, entry_date, exit_date,
+      94        notes, tags, emotions, wyckoff_checklist, account_size, c
+          ommission, risk_per_trade,
+      95 +      rating, mistakes, market_context, lessons,               
+      96      } = body;
+      97  
+      98      let pnl: number | null = null;
+
+● Update(app\api\trades\route.ts)
+  ⎿  Added 4 lines, removed 2 lines
+      105  
+      106      const result = db.prepare(`
+      107        INSERT INTO trades (symbol, direction, status, entry_pri
+           ce, stop_loss, take_profit,
+      108 -        exit_price, shares, entry_date, exit_date, pnl, notes,
+          - tags, emotions, wyckoff_checklist, user_id, account_size, com
+          -mission, risk_per_trade)                                      
+      109 -      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+          -?, ?, ?)                                                      
+      108 +        exit_price, shares, entry_date, exit_date, pnl, notes,
+          + tags, emotions, wyckoff_checklist, user_id, account_size, com
+          +mission, risk_per_trade,                                      
+      109 +        rating, mistakes, market_context, lessons)            
+      110 +      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+          +?, ?, ?, ?, ?, ?, ?)                                          
+      111      `).run(
+      112        symbol?.toUpperCase(), direction, status,
+      113        entry_price ?? null, stop_loss ?? null, take_profit ?? n
+           ull,
+      114        exit_price ?? null, shares ?? null, entry_date ?? null, 
+           exit_date ?? null,
+      115        pnl, notes ?? null, tags ?? null, emotions ?? null, wyck
+           off_checklist ?? null, user.id,
+      116        account_size ?? null, commission ?? null, risk_per_trade
+            ?? null,
+      117 +      rating ?? null, mistakes ?? null, market_context ?? null
+          +, lessons ?? null,                                            
+      118      );
+      119  
+      120      const trade = db.prepare("SELECT * FROM trades WHERE id = 
+           ?").get(result.lastInsertRowid);
+
+● Now update the PUT route for trades/[id]:
+
+● Update(app\api\trades\[id]\route.ts)
+  ⎿  Added 3 lines, removed 1 line
+      68          symbol = ?, direction = ?, status = ?,
+      69          entry_price = ?, stop_loss = ?, take_profit = ?,
+      70          exit_price = ?, shares = ?, entry_date = ?, exit_date =
+           ?,
+      71 -        pnl = ?, notes = ?, tags = ?, emotions = ?, wyckoff_che
+         -cklist = ?, account_size = ?, commission = ?, risk_per_trade = 
+         -?                                                              
+      71 +        pnl = ?, notes = ?, tags = ?, emotions = ?, wyckoff_che
+         +cklist = ?, account_size = ?, commission = ?, risk_per_trade = 
+         +?,                                                             
+      72 +        rating = ?, mistakes = ?, market_context = ?, lessons =
+         + ?                                                             
+      73        WHERE id = ? AND user_id = ?
+      74      `).run(
+      75        String(merged.symbol).toUpperCase(), merged.direction, me
+          rged.status,
+     ...
+      77        merged.exit_price ?? null, merged.shares ?? null, merged.
+          entry_date ?? null,
+      78        merged.exit_date ?? null, pnl ?? null, merged.notes ?? nu
+          ll, merged.tags ?? null,
+      79        merged.emotions ?? null, merged.wyckoff_checklist ?? null
+          , merged.account_size ?? null, merged.commission ?? null, merge
+          d.risk_per_trade ?? null,
+      80 +      merged.rating ?? null, merged.mistakes ?? null, merged.ma
+         +rket_context ?? null, merged.lessons ?? null,                  
+      81        id, user.id,
+      82      );
+      83  
+
+● Update import route to include new fields:
+
+● Update(app\api\trades\import\route.ts)
+  ⎿  Added 3 lines, removed 2 lines
+      42      const db = getDb();
+      43      const insert = db.prepare(`
+      44        INSERT INTO trades (symbol, direction, status, entry_pric
+          e, stop_loss, take_profit,
+      45 -        exit_price, shares, entry_date, exit_date, pnl, notes, 
+         -tags, user_id, account_size, commission, risk_per_trade)       
+      46 -      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+         -)                                                              
+      45 +        exit_price, shares, entry_date, exit_date, pnl, notes, 
+         +tags, user_id, account_size, commission, risk_per_trade,       
+      46 +        rating, mistakes, market_context, lessons)             
+      47 +      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+         +, ?, ?, ?, ?)                                                  
+      48      `);
+      49  
+      50      let imported = 0;
+
+● Update(app\api\trades\import\route.ts)
+  ⎿  Added 1 line
+      73            entry_price, stop_loss, take_profit,
+      74            exit_price, shares, entry_date, exit_date,
+      75            notes, tags, account_size, commission, risk_per_trade
+          ,
+      76 +          rating, mistakes, market_context, lessons,           
+      77          } = cleaned as Record<string, unknown>;
+      78  
+      79          // Compute PnL server-side for closed trades
+
+● Update(app\api\trades\import\route.ts)
+  ⎿  Added 1 line
+       97            exit_price ?? null, shares ?? null, entry_date ?? nu
+           ll, exit_date ?? null,
+       98            pnl, notes ?? null, tags ?? null, user.id,
+       99            account_size ?? null, commission ?? null, risk_per_t
+           rade ?? null,
+      100 +          rating ?? null, mistakes ?? null, market_context ?? 
+          +null, lessons ?? null,                                        
+      101          );
+      102          imported++;
+      103        }
+
+● Now update the demo data with sample values for new fields:
+
+● Update(lib\demo-data.ts)
+  ⎿  Added 1 line, removed 1 line
+       5    // ── Closed trades (diverse strategies, mix of wins/losses) 
+          ────────────────
+       6  
+       7    // Big winner — momentum breakout
+       8 -  { id: 1,  symbol: "NVDA",  direction: "long",  status: "close
+         -d", entry_price: 118.50, stop_loss: 112.00, take_profit: 140.00
+         -, exit_price: 138.20, shares: 80, entry_date: "2025-09-08", exi
+         -t_date: "2025-09-15", pnl: 1576.00, notes: "Broke out of 6-week
+         - base on massive AI chip demand news. Volume confirmed. Held fu
+         -ll size through the move, exited just under target at prior res
+         -istance.", tags: "momentum,breakout,ai", emotions: "Satisfactio
+         -n, Overconfidence", wyckoff_checklist: 'JSON:{"strategyId":"wyc
+         -koff_buy","items":["Activity bullish (Vol increase on rallies)"
+         -,"Downward trendline broken","Higher lows","Higher highs","Base
+         - forming (Cause)"]}', account_size: 50000, commission: 1.00, ri
+         -sk_per_trade: 1, created_at: "2025-09-08T09:35:00", user_id: "g
+         -uest" },                                                       
+       8 +  { id: 1,  symbol: "NVDA",  direction: "long",  status: "close
+         +d", entry_price: 118.50, stop_loss: 112.00, take_profit: 140.00
+         +, exit_price: 138.20, shares: 80, entry_date: "2025-09-08", exi
+         +t_date: "2025-09-15", pnl: 1576.00, notes: "Broke out of 6-week
+         + base on massive AI chip demand news. Volume confirmed. Held fu
+         +ll size through the move, exited just under target at prior res
+         +istance.", tags: "momentum,breakout,ai", emotions: "Satisfactio
+         +n, Overconfidence", wyckoff_checklist: 'JSON:{"strategyId":"wyc
+         +koff_buy","items":["Activity bullish (Vol increase on rallies)"
+         +,"Downward trendline broken","Higher lows","Higher highs","Base
+         + forming (Cause)"]}', account_size: 50000, commission: 1.00, ri
+         +sk_per_trade: 1, rating: 5, mistakes: null, market_context: "tr
+         +ending_up", lessons: "Volume confirmation on breakouts is key —
+         + this setup had everything aligned.", created_at: "2025-09-08T0
+         +9:35:00", user_id: "guest" },                                  
+       9  
+      10    // Clean loss — respected stop
+      11    { id: 2,  symbol: "AAPL",  direction: "long",  status: "close
+          d", entry_price: 242.80, stop_loss: 236.00, take_profit: 260.00
+          , exit_price: 235.60, shares: 70, entry_date: "2025-09-22", exi
+          t_date: "2025-09-24", pnl: -504.00, notes: "Failed to hold 50 S
+          MA after iPhone event. Stopped out next morning at gap down. Cl
+          ean loss, no regrets on the setup.", tags: "earnings,failed-bre
+          akout", emotions: "Regret, Frustration", wyckoff_checklist: 'JS
+          ON:{"strategyId":"wyckoff_buy","items":["Activity bullish (Vol 
+          increase on rallies)","Downward trendline broken"]}', account_s
+          ize: 50000, commission: 1.00, risk_per_trade: 1, created_at: "2
+          025-09-22T10:02:00", user_id: "guest" },
+
+● Update(lib\demo-data.ts)
+  ⎿  Added 1 line, removed 1 line
+       8    { id: 1,  symbol: "NVDA",  direction: "long",  status: "close
+          d", entry_price: 118.50, stop_loss: 112.00, take_profit: 140.00
+          , exit_price: 138.20, shares: 80, entry_date: "2025-09-08", exi
+          t_date: "2025-09-15", pnl: 1576.00, notes: "Broke out of 6-week
+           base on massive AI chip demand news. Volume confirmed. Held fu
+          ll size through the move, exited just under target at prior res
+          istance.", tags: "momentum,breakout,ai", emotions: "Satisfactio
+          n, Overconfidence", wyckoff_checklist: 'JSON:{"strategyId":"wyc
+          koff_buy","items":["Activity bullish (Vol increase on rallies)"
+          ,"Downward trendline broken","Higher lows","Higher highs","Base
+           forming (Cause)"]}', account_size: 50000, commission: 1.00, ri
+          sk_per_trade: 1, rating: 5, mistakes: null, market_context: "tr
+          ending_up", lessons: "Volume confirmation on breakouts is key —
+           this setup had everything aligned.", created_at: "2025-09-08T0
+          9:35:00", user_id: "guest" },
+       9  
+      10    // Clean loss — respected stop
+      11 -  { id: 2,  symbol: "AAPL",  direction: "long",  status: "close
+         -d", entry_price: 242.80, stop_loss: 236.00, take_profit: 260.00
+         -, exit_price: 235.60, shares: 70, entry_date: "2025-09-22", exi
+         -t_date: "2025-09-24", pnl: -504.00, notes: "Failed to hold 50 S
+         -MA after iPhone event. Stopped out next morning at gap down. Cl
+         -ean loss, no regrets on the setup.", tags: "earnings,failed-bre
+         -akout", emotions: "Regret, Frustration", wyckoff_checklist: 'JS
+         -ON:{"strategyId":"wyckoff_buy","items":["Activity bullish (Vol 
+         -increase on rallies)","Downward trendline broken"]}', account_s
+         -ize: 50000, commission: 1.00, risk_per_trade: 1, created_at: "2
+         -025-09-22T10:02:00", user_id: "guest" },                       
+      11 +  { id: 2,  symbol: "AAPL",  direction: "long",  status: "close
+         +d", entry_price: 242.80, stop_loss: 236.00, take_profit: 260.00
+         +, exit_price: 235.60, shares: 70, entry_date: "2025-09-22", exi
+         +t_date: "2025-09-24", pnl: -504.00, notes: "Failed to hold 50 S
+         +MA after iPhone event. Stopped out next morning at gap down. Cl
+         +ean loss, no regrets on the setup.", tags: "earnings,failed-bre
+         +akout", emotions: "Regret, Frustration", wyckoff_checklist: 'JS
+         +ON:{"strategyId":"wyckoff_buy","items":["Activity bullish (Vol 
+         +increase on rallies)","Downward trendline broken"]}', account_s
+         +ize: 50000, commission: 1.00, risk_per_trade: 1, rating: 3, mis
+         +takes: "Entered too early,Ignored plan", market_context: "news_
+         +driven", lessons: "Avoid trading around major product events — 
+         +gap risk is real.", created_at: "2025-09-22T10:02:00", user_id:
+         + "guest" },                                                    
+      12  
+      13    // Short trade winner
+      14    { id: 3,  symbol: "TSLA",  direction: "short", status: "close
+          d", entry_price: 284.50, stop_loss: 296.00, take_profit: 255.00
+          , exit_price: 258.30, shares: 40, entry_date: "2025-10-06", exi
+          t_date: "2025-10-14", pnl: 1048.00, notes: "Bearish engulfing o
+          n daily at all-time high zone. Short into weakness with tight s
+          top above the wick. Covered at 200 SMA support. Textbook mean r
+          eversion.", tags: "reversal,pattern,mean-reversion", emotions: 
+          "Satisfaction, Hope", wyckoff_checklist: 'JSON:{"strategyId":"w
+          yckoff_sell","items":["Activity bearish (Vol increase on drops)
+          ","Preliminary supply / Buying climax","Relative weakness (Bear
+          ish vs Market)","Upward trendline broken","Lower highs","Lower 
+          lows"]}', account_size: 50000, commission: 1.00, risk_per_trade
+          : 1, created_at: "2025-10-06T11:10:00", user_id: "guest" },
+
+● Update(lib\demo-data.ts)
+  ⎿  Added 1 line, removed 1 line
+      11    { id: 2,  symbol: "AAPL",  direction: "long",  status: "close
+          d", entry_price: 242.80, stop_loss: 236.00, take_profit: 260.00
+          , exit_price: 235.60, shares: 70, entry_date: "2025-09-22", exi
+          t_date: "2025-09-24", pnl: -504.00, notes: "Failed to hold 50 S
+          MA after iPhone event. Stopped out next morning at gap down. Cl
+          ean loss, no regrets on the setup.", tags: "earnings,failed-bre
+          akout", emotions: "Regret, Frustration", wyckoff_checklist: 'JS
+          ON:{"strategyId":"wyckoff_buy","items":["Activity bullish (Vol 
+          increase on rallies)","Downward trendline broken"]}', account_s
+          ize: 50000, commission: 1.00, risk_per_trade: 1, rating: 3, mis
+          takes: "Entered too early,Ignored plan", market_context: "news_
+          driven", lessons: "Avoid trading around major product events — 
+          gap risk is real.", created_at: "2025-09-22T10:02:00", user_id:
+           "guest" },
+      12  
+      13    // Short trade winner
+      14 -  { id: 3,  symbol: "TSLA",  direction: "short", status: "close
+         -d", entry_price: 284.50, stop_loss: 296.00, take_profit: 255.00
+         -, exit_price: 258.30, shares: 40, entry_date: "2025-10-06", exi
+         -t_date: "2025-10-14", pnl: 1048.00, notes: "Bearish engulfing o
+         -n daily at all-time high zone. Short into weakness with tight s
+         -top above the wick. Covered at 200 SMA support. Textbook mean r
+         -eversion.", tags: "reversal,pattern,mean-reversion", emotions: 
+         -"Satisfaction, Hope", wyckoff_checklist: 'JSON:{"strategyId":"w
+         -yckoff_sell","items":["Activity bearish (Vol increase on drops)
+         -","Preliminary supply / Buying climax","Relative weakness (Bear
+         -ish vs Market)","Upward trendline broken","Lower highs","Lower 
+         -lows"]}', account_size: 50000, commission: 1.00, risk_per_trade
+         -: 1, created_at: "2025-10-06T11:10:00", user_id: "guest" },    
+      14 +  { id: 3,  symbol: "TSLA",  direction: "short", status: "close
+         +d", entry_price: 284.50, stop_loss: 296.00, take_profit: 255.00
+         +, exit_price: 258.30, shares: 40, entry_date: "2025-10-06", exi
+         +t_date: "2025-10-14", pnl: 1048.00, notes: "Bearish engulfing o
+         +n daily at all-time high zone. Short into weakness with tight s
+         +top above the wick. Covered at 200 SMA support. Textbook mean r
+         +eversion.", tags: "reversal,pattern,mean-reversion", emotions: 
+         +"Satisfaction, Hope", wyckoff_checklist: 'JSON:{"strategyId":"w
+         +yckoff_sell","items":["Activity bearish (Vol increase on drops)
+         +","Preliminary supply / Buying climax","Relative weakness (Bear
+         +ish vs Market)","Upward trendline broken","Lower highs","Lower 
+         +lows"]}', account_size: 50000, commission: 1.00, risk_per_trade
+         +: 1, rating: 5, mistakes: null, market_context: "volatile", les
+         +sons: "Mean reversion at extremes works when volume confirms di
+         +stribution.", created_at: "2025-10-06T11:10:00", user_id: "gues
+         +t" },                                                          
+      15  
+      16    // Small winner — partial exit
+      17    { id: 4,  symbol: "META",  direction: "long",  status: "close
+          d", entry_price: 612.40, stop_loss: 598.00, take_profit: 650.00
+          , exit_price: 632.80, shares: 30, entry_date: "2025-10-20", exi
+          t_date: "2025-10-28", pnl: 612.00, notes: "Pullback to 21 EMA o
+          n the daily. Took half off at +1R, trailed the rest. Good proce
+          ss even though I left some on the table.", tags: "pullback,ema,
+          partial-exit", emotions: "Boredom, Satisfaction", wyckoff_check
+          list: null, account_size: 50000, commission: 1.00, risk_per_tra
+          de: 1, created_at: "2025-10-20T14:20:00", user_id: "guest" },
+
+● Let me add sample data to a few more key demo trades and leave the rest with
+  defaults:
+
+● Update(lib\demo-data.ts)
+  ⎿  Added 1 line, removed 1 line
+      23    { id: 6,  symbol: "MSFT",  direction: "long",  status: "close
+          d", entry_price: 448.00, stop_loss: 435.00, take_profit: 480.00
+          , exit_price: 476.50, shares: 35, entry_date: "2025-11-10", exi
+          t_date: "2025-11-21", pnl: 997.50, notes: "Cup and handle break
+          out confirmed on weekly chart. Held through a 3-day shakeout th
+          at tested the breakout level. Patience paid off.", tags: "patte
+          rn,weekly,swing", emotions: "Impatience, Hope", wyckoff_checkli
+          st: null, account_size: 50000, commission: 1.00, risk_per_trade
+          : 1, created_at: "2025-11-10T10:15:00", user_id: "guest" },
+      24  
+      25    // Sector rotation loss
+      26 -  { id: 7,  symbol: "AMD",   direction: "long",  status: "close
+         -d", entry_price: 158.20, stop_loss: 150.00, take_profit: 178.00
+         -, exit_price: 151.40, shares: 55, entry_date: "2025-12-01", exi
+         -t_date: "2025-12-03", pnl: -374.00, notes: "Semis got hit by se
+         -ctor rotation into defensives. Cut quickly when it broke the ri
+         -sing trendline. Avoided the full move to $142.", tags: "sector-
+         -rotation,stopped", emotions: "Fear, Frustration", wyckoff_check
+         -list: null, account_size: 50000, commission: 1.00, risk_per_tra
+         -de: 1, created_at: "2025-12-01T11:05:00", user_id: "guest" },  
+      26 +  { id: 7,  symbol: "AMD",   direction: "long",  status: "close
+         +d", entry_price: 158.20, stop_loss: 150.00, take_profit: 178.00
+         +, exit_price: 151.40, shares: 55, entry_date: "2025-12-01", exi
+         +t_date: "2025-12-03", pnl: -374.00, notes: "Semis got hit by se
+         +ctor rotation into defensives. Cut quickly when it broke the ri
+         +sing trendline. Avoided the full move to $142.", tags: "sector-
+         +rotation,stopped", emotions: "Fear, Frustration", wyckoff_check
+         +list: null, account_size: 50000, commission: 1.00, risk_per_tra
+         +de: 1, rating: 2, mistakes: "Chased the trade,Ignored plan", ma
+         +rket_context: "choppy", lessons: "Check sector rotation before 
+         +entering — when money flows to defensives, semis suffer first."
+         +, created_at: "2025-12-01T11:05:00", user_id: "guest" },       
+      27  
+      28    // Earnings play
+      29    { id: 8,  symbol: "GOOGL", direction: "long",  status: "close
+          d", entry_price: 198.60, stop_loss: 190.00, take_profit: 220.00
+          , exit_price: 218.40, shares: 50, entry_date: "2025-12-08", exi
+          t_date: "2025-12-16", pnl: 990.00, notes: "Post-earnings drift 
+          play. Beat on cloud revenue and raised guidance. Entered the ne
+          xt day on the pullback to VWAP. AI search monetization thesis p
+          laying out.", tags: "earnings,cloud,ai", emotions: "Hope, Overc
+          onfidence", wyckoff_checklist: null, account_size: 50000, commi
+          ssion: 1.00, risk_per_trade: 1, created_at: "2025-12-08T09:50:0
+          0", user_id: "guest" },
+
+● Update(lib\demo-data.ts)
+  ⎿  Added 1 line, removed 1 line
+      41    { id: 12, symbol: "SOFI",  direction: "long",  status: "close
+          d", entry_price: 18.40, stop_loss: 17.20, take_profit: 21.50, e
+          xit_price: 18.50, shares: 400, entry_date: "2026-02-02", exit_d
+          ate: "2026-02-06", pnl: 40.00, notes: "Fintech breakout attempt
+          . Moved stop to breakeven after +0.5R. Got stopped out on a sha
+          keout. No damage done — good risk management.", tags: "fintech,
+          breakeven,trail", emotions: "Anxiety", wyckoff_checklist: null,
+           account_size: 50000, commission: 1.00, risk_per_trade: 1, crea
+          ted_at: "2026-02-02T10:45:00", user_id: "guest" },
+      42  
+      43    // Bigger loss — gap down
+      44 -  { id: 13, symbol: "SMCI",  direction: "long",  status: "close
+         -d", entry_price: 42.80, stop_loss: 38.50, take_profit: 52.00, e
+         -xit_price: 36.20, shares: 110, entry_date: "2026-02-09", exit_d
+         -ate: "2026-02-10", pnl: -726.00, notes: "Gapped below stop on a
+         -ccounting concerns rumor. Took the full loss immediately at mar
+         -ket open. Lesson: always size for the gap risk on small caps.",
+         - tags: "gap-risk,lesson,small-cap", emotions: "Fear, Frustratio
+         -n, Regret", wyckoff_checklist: null, account_size: 50000, commi
+         -ssion: 1.00, risk_per_trade: 1, created_at: "2026-02-09T10:20:0
+         -0", user_id: "guest" },                                        
+      44 +  { id: 13, symbol: "SMCI",  direction: "long",  status: "close
+         +d", entry_price: 42.80, stop_loss: 38.50, take_profit: 52.00, e
+         +xit_price: 36.20, shares: 110, entry_date: "2026-02-09", exit_d
+         +ate: "2026-02-10", pnl: -726.00, notes: "Gapped below stop on a
+         +ccounting concerns rumor. Took the full loss immediately at mar
+         +ket open. Lesson: always size for the gap risk on small caps.",
+         + tags: "gap-risk,lesson,small-cap", emotions: "Fear, Frustratio
+         +n, Regret", wyckoff_checklist: null, account_size: 50000, commi
+         +ssion: 1.00, risk_per_trade: 1, rating: 1, mistakes: "Oversized
+         + position,No stop loss", market_context: "news_driven", lessons
+         +: "Always size for gap risk on small caps. Headlines can move t
+         +hese 20% overnight.", created_at: "2026-02-09T10:20:00", user_i
+         +d: "guest" },                                                  
+      45  
+      46    // Recent winner
+      47    { id: 14, symbol: "PLTR",  direction: "long",  status: "close
+          d", entry_price: 102.50, stop_loss: 95.00, take_profit: 120.00,
+           exit_price: 118.40, shares: 60, entry_date: "2026-02-12", exit
+          _date: "2026-02-21", pnl: 954.00, notes: "Government AI contrac
+          t pipeline keeps expanding. Bought the breakout above the $100 
+          psychological level. Strong relative strength vs QQQ all week."
+          , tags: "ai,government,breakout", emotions: "Satisfaction, Over
+          confidence", wyckoff_checklist: null, account_size: 50000, comm
+          ission: 1.00, risk_per_trade: 1, created_at: "2026-02-12T10:25:
+          00", user_id: "guest" },
+
+● Now let me update the demo settings with new default settings:
+
+● Update(lib\demo-data.ts)
+  ⎿  Added 2 lines
+      122    tv_hotlist: "true",
+      123    tv_calendar: "true",
+      124    tv_studies: JSON.stringify(["Moving Average Simple@tv-basics
+           tudies"]),
+      125 +  default_mistakes: JSON.stringify(["Entered too early", "Exit
+          +ed too early", "Exited too late", "Moved stop loss", "Oversize
+          +d position", "No stop loss", "Chased the trade", "Revenge trad
+          +e", "Ignored plan", "FOMO entry"]),                           
+      126 +  default_tags: JSON.stringify(["momentum", "breakout", "pullb
+          +ack", "reversal", "earnings", "scalp"]),                      
+      127  };
+
+● Now let me do a quick build check before tackling the UI components.
+
+● Bash(npx tsc --noEmit 2>&1 | head -40)
+  ⎿  (No output)
+  ⎿  (timeout 1m)
+
+● Clean type-check. Now let me tackle the big UI updates. I'll work on the
+  TradeModal (Reflection tab), TradeTable (new columns), and Journal page in
+  parallel using agents.
+
+● Agent(Update TradeModal reflection tab)
+  ⎿  Done (12 tool uses · 29.7k tokens · 1m 51s)
+  (ctrl+o to expand)
+
+● Now update the TradeTable with new columns:
+
+● Read 1 file (ctrl+o to expand)
+
+● Update(components\TradeTable.tsx)
+  ⎿  Added 5 lines
+      31    { key: "exit",       label: "Exit",       default: true },
+      32    { key: "shares",     label: "Shares",     default: true },
+      33    { key: "pnl",        label: "P&L",        default: true },
+      34 +  { key: "rr_achieved", label: "R:R",       default: false },  
+      35 +  { key: "pct_return", label: "% Return",   default: false },  
+      36 +  { key: "hold_duration", label: "Hold",    default: false },  
+      37 +  { key: "rating",     label: "Rating",     default: false },  
+      38 +  { key: "market_ctx", label: "Context",    default: false },  
+      39    { key: "potential",  label: "Potential",   default: true },
+      40    { key: "unrealized", label: "Unrealized",  default: true },
+      41    { key: "commission", label: "Commission",  default: false },
+
+● Now add sort logic and import the trade-utils:
+
+● Update(components\TradeTable.tsx)
+  ⎿  Added 2 lines, removed 1 line
+       2  import { useState, useRef, useCallback, useEffect } from "react
+          ";
+       3  import { createPortal } from "react-dom";
+       4  import { Trade, QuoteMap } from "@/lib/types";
+       5 -import { Pencil, Trash2, ArrowUpRight, ArrowDownRight, ChevronU
+         -p, ChevronDown, LineChart, ExternalLink, Bell } from "lucide-re
+         -act";                                                          
+       5 +import { Pencil, Trash2, ArrowUpRight, ArrowDownRight, ChevronU
+         +p, ChevronDown, LineChart, ExternalLink, Bell, Star } from "luc
+         +ide-react";                                                    
+       6  import { useRouter } from "next/navigation";
+       7  import MiniChart from "@/components/MiniChart";
+       8 +import { calcRRAchieved, calcPercentReturn, formatHoldDuration 
+         +} from "@/lib/trade-utils";                                    
+       9  import clsx from "clsx";
+      10  
+      11  function buildChartUrl(t: Trade): string {
+
+● Now add the accountSize prop and update sort logic and rendering. First, add
+  the prop:
+
+● Update(components\TradeTable.tsx)
+  ⎿  Added 1 line
+      58    quotes?: QuoteMap;
+      59    visibleColumns?: ColumnKey[];
+      60    defaultRiskPercent?: number;
+      61 +  accountSize?: number;                                        
+      62    onSetAlert?: (symbol: string, defaultPrice?: number) => void;
+      63    // External selection control
+      64    selectedIds?: Set<number>;
+
+● Now update getSortValue to handle new columns:
+
+● Update(components\TradeTable.tsx)
+  ⎿  Added 10 lines, removed 1 line
+      90    return { profit, loss };
+      91  }
+      92  
+      93 -function getSortValue(t: Trade, key: ColumnKey, quotes: QuoteMa
+         -p, defaultRiskPercent?: number): string | number {             
+      93 +function getSortValue(t: Trade, key: ColumnKey, quotes: QuoteMa
+         +p, defaultRiskPercent?: number, accountSize?: number): string |
+         + number {                                                      
+      94    switch (key) {
+      95      case "symbol": return t.symbol;
+      96      case "direction": return t.direction;
+     ...
+      101      case "exit": return t.exit_price ?? -Infinity;
+      102      case "shares": return t.shares ?? -Infinity;
+      103      case "pnl": return t.pnl ?? -Infinity;
+      104 +    case "rr_achieved": return calcRRAchieved(t) ?? -Infinity;
+      105 +    case "pct_return": return calcPercentReturn(t, accountSize
+          + ?? 10000) ?? -Infinity;                                      
+      106 +    case "hold_duration": {                                   
+      107 +      if (!t.entry_date) return -Infinity;                    
+      108 +      const end = t.exit_date ? new Date(t.exit_date) : new Da
+          +te();                                                         
+      109 +      return end.getTime() - new Date(t.entry_date).getTime();
+      110 +    }                                                         
+      111 +    case "rating": return t.rating ?? -Infinity;              
+      112 +    case "market_ctx": return t.market_context ?? "";         
+      113      case "potential": {
+      114        const pot = calcPotentialPnl(t);
+      115        return pot?.profit ?? -Infinity;
+
+● Now update the component signature to include accountSize and pass it to
+  getSortValue:
+
+● Update(components\TradeTable.tsx)
+  ⎿  Added 10 lines, removed 9 lines
+      127    }
+      128  }
+      129  
+      130 -export default function TradeTable({                          
+      131 -  trades,                                                     
+      132 -  onEdit,                                                     
+      133 -  onDelete,                                                   
+      134 -  onBulkDelete,                                               
+      135 -  limit,                                                      
+      136 -  quotes = {},                                                
+      137 -  visibleColumns,                                             
+      138 -  defaultRiskPercent,                                         
+      130 +export default function TradeTable({                          
+      131 +  trades,                                                     
+      132 +  onEdit,                                                     
+      133 +  onDelete,                                                   
+      134 +  onBulkDelete,                                               
+      135 +  limit,                                                      
+      136 +  quotes = {},                                                
+      137 +  visibleColumns,                                             
+      138 +  defaultRiskPercent,                                         
+      139 +  accountSize,                                                
+      140    onSetAlert,
+      141    selectedIds,
+      142    onToggleSelect,
+
+● Update(components\TradeTable.tsx)
+  ⎿  Added 2 lines, removed 2 lines
+      166  
+      167    const rows = sortKey
+      168      ? [...baseRows].sort((a, b) => {
+      169 -        const av = getSortValue(a, sortKey, quotes, defaultRis
+          -kPercent);                                                    
+      170 -        const bv = getSortValue(b, sortKey, quotes, defaultRis
+          -kPercent);                                                    
+      169 +        const av = getSortValue(a, sortKey, quotes, defaultRis
+          +kPercent, accountSize);                                       
+      170 +        const bv = getSortValue(b, sortKey, quotes, defaultRis
+          +kPercent, accountSize);                                       
+      171          let cmp = 0;
+      172          if (typeof av === "string" && typeof bv === "string") 
+           cmp = av.localeCompare(bv);
+      173          else cmp = (av as number) - (bv as number);
+
+● Now add the rendering for the new columns in the desktop table. I need to add
+  cells after the pnl column:
+
+● Read 1 file (ctrl+o to expand)
+
+● I need to add cells for the new columns after pnl and before potential:
+
+● Update(components\TradeTable.tsx)
+  ⎿  Added 31 lines
+      522                          {t.pnl !== null ? `${t.pnl >= 0 ? "+" 
+           : ""}$${t.pnl.toFixed(2)}` : "—"}
+      523                        </td>
+      524                      )}
+      525 +                    {show("rr_achieved") && (() => {          
+      526 +                      const rr = calcRRAchieved(t);           
+      527 +                      const color = rr === null ? "" : rr >= 2
+          + ? "text-emerald-400" : rr >= 1 ? "text-blue-400" : rr >= 0 ? 
+          +"text-amber-400" : "text-red-400";                            
+      528 +                      return <td className={clsx("px-4 py-3 te
+          +xt-xs font-semibold", color)}>{rr !== null ? `${rr.toFixed(2)}
+          +R` : "—"}</td>;                                               
+      529 +                    })()}                                     
+      530 +                    {show("pct_return") && (() => {           
+      531 +                      const pct = calcPercentReturn(t, account
+          +Size ?? 10000);                                               
+      532 +                      const color = pct === null ? "" : pct >=
+          + 0 ? "text-emerald-400" : "text-red-400";                     
+      533 +                      return <td className={clsx("px-4 py-3 te
+          +xt-xs font-semibold", color)}>{pct !== null ? `${pct >= 0 ? "+
+          +" : ""}${pct.toFixed(2)}%` : "—"}</td>;                       
+      534 +                    })()}                                     
+      535 +                    {show("hold_duration") && (               
+      536 +                      <td className="px-4 py-3 dark:text-slate
+          +-400 text-slate-500 text-xs">                                 
+      537 +                        {formatHoldDuration(t.entry_date, t.ex
+          +it_date) ?? "—"}                                              
+      538 +                      </td>                                   
+      539 +                    )}                                        
+      540 +                    {show("rating") && (                      
+      541 +                      <td className="px-4 py-3">              
+      542 +                        {t.rating ? (                         
+      543 +                          <div className="flex items-center ga
+          +p-0.5">                                                       
+      544 +                            {[1,2,3,4,5].map(n => (           
+      545 +                              <Star key={n} className={clsx("w
+          +-3 h-3", n <= t.rating! ? "text-amber-400 fill-amber-400" : "d
+          +ark:text-slate-700 text-slate-300")} />                       
+      546 +                            ))}                               
+      547 +                          </div>                              
+      548 +                        ) : "—"}                              
+      549 +                      </td>                                   
+      550 +                    )}                                        
+      551 +                    {show("market_ctx") && (                  
+      552 +                      <td className="px-4 py-3 text-xs dark:te
+          +xt-slate-400 text-slate-500 capitalize">                      
+      553 +                        {t.market_context ? t.market_context.r
+          +eplace("_", " ") : "—"}                                       
+      554 +                      </td>                                   
+      555 +                    )}                                        
+      556                      {show("potential") && (
+      557                        <td className="px-4 py-3">
+      558                          {pot ? (
+
+● Now let me check the type and do a build check:
+
+● Bash(cd "D:\Code\Projects\claude-test\Ledger-Of-Alpha" && npx tsc --noEmit
+      2>&1 | head -50)
+  ⎿  (No output)
+  ⎿  (timeout 1m)
+
+● Clean. Now let me update the journal page. Let me read the rest of it first:
+
+● Read 1 file (ctrl+o to expand)
+
+● Now I'll update the journal page to show the new fields. I'll add the import
+  for trade-utils and Star, then update the card view, review view static
+  section, and review edit form.
+
+● Update(app\journal\page.tsx)
+  ⎿  Added 2 lines, removed 1 line
+      1  "use client";
+      2  import { useEffect, useState } from "react";
+      3  import { Trade } from "@/lib/types";
+      4 -import { ArrowUpRight, ArrowDownRight, Tag, FileText, Pencil, Tr
+        -ash2, ChevronDown, ChevronUp, LineChart, ExternalLink, Search, L
+        -ayoutGrid, List, Columns, RefreshCw, ShieldCheck } from "lucide-
+        -react";                                                         
+      4 +import { ArrowUpRight, ArrowDownRight, Tag, FileText, Pencil, Tr
+        +ash2, ChevronDown, ChevronUp, LineChart, ExternalLink, Search, L
+        +ayoutGrid, List, Columns, RefreshCw, ShieldCheck, Star, Lightbul
+        +b, AlertTriangle } from "lucide-react";                         
+      5 +import { calcRRAchieved, calcPercentReturn, formatHoldDuration }
+        + from "@/lib/trade-utils";                                      
+      6  import AccountBanner from "@/components/AccountBanner";
+      7  import { useRouter } from "next/navigation";
+      8  import TradeModal from "@/components/TradeModal";
+
+● Now update the card view to show new fields. Add R:R, % return badges after
+  the price info, show mistakes as red pills, market context badge, lessons
+  section, and stars:
+
+● Update(app\journal\page.tsx)
+  ⎿  Added 46 lines
+      822                    )}
+      823                  </div>
+      824  
+      825 +                {/* Rating + R:R + % Return + Market Context b
+          +adges */}                                                     
+      826 +                <div className="flex flex-wrap items-center ga
+          +p-2">                                                         
+      827 +                  {t.rating != null && (                      
+      828 +                    <div className="flex items-center gap-0.5"
+          +>                                                             
+      829 +                      {[1,2,3,4,5].map(n => (                 
+      830 +                        <Star key={n} className={clsx("w-3 h-3
+          +", n <= t.rating! ? "text-amber-400 fill-amber-400" : "dark:te
+          +xt-slate-700 text-slate-300")} />                             
+      831 +                      ))}                                     
+      832 +                    </div>                                    
+      833 +                  )}                                          
+      834 +                  {(() => { const rr = calcRRAchieved(t); retu
+          +rn rr !== null ? (                                            
+      835 +                    <span className={clsx("px-1.5 py-0.5 round
+          +ed text-[10px] font-bold", rr >= 2 ? "bg-emerald-500/10 text-e
+          +merald-400" : rr >= 1 ? "bg-blue-500/10 text-blue-400" : rr >=
+          + 0 ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-re
+          +d-400")}>                                                     
+      836 +                      {rr.toFixed(2)}R                        
+      837 +                    </span>                                   
+      838 +                  ) : null; })()}                             
+      839 +                  {(() => { const pct = calcPercentReturn(t, a
+          +ccountSize); return pct !== null && !hidden ? (               
+      840 +                    <span className={clsx("px-1.5 py-0.5 round
+          +ed text-[10px] font-bold", pct >= 0 ? "bg-emerald-500/10 text-
+          +emerald-400" : "bg-red-500/10 text-red-400")}>                
+      841 +                      {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%  
+      842 +                    </span>                                   
+      843 +                  ) : null; })()}                             
+      844 +                  {t.market_context && (                      
+      845 +                    <span className="px-1.5 py-0.5 rounded tex
+          +t-[10px] font-medium bg-slate-500/10 dark:text-slate-400 text-
+          +slate-500 capitalize">                                        
+      846 +                      {t.market_context.replace("_", " ")}    
+      847 +                    </span>                                   
+      848 +                  )}                                          
+      849 +                </div>                                        
+      850 +                                                              
+      851 +                {/* Mistakes */}                              
+      852 +                {t.mistakes && (                              
+      853 +                  <div className="flex flex-wrap gap-1.5">    
+      854 +                    <AlertTriangle className="w-3 h-3 text-red
+          +-400 mt-0.5 shrink-0" />                                      
+      855 +                    {t.mistakes.split(",").map(m => m.trim()).
+          +filter(Boolean).map(m => (                                    
+      856 +                      <span key={m} className="px-2 py-0.5 rou
+          +nded-full text-[10px] font-medium bg-red-500/10 text-red-400 b
+          +order border-red-500/20">                                     
+      857 +                        {m}                                   
+      858 +                      </span>                                 
+      859 +                    ))}                                       
+      860 +                  </div>                                      
+      861 +                )}                                            
+      862 +                                                              
+      863 +                {/* Lessons */}                               
+      864 +                {t.lessons && (                               
+      865 +                  <div className="flex items-start gap-2 p-2.5
+          + rounded-lg dark:bg-amber-500/5 bg-amber-50 border dark:border
+          +-amber-500/10 border-amber-100">                              
+      866 +                    <Lightbulb className="w-3.5 h-3.5 text-amb
+          +er-400 mt-0.5 shrink-0" />                                    
+      867 +                    <p className="text-xs dark:text-amber-300/
+          +80 text-amber-700 leading-relaxed">{t.lessons}</p>            
+      868 +                  </div>                                      
+      869 +                )}                                            
+      870 +                                                              
+      871                  {/* Notes */}
+      872                  {t.notes ? (
+      873                    <div className="rounded-lg dark:bg-slate-800
+            bg-slate-50 p-3 text-xs dark:text-slate-300 text-slate-600 le
+           ading-relaxed whitespace-pre-wrap">
+
+● Now update the review mode static view to show the new fields. Add after the
+  emotions section and before "Notes & Reflection":
+
+● Update(app\journal\page.tsx)
+  ⎿  Added 63 lines
+      704                        </div>
+      705                      </div>
+      706  
+      707 +                    {/* Rating + R:R + % Return + Hold Time */
+          +}                                                             
+      708 +                    <div className="flex flex-wrap items-cente
+          +r gap-3">                                                     
+      709 +                      {selectedTrade.rating != null && (      
+      710 +                        <div className="flex items-center gap-
+          +2">                                                           
+      711 +                          <span className="text-[10px] upperca
+          +se tracking-widest dark:text-slate-500 text-slate-400 font-bol
+          +d">Rating</span>                                              
+      712 +                          <div className="flex items-center ga
+          +p-0.5">                                                       
+      713 +                            {[1,2,3,4,5].map(n => (           
+      714 +                              <Star key={n} className={clsx("w
+          +-4 h-4", n <= selectedTrade.rating! ? "text-amber-400 fill-amb
+          +er-400" : "dark:text-slate-700 text-slate-300")} />           
+      715 +                            ))}                               
+      716 +                          </div>                              
+      717 +                        </div>                                
+      718 +                      )}                                      
+      719 +                      {(() => { const rr = calcRRAchieved(sele
+          +ctedTrade); return rr !== null ? (                            
+      720 +                        <div className="flex items-center gap-
+          +2">                                                           
+      721 +                          <span className="text-[10px] upperca
+          +se tracking-widest dark:text-slate-500 text-slate-400 font-bol
+          +d">R:R</span>                                                 
+      722 +                          <span className={clsx("text-sm font-
+          +bold", rr >= 2 ? "text-emerald-400" : rr >= 1 ? "text-blue-400
+          +" : rr >= 0 ? "text-amber-400" : "text-red-400")}>{rr.toFixed(
+          +2)}R</span>                                                   
+      723 +                        </div>                                
+      724 +                      ) : null; })()}                         
+      725 +                      {(() => { const pct = calcPercentReturn(
+          +selectedTrade, accountSize); return pct !== null && !hidden ? 
+          +(                                                             
+      726 +                        <div className="flex items-center gap-
+          +2">                                                           
+      727 +                          <span className="text-[10px] upperca
+          +se tracking-widest dark:text-slate-500 text-slate-400 font-bol
+          +d">Return</span>                                              
+      728 +                          <span className={clsx("text-sm font-
+          +bold", pct >= 0 ? "text-emerald-400" : "text-red-400")}>{pct >
+          += 0 ? "+" : ""}{pct.toFixed(2)}%</span>                       
+      729 +                        </div>                                
+      730 +                      ) : null; })()}                         
+      731 +                      {(() => { const hold = formatHoldDuratio
+          +n(selectedTrade.entry_date, selectedTrade.exit_date); return h
+          +old ? (                                                       
+      732 +                        <div className="flex items-center gap-
+          +2">                                                           
+      733 +                          <span className="text-[10px] upperca
+          +se tracking-widest dark:text-slate-500 text-slate-400 font-bol
+          +d">Hold</span>                                                
+      734 +                          <span className="text-sm font-medium
+          + dark:text-slate-300 text-slate-700">{hold}</span>            
+      735 +                        </div>                                
+      736 +                      ) : null; })()}                         
+      737 +                      {selectedTrade.market_context && (      
+      738 +                        <div className="flex items-center gap-
+          +2">                                                           
+      739 +                          <span className="text-[10px] upperca
+          +se tracking-widest dark:text-slate-500 text-slate-400 font-bol
+          +d">Context</span>                                             
+      740 +                          <span className="text-sm font-medium
+          + dark:text-slate-300 text-slate-700 capitalize">{selectedTrade
+          +.market_context.replace("_", " ")}</span>                     
+      741 +                        </div>                                
+      742 +                      )}                                      
+      743 +                    </div>                                    
+      744 +                                                              
+      745                      {selectedTrade.emotions && (
+      746                        <div className="space-y-2">
+      747                          <h3 className="text-sm font-bold upper
+           case tracking-widest dark:text-slate-500 text-slate-400">Emoti
+           ons / Feelings</h3>
+     ...
+      755                        </div>
+      756                      )}
+      757  
+      758 +                    {/* Mistakes */}                          
+      759 +                    {selectedTrade.mistakes && (              
+      760 +                      <div className="space-y-2">             
+      761 +                        <h3 className="text-sm font-bold upper
+          +case tracking-widest dark:text-slate-500 text-slate-400">Mista
+          +kes</h3>                                                      
+      762 +                        <div className="flex flex-wrap gap-2">
+      763 +                          {selectedTrade.mistakes.split(",").m
+          +ap(m => m.trim()).filter(Boolean).map(m => (                  
+      764 +                            <span key={m} className="px-2.5 py
+          +-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400
+          + border border-red-500/20">                                   
+      765 +                              {m}                             
+      766 +                            </span>                           
+      767 +                          ))}                                 
+      768 +                        </div>                                
+      769 +                      </div>                                  
+      770 +                    )}                                        
+      771 +                                                              
+      772 +                    {/* Lessons */}                           
+      773 +                    {selectedTrade.lessons && (               
+      774 +                      <div className="space-y-2">             
+      775 +                        <h3 className="text-sm font-bold upper
+          +case tracking-widest dark:text-slate-500 text-slate-400">Lesso
+          +ns Learned</h3>                                               
+      776 +                        <div className="flex items-start gap-2
+          +.5 p-4 rounded-xl dark:bg-amber-500/5 bg-amber-50 border dark:
+          +border-amber-500/10 border-amber-100">                        
+      777 +                          <Lightbulb className="w-4 h-4 text-a
+          +mber-400 mt-0.5 shrink-0" />                                  
+      778 +                          <p className="text-sm dark:text-ambe
+          +r-300/80 text-amber-700 leading-relaxed">{selectedTrade.lesson
+          +s}</p>                                                        
+      779 +                        </div>                                
+      780 +                      </div>                                  
+      781 +                    )}                                        
+      782 +                                                              
+      783                      <div className="space-y-3">
+      784                        <h3 className="text-sm font-bold upperca
+           se tracking-widest dark:text-slate-500 text-slate-400">Notes &
+            Reflection</h3>
+      785                        <div className="p-6 rounded-2xl dark:bg-
+           slate-800/30 bg-slate-50 border dark:border-slate-800 border-s
+           late-100 min-h-[150px]">
+
+● Now let me type-check again:
+
+● Bash(cd "D:\Code\Projects\claude-test\Ledger-Of-Alpha" && npx tsc --noEmit
+      2>&1 | head -30)
+  ⎿  (No output)
+  ⎿  (timeout 1m)
+
+● Clean. Now let me work on Phase 3: Settings page updates. I need to read more
+  of the settings page to understand the structure.
+
+● Read 1 file (ctrl+o to expand)
+
+● Now let me find the Account section rendering in the settings page:
+
+● Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Now I'll add the new settings sections. Let me find where to add them. I need
+  to add after the Account section (line 544) and before Display. But first, let
+   me check if there are LABEL/INPUT/HINT constants:
+
+● Searched for 3 patterns (ctrl+o to expand)
+
+● Good. Now I need to update the Settings interface and add new settings
+  sections. Let me update the Settings interface first:
+
+● Update(app\settings\page.tsx)
+  ⎿  Added 7 lines
+      14    account_size: string;
+      15    risk_per_trade: string;
+      16    commission_per_trade: string;
+      17 +  commission_model: string;                                    
+      18 +  commission_value: string;                                    
+      19    heatmap_ranges: string;
+      20    charts_collapsed: string;
+      21    privacy_mode: string;
+     ...
+      26    tv_calendar: string;
+      27    tv_studies: string;
+      28    strategies: string;
+      29 +  daily_loss_limit: string;                                    
+      30 +  daily_loss_limit_type: string;                               
+      31 +  default_tags: string;                                        
+      32 +  default_mistakes: string;                                    
+      33 +  trade_templates: string;                                     
+      34  }
+      35  
+      36  interface TwoFactorSetup {
+
+● Update the initial state to include the new settings fields:
+
+● Update(app\settings\page.tsx)
+  ⎿  Added 4 lines
+      85    const initialCategory = (searchParams.get("tab") ?? "account"
+          ) as Category;
+      86    const [settings, setSettings] = useState<Settings>({
+      87      discord_webhook: "", alert_discord_webhook: "", fmp_api_key
+          : "", account_size: "10000", risk_per_trade: "1", commission_pe
+          r_trade: "0",
+      88 +    commission_model: "flat", commission_value: "0",           
+      89      heatmap_ranges: JSON.stringify({ high: 500, mid: 200, low: 
+          1 }), charts_collapsed: "false", privacy_mode: "revealed",
+      90      tv_hide_side_toolbar: "false", tv_withdateranges: "true", t
+          v_details: "false", tv_hotlist: "false", tv_calendar: "false", 
+          tv_studies: JSON.stringify(["Moving Average Simple@tv-basicstud
+          ies"]),
+      91 +    daily_loss_limit: "", daily_loss_limit_type: "dollar",     
+      92 +    default_tags: "[]", default_mistakes: JSON.stringify(["Ente
+         +red too early", "Exited too early", "Exited too late", "Moved s
+         +top loss", "Oversized position", "No stop loss", "Chased the tr
+         +ade", "Revenge trade", "Ignored plan", "FOMO entry"]),         
+      93 +    trade_templates: "[]",                                     
+      94      strategies: JSON.stringify([
+      95        { id: "wyckoff_buy", name: "Wyckoff Buying Tests", checkl
+          ist: ["Downside objective accomplished", "Activity bullish (Vol
+           increase on rallies)", "Preliminary support / Selling climax",
+           "Relative strength (Bullish vs Market)", "Downward trendline b
+          roken", "Higher lows", "Higher highs", "Base forming (Cause)", 
+          "RR Potential 3:1 or better"] },
+      96        { id: "wyckoff_sell", name: "Wyckoff Selling Tests", chec
+          klist: ["Upside objective accomplished", "Activity bearish (Vol
+           increase on drops)", "Preliminary supply / Buying climax", "Re
+          lative weakness (Bearish vs Market)", "Upward trendline broken"
+          , "Lower highs", "Lower lows", "Top forming (Cause)", "RR Poten
+          tial 3:1 or better"] }
+
+● Now I need to add the new settings categories and their UI sections. Let me
+  update the CATEGORIES to include a "tags" and "templates" category:
+
+● Update(app\settings\page.tsx)
+  ⎿  Added 3 lines, removed 1 line
+      38    qrDataUrl: string;
+      39  }
+      40  
+      41 -type Category = "account" | "display" | "chart" | "strategies" 
+         -| "integrations" | "security" | "data" | "admin-users" | "admin
+         --settings";                                                    
+      41 +type Category = "account" | "tags" | "templates" | "display" | 
+         +"chart" | "strategies" | "integrations" | "security" | "data" |
+         + "admin-users" | "admin-settings";                             
+      42  
+      43  const CATEGORIES: { id: Category; label: string; icon: typeof D
+          ollarSign; adminOnly?: boolean }[] = [
+      44    { id: "account",        label: "Account",        icon: Dollar
+          Sign },
+      45 +  { id: "tags",           label: "Tags & Mistakes", icon: ListC
+         +hecks },                                                       
+      46 +  { id: "templates",      label: "Templates",       icon: Copy 
+         +},                                                             
+      47    { id: "display",        label: "Display",         icon: Grid3
+          X3 },
+      48    { id: "chart",          label: "Chart",           icon: LineC
+          hart },
+      49    { id: "strategies",     label: "Strategies",      icon: ListC
+          hecks },
+
+● Now add the Account section enhancements (daily loss limit + commission model)
+   and the new sections. Let me update the Account section to include daily loss
+   limit and commission model:
+
+● Update(app\settings\page.tsx)
+  ⎿  Added 37 lines, removed 4 lines
+      526                  <p className={HINT}>Max % of account to risk p
+           er trade</p>
+      527                </div>
+      528                <div>
+      529 -                <label className={LABEL}>Commission ($)</label
+          ->                                                             
+      530 -                <input type="number" step="0.01" value={settin
+          -gs.commission_per_trade}                                      
+      531 -                  onChange={e => setSettings(s => ({ ...s, com
+          -mission_per_trade: e.target.value }))} className={INPUT} />   
+      532 -                <p className={HINT}>Flat commission per trade 
+          -(x2 round trip)</p>                                           
+      529 +                <label className={LABEL}>Commission Model</lab
+          +el>                                                           
+      530 +                <select value={settings.commission_model}     
+      531 +                  onChange={e => setSettings(s => ({ ...s, com
+          +mission_model: e.target.value }))} className={INPUT}>         
+      532 +                  <option value="flat">Flat (per trade)</optio
+          +n>                                                            
+      533 +                  <option value="per_share">Per Share</option>
+      534 +                  <option value="percent">Percentage</option> 
+      535 +                </select>                                     
+      536 +                <p className={HINT}>                          
+      537 +                  {settings.commission_model === "flat" ? "Fix
+          +ed $ per trade (×2 round trip)" :                             
+      538 +                   settings.commission_model === "per_share" ?
+          + "$ per share (×2 round trip)" :                              
+      539 +                   "% of total trade value"}                  
+      540 +                </p>                                          
+      541                </div>
+      542              </div>
+      543 +            <div className="grid grid-cols-1 sm:grid-cols-3 ga
+          +p-4">                                                         
+      544 +              <div>                                           
+      545 +                <label className={LABEL}>Commission Value</lab
+          +el>                                                           
+      546 +                <input type="number" step="0.01" value={settin
+          +gs.commission_value || settings.commission_per_trade}         
+      547 +                  onChange={e => setSettings(s => ({ ...s, com
+          +mission_value: e.target.value, commission_per_trade: e.target.
+          +value }))} className={INPUT} />                               
+      548 +                <p className={HINT}>                          
+      549 +                  {settings.commission_model === "flat" ? "Dol
+          +lar amount per trade" :                                       
+      550 +                   settings.commission_model === "per_share" ?
+          + "Dollar amount per share" :                                  
+      551 +                   "Percentage value (e.g., 0.1 for 0.1%)"}   
+      552 +                </p>                                          
+      553 +              </div>                                          
+      554 +              <div>                                           
+      555 +                <label className={LABEL}>Daily Loss Limit</lab
+          +el>                                                           
+      556 +                <div className="flex gap-2">                  
+      557 +                  <input type="number" step="0.01" value={sett
+          +ings.daily_loss_limit}                                        
+      558 +                    onChange={e => setSettings(s => ({ ...s, d
+          +aily_loss_limit: e.target.value }))} className={INPUT} placeho
+          +lder="No limit" />                                            
+      559 +                  <select value={settings.daily_loss_limit_typ
+          +e}                                                            
+      560 +                    onChange={e => setSettings(s => ({ ...s, d
+          +aily_loss_limit_type: e.target.value }))} className={INPUT + "
+          + w-24 shrink-0"}>                                             
+      561 +                    <option value="dollar">$</option>         
+      562 +                    <option value="percent">%</option>        
+      563 +                  </select>                                   
+      564 +                </div>                                        
+      565 +                <p className={HINT}>Max daily loss before warn
+          +ing ({settings.daily_loss_limit_type === "percent" ? "% of acc
+          +ount" : "dollar amount"})</p>                                 
+      566 +              </div>                                          
+      567 +            </div>                                            
+      568  
+      569              {/* Claim Admin */}
+      570              {!isAdmin && !hasAdmin && (
+
+● Now add the Tags & Mistakes section and Templates section after the Account
+  section. Let me find the right insertion point:
+
+● Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Update(app\settings\page.tsx)
+  ⎿  Added 140 lines
+      590            </section>
+      591          )}
+      592  
+      593 +        {/* ── Tags & Mistakes ── */}                         
+      594 +        {activeCategory === "tags" && (                       
+      595 +          <section className="rounded-xl border dark:border-sl
+          +ate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-
+          +y-6">                                                         
+      596 +            <h2 className="font-semibold dark:text-white text-
+          +slate-900 flex items-center gap-2">                           
+      597 +              <ListChecks className="w-4 h-4 text-emerald-400"
+          + /> Default Tags & Mistakes                                   
+      598 +            </h2>                                             
+      599 +                                                              
+      600 +            {/* Default Tags */}                              
+      601 +            <div className="space-y-3">                       
+      602 +              <h3 className="text-sm font-medium dark:text-sla
+          +te-300 text-slate-700">Quick-Select Tags</h3>                 
+      603 +              <p className="text-xs dark:text-slate-500 text-s
+          +late-400">These appear as quick-select pills in the Trade Moda
+          +l.</p>                                                        
+      604 +              <div className="flex flex-wrap gap-2">          
+      605 +                {(() => {                                     
+      606 +                  let tags: string[] = [];                    
+      607 +                  try { tags = JSON.parse(settings.default_tag
+          +s || "[]"); } catch {}                                        
+      608 +                  return tags.map((tag, i) => (               
+      609 +                    <span key={i} className="flex items-center
+          + gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emera
+          +ld-500/15 text-emerald-400 border border-emerald-500/20">     
+      610 +                      {tag}                                   
+      611 +                      <button type="button" onClick={() => {  
+      612 +                        const next = tags.filter((_, j) => j !
+          +== i);                                                        
+      613 +                        setSettings(s => ({ ...s, default_tags
+          +: JSON.stringify(next) }));                                   
+      614 +                      }} className="hover:text-red-400 transit
+          +ion-colors">                                                  
+      615 +                        <Trash2 className="w-3 h-3" />        
+      616 +                      </button>                               
+      617 +                    </span>                                   
+      618 +                  ));                                         
+      619 +                })()}                                         
+      620 +              </div>                                          
+      621 +              <div className="flex gap-2">                    
+      622 +                <input                                        
+      623 +                  type="text"                                 
+      624 +                  placeholder="Add a tag..."                  
+      625 +                  className={INPUT + " flex-1"}               
+      626 +                  onKeyDown={e => {                           
+      627 +                    if (e.key === "Enter" && (e.target as HTML
+          +InputElement).value.trim()) {                                 
+      628 +                      const val = (e.target as HTMLInputElemen
+          +t).value.trim();                                              
+      629 +                      let tags: string[] = [];                
+      630 +                      try { tags = JSON.parse(settings.default
+          +_tags || "[]"); } catch {}                                    
+      631 +                      if (!tags.includes(val)) {              
+      632 +                        setSettings(s => ({ ...s, default_tags
+          +: JSON.stringify([...tags, val]) }));                         
+      633 +                      }                                       
+      634 +                      (e.target as HTMLInputElement).value = "
+          +";                                                            
+      635 +                    }                                         
+      636 +                  }}                                          
+      637 +                />                                            
+      638 +              </div>                                          
+      639 +            </div>                                            
+      640 +                                                              
+      641 +            {/* Default Mistakes */}                          
+      642 +            <div className="space-y-3">                       
+      643 +              <h3 className="text-sm font-medium dark:text-sla
+          +te-300 text-slate-700">Mistake Options</h3>                   
+      644 +              <p className="text-xs dark:text-slate-500 text-s
+          +late-400">Customizable list of common trading mistakes shown i
+          +n the Reflection tab.</p>                                     
+      645 +              <div className="flex flex-wrap gap-2">          
+      646 +                {(() => {                                     
+      647 +                  let mistakes: string[] = [];                
+      648 +                  try { mistakes = JSON.parse(settings.default
+          +_mistakes || "[]"); } catch {}                                
+      649 +                  return mistakes.map((m, i) => (             
+      650 +                    <span key={i} className="flex items-center
+          + gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-5
+          +00/10 text-red-400 border border-red-500/20">                 
+      651 +                      {m}                                     
+      652 +                      <button type="button" onClick={() => {  
+      653 +                        const next = mistakes.filter((_, j) =>
+          + j !== i);                                                    
+      654 +                        setSettings(s => ({ ...s, default_mist
+          +akes: JSON.stringify(next) }));                               
+      655 +                      }} className="hover:text-white transitio
+          +n-colors">                                                    
+      656 +                        <Trash2 className="w-3 h-3" />        
+      657 +                      </button>                               
+      658 +                    </span>                                   
+      659 +                  ));                                         
+      660 +                })()}                                         
+      661 +              </div>                                          
+      662 +              <div className="flex gap-2">                    
+      663 +                <input                                        
+      664 +                  type="text"                                 
+      665 +                  placeholder="Add a mistake..."              
+      666 +                  className={INPUT + " flex-1"}               
+      667 +                  onKeyDown={e => {                           
+      668 +                    if (e.key === "Enter" && (e.target as HTML
+          +InputElement).value.trim()) {                                 
+      669 +                      const val = (e.target as HTMLInputElemen
+          +t).value.trim();                                              
+      670 +                      let mistakes: string[] = [];            
+      671 +                      try { mistakes = JSON.parse(settings.def
+          +ault_mistakes || "[]"); } catch {}                            
+      672 +                      if (!mistakes.includes(val)) {          
+      673 +                        setSettings(s => ({ ...s, default_mist
+          +akes: JSON.stringify([...mistakes, val]) }));                 
+      674 +                      }                                       
+      675 +                      (e.target as HTMLInputElement).value = "
+          +";                                                            
+      676 +                    }                                         
+      677 +                  }}                                          
+      678 +                />                                            
+      679 +              </div>                                          
+      680 +            </div>                                            
+      681 +          </section>                                          
+      682 +        )}                                                    
+      683 +                                                              
+      684 +        {/* ── Templates ── */}                               
+      685 +        {activeCategory === "templates" && (                  
+      686 +          <section className="rounded-xl border dark:border-sl
+          +ate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-
+          +y-4">                                                         
+      687 +            <h2 className="font-semibold dark:text-white text-
+          +slate-900 flex items-center gap-2">                           
+      688 +              <Copy className="w-4 h-4 text-emerald-400" /> Tr
+          +ade Templates                                                 
+      689 +            </h2>                                             
+      690 +            <p className="text-xs dark:text-slate-500 text-sla
+          +te-400">                                                      
+      691 +              Save commonly used trade setups as templates. Lo
+          +ad them in the Trade Modal to pre-fill fields.                
+      692 +            </p>                                              
+      693 +            {(() => {                                         
+      694 +              let templates: { id: string; name: string; field
+          +s: Record<string, unknown> }[] = [];                          
+      695 +              try { templates = JSON.parse(settings.trade_temp
+          +lates || "[]"); } catch {}                                    
+      696 +                                                              
+      697 +              const removeTemplate = (id: string) => {        
+      698 +                setSettings(s => ({ ...s, trade_templates: JSO
+          +N.stringify(templates.filter(t => t.id !== id)) }));          
+      699 +              };                                              
+      700 +                                                              
+      701 +              const updateTemplateName = (id: string, name: st
+          +ring) => {                                                    
+      702 +                setSettings(s => ({ ...s, trade_templates: JSO
+          +N.stringify(templates.map(t => t.id === id ? { ...t, name } : 
+          +t)) }));                                                      
+      703 +              };                                              
+      704 +                                                              
+      705 +              return (                                        
+      706 +                <div className="space-y-3">                   
+      707 +                  {templates.length === 0 && (                
+      708 +                    <p className="text-sm dark:text-slate-500 
+          +text-slate-400 italic">No templates yet. Create one from the T
+          +rade Modal using "Save as Template".</p>                      
+      709 +                  )}                                          
+      710 +                  {templates.map(tmpl => (                    
+      711 +                    <div key={tmpl.id} className="flex items-c
+          +enter gap-3 p-3 rounded-lg dark:bg-slate-800/50 bg-slate-50 bo
+          +rder dark:border-slate-700 border-slate-200">                 
+      712 +                      <input                                  
+      713 +                        type="text"                           
+      714 +                        value={tmpl.name}                     
+      715 +                        onChange={e => updateTemplateName(tmpl
+          +.id, e.target.value)}                                         
+      716 +                        className="flex-1 bg-transparent text-
+          +sm font-medium dark:text-white text-slate-900 outline-none"   
+      717 +                      />                                      
+      718 +                      <div className="flex items-center gap-2 
+          +text-xs dark:text-slate-500 text-slate-400 shrink-0">         
+      719 +                        {tmpl.fields.symbol && <span>{String(t
+          +mpl.fields.symbol)}</span>}                                   
+      720 +                        {tmpl.fields.direction && <span classN
+          +ame="capitalize">{String(tmpl.fields.direction)}</span>}      
+      721 +                      </div>                                  
+      722 +                      <button onClick={() => removeTemplate(tm
+          +pl.id)} className="p-1.5 rounded hover:bg-red-500/20 text-red-
+          +400 transition-colors shrink-0">                              
+      723 +                        <Trash2 className="w-3.5 h-3.5" />    
+      724 +                      </button>                               
+      725 +                    </div>                                    
+      726 +                  ))}                                         
+      727 +                </div>                                        
+      728 +              );                                              
+      729 +            })()}                                             
+      730 +          </section>                                          
+      731 +        )}                                                    
+      732 +                                                              
+      733          {/* ── Display ── */}
+      734          {activeCategory === "display" && (
+      735            <section className="rounded-xl border dark:border-sl
+           ate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-
+           y-4">
+
+● Let me check for type errors:
+
+● Bash(cd "D:\Code\Projects\claude-test\Ledger-Of-Alpha" && npx tsc --noEmit
+      2>&1 | head -30)
+  ⎿  app/settings/page.tsx(719,25): error TS2322: Type 'unknown' is not ass
+     ignable to type 'ReactNode'.
+     app/settings/page.tsx(720,25): error TS2322: Type 'unknown' is not ass
+     ignable to type 'ReactNode'.
+  ⎿  (timeout 1m)
+
+● Read 1 file (ctrl+o to expand)
+
+● The tmpl.fields is Record<string, unknown>, and tmpl.fields.symbol is unknown
+  which can't be used in JSX conditionally. Fix:
+
+● Update(app\settings\page.tsx)
+  ⎿  Added 2 lines, removed 2 lines
+      716                          className="flex-1 bg-transparent text-
+           sm font-medium dark:text-white text-slate-900 outline-none"
+      717                        />
+      718                        <div className="flex items-center gap-2 
+           text-xs dark:text-slate-500 text-slate-400 shrink-0">
+      719 -                        {tmpl.fields.symbol && <span>{String(t
+          -mpl.fields.symbol)}</span>}                                   
+      720 -                        {tmpl.fields.direction && <span classN
+          -ame="capitalize">{String(tmpl.fields.direction)}</span>}      
+      719 +                        {tmpl.fields.symbol ? <span>{String(tm
+          +pl.fields.symbol)}</span> : null}                             
+      720 +                        {tmpl.fields.direction ? <span classNa
+          +me="capitalize">{String(tmpl.fields.direction)}</span> : null}
+      721                        </div>
+      722                        <button onClick={() => removeTemplate(tm
+           pl.id)} className="p-1.5 rounded hover:bg-red-500/20 text-red-
+           400 transition-colors shrink-0">
+      723                          <Trash2 className="w-3.5 h-3.5" />
+
+● Bash(cd "D:\Code\Projects\claude-test\Ledger-Of-Alpha" && npx tsc --noEmit
+      2>&1 | head -10)
+  ⎿  (No output)
+  ⎿  (timeout 1m)
+
+● Clean. Now let me update the TradeModal to support templates (Load Template
+  dropdown + Save as Template). I also need to add DashboardShell updates for
+  the daily loss limit warning and new widgets.
+
+  Let me update the TradeModal for template support and the DashboardShell for
+  new widgets and daily loss warning:
+
+● Read 1 file (ctrl+o to expand)
+
+● I need to add template state and a "Load Template" / "Save as Template"
+  feature. Let me add it after the existing state:
+
+● Update(components\TradeModal.tsx)
+  ⎿  Added 1 line, removed 1 line
+      1  "use client";
+      2  import { useState, useEffect, useRef, useMemo } from "react";
+      3 -import { Trade, TradeStrategy } from "@/lib/types";             
+      3 +import { Trade, TradeStrategy, TradeTemplate } from "@/lib/types
+        +";                                                              
+      4  import SymbolSearch from "./SymbolSearch";
+      5  import RiskCalculator from "./RiskCalculator";
+      6  import PositionSizer from "./PositionSizer";
+
+● Update(components\TradeModal.tsx)
+  ⎿  Added 3 lines
+      57    const [strategies, setStrategies] = useState<TradeStrategy[]>
+          ([]);
+      58    const [defaultMistakes, setDefaultMistakes] = useState<string
+          []>(["Entered too early", "Exited too early", "Exited too late"
+          , "Moved stop loss", "Oversized position", "No stop loss", "Cha
+          sed the trade", "Revenge trade", "Ignored plan", "FOMO entry"])
+          ;
+      59    const [defaultTags, setDefaultTags] = useState<string[]>([]);
+      60 +  const [templates, setTemplates] = useState<TradeTemplate[]>([
+         +]);                                                            
+      61 +  const [showTemplateSave, setShowTemplateSave] = useState(fals
+         +e);                                                            
+      62 +  const [templateName, setTemplateName] = useState("");        
+      63  
+      64    const modalRef = useRef<HTMLDivElement>(null);
+      65  
+
+● Now find the settings fetch and add template loading:
+
+● Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Update(components\TradeModal.tsx)
+  ⎿  Added 3 lines
+      108          if (s.default_tags) {
+      109            try { const t = JSON.parse(s.default_tags); if (Arra
+           y.isArray(t)) setDefaultTags(t); } catch {}
+      110          }
+      111 +        if (s.trade_templates) {                              
+      112 +          try { const t = JSON.parse(s.trade_templates); if (A
+          +rray.isArray(t)) setTemplates(t); } catch {}                  
+      113 +        }                                                     
+      114          if (!accountSizeProp && s.account_size) {
+      115            const startBal = parseFloat(s.account_size);
+      116            fetch("/api/trades").then(r => r.json()).then(trades
+            => {
+
+● Now add the template load/save functions. Let me find a good place — after the
+   save function:
+
+● Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Update(components\TradeModal.tsx)
+  ⎿  Added 23 lines
+      177      }
+      178    };
+      179  
+      180 +  const loadTemplate = (tmpl: TradeTemplate) => {             
+      181 +    setForm(f => ({ ...f, ...tmpl.fields }));                 
+      182 +  };                                                          
+      183 +                                                              
+      184 +  const saveAsTemplate = async () => {                        
+      185 +    if (!templateName.trim()) return;                         
+      186 +    const { id, created_at, user_id, pnl, ...fields } = form a
+          +s any;                                                        
+      187 +    const newTemplate: TradeTemplate = {                      
+      188 +      id: crypto.randomUUID(),                                
+      189 +      name: templateName.trim(),                              
+      190 +      fields,                                                 
+      191 +    };                                                        
+      192 +    const updated = [...templates, newTemplate];              
+      193 +    setTemplates(updated);                                    
+      194 +    setShowTemplateSave(false);                               
+      195 +    setTemplateName("");                                      
+      196 +    await fetch("/api/settings", {                            
+      197 +      method: "PUT",                                          
+      198 +      headers: { "Content-Type": "application/json" },        
+      199 +      body: JSON.stringify({ trade_templates: JSON.stringify(u
+          +pdated) }),                                                   
+      200 +    });                                                       
+      201 +  };                                                          
+      202 +                                                              
+      203    const rrData = useMemo(() => {
+      204      const e = form.entry_price;
+      205      const s = form.stop_loss;
+
+● Now add the template UI to the Setup tab. Let me find the setup tab content:
+
+● Read 1 file (ctrl+o to expand)
+
+● Add template controls before the symbol/direction row in Setup tab:
+
+● Update(components\TradeModal.tsx)
+  ⎿  Added 20 lines
+      283                
+      284                {activeTab === "setup" && (
+      285                  <div className="space-y-6 animate-in fade-in s
+           lide-in-from-left-2 duration-300">
+      286 +                  {/* Template controls */}                   
+      287 +                  {templates.length > 0 && !trade && (        
+      288 +                    <div className="flex items-center gap-2"> 
+      289 +                      <label className="text-xs font-medium da
+          +rk:text-slate-500 text-slate-400 shrink-0">Load Template:</lab
+          +el>                                                           
+      290 +                      <div className="relative flex-1">       
+      291 +                        <select                               
+      292 +                          value=""                            
+      293 +                          onChange={e => {                    
+      294 +                            const tmpl = templates.find(t => t
+          +.id === e.target.value);                                      
+      295 +                            if (tmpl) loadTemplate(tmpl);     
+      296 +                          }}                                  
+      297 +                          className={clsx(INPUT, "appearance-n
+          +one pr-8 text-xs")}                                           
+      298 +                        >                                     
+      299 +                          <option value="">— Select template —
+          +</option>                                                     
+      300 +                          {templates.map(t => <option key={t.i
+          +d} value={t.id}>{t.name}</option>)}                           
+      301 +                        </select>                             
+      302 +                        <ChevronDown className="absolute right
+          +-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 dark:text-slate-500 
+          +text-slate-400 pointer-events-none" />                        
+      303 +                      </div>                                  
+      304 +                    </div>                                    
+      305 +                  )}                                          
+      306                    <div className="grid grid-cols-2 gap-4">
+      307                      <div>
+      308                        <label className={LABEL}>Symbol</label>
+
+● Now add the "Save as Template" button in the footer, next to the save button:
+
+● Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+● Update(components\TradeModal.tsx)
+  ⎿  Added 23 lines, removed 1 line
+      525            </div>
+      526          </div>
+      527  
+      528 +        {/* Save as Template popup */}                        
+      529 +        {showTemplateSave && (                                
+      530 +          <div className="px-4 py-3 border-t dark:border-slate
+          +-800 border-slate-100 dark:bg-slate-950/50 bg-slate-50/30 flex
+          + items-center gap-3">                                         
+      531 +            <input                                            
+      532 +              type="text"                                     
+      533 +              value={templateName}                            
+      534 +              onChange={e => setTemplateName(e.target.value)} 
+      535 +              placeholder="Template name..."                  
+      536 +              className={INPUT + " flex-1 text-xs"}           
+      537 +              autoFocus                                       
+      538 +              onKeyDown={e => { if (e.key === "Enter") saveAsT
+          +emplate(); if (e.key === "Escape") setShowTemplateSave(false);
+          + }}                                                           
+      539 +            />                                                
+      540 +            <button onClick={saveAsTemplate} disabled={!templa
+          +teName.trim()} className="px-3 py-2 rounded-lg text-xs font-bo
+          +ld bg-emerald-600 text-white disabled:opacity-50">Save</button
+          +>                                                             
+      541 +            <button onClick={() => setShowTemplateSave(false)}
+          + className="px-3 py-2 rounded-lg text-xs font-bold dark:text-s
+          +late-400 text-slate-500">Cancel</button>                      
+      542 +          </div>                                              
+      543 +        )}                                                    
+      544 +                                                              
+      545          {/* Footer */}
+      546          <div className="flex items-center justify-between p-4 
+           border-t dark:border-slate-800 border-slate-100 dark:bg-slate-
+           950 bg-slate-50/50">
+      530 -          <div className="flex-1">                            
+      547 +          <div className="flex-1 flex items-center gap-3">    
+      548              {error && <p className="text-red-400 text-sm font-
+           medium animate-pulse">{error}</p>}
+      549 +            {!trade && !showTemplateSave && (                 
+      550 +              <button onClick={() => setShowTemplateSave(true)
+          +} className="text-xs dark:text-slate-500 text-slate-400 hover:
+          +text-emerald-400 transition-colors">                          
+      551 +                Save as Template                              
+      552 +              </button>                                       
+      553 +            )}                                                
+      554            </div>
+      555            <div className="flex gap-3">
+      556              <button onClick={onClose} className="px-6 py-2.5 r
+           ounded-xl text-sm font-bold dark:text-slate-400 text-slate-500
+            hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
+           >
+
+● Bash(cd "D:\Code\Projects\claude-test\Ledger-Of-Alpha" && npx tsc --noEmit
+      2>&1 | head -10)
+  ⎿  (No output)
+
+● Bash(cd "D:\Code\Projects\claude-test\Ledger-Of-Alpha" && npx tsc --noEmit
+      2>&1)
+  ⎿  (No output)
+
+● Now let's update the DashboardShell for the daily loss limit warning banner
+  and new widgets. Let me add the daily loss limit check and the 4 new widgets:
+
+● Read 1 file (ctrl+o to expand)
+
+● Add daily loss limit state:
+
+● Update(components\dashboard\DashboardShell.tsx)
+  ⎿  Added 2 lines
+      180    const [showAlertModal, setShowAlertModal] = useState(false);
+      181    const [alertDefaults, setAlertDefaults] = useState<{ symbol?
+           : string; price?: number }>({});
+      182    const [heatmapRanges, setHeatmapRanges] = useState<HeatmapRa
+           nges>({ high: 500, mid: 200, low: 1 });
+      183 +  const [dailyLossLimit, setDailyLossLimit] = useState<number 
+          +| null>(null);                                                
+      184 +  const [dailyLossLimitType, setDailyLossLimitType] = useState
+          +<"dollar" | "percent">("dollar");                             
+      185  
+      186    const [timeFilter, setTimeFilter] = useState<TimeFilter>("al
+           l");
+      187    const [editMode, setEditMode] = useState(false);
+
+● Now add settings loading for daily loss limit. Find where settings are parsed:
+
+● Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Update(components\dashboard\DashboardShell.tsx)
+  ⎿  Added 5 lines
+      241        if (settingsData.heatmap_ranges) {
+      242          try { setHeatmapRanges(JSON.parse(settingsData.heatmap
+           _ranges)); } catch { /* keep defaults */ }
+      243        }
+      244 +      if (settingsData.daily_loss_limit) {                    
+      245 +        const v = parseFloat(settingsData.daily_loss_limit);  
+      246 +        if (!isNaN(v) && v > 0) setDailyLossLimit(v);         
+      247 +      }                                                       
+      248 +      if (settingsData.daily_loss_limit_type === "percent") se
+          +tDailyLossLimitType("percent");                               
+      249        if (settingsData.dashboard_layout) {
+      250          try {
+      251            const parsed = JSON.parse(settingsData.dashboard_lay
+           out);
+
+● Now add the new widget definitions and update ALL_WIDGETS:
+
+● Update(components\dashboard\DashboardShell.tsx)
+  ⎿  Added 4 lines
+      50    { id: "avg-daily-volume", title: "Avg Daily Volume" },
+      51    { id: "heatmap", title: "Trading Activity" },
+      52    { id: "symbol-pnl", title: "P&L by Symbol" },
+      53 +  { id: "avg-rr", title: "Avg R:R Achieved" },                 
+      54 +  { id: "avg-rating", title: "Avg Trade Rating" },             
+      55 +  { id: "top-mistakes", title: "Common Mistakes" },            
+      56 +  { id: "daily-loss-status", title: "Today vs Limit" },        
+      57  ] as const;
+      58  
+      59  const WIDGET_MAP = new Map<string, { id: string; title: string 
+          }>(ALL_WIDGETS.map(w => [w.id, w]));
+
+● Now add the import for trade-utils and add the new widget rendering cases. Let
+   me add the import:
+
+● Update(components\dashboard\DashboardShell.tsx)
+  ⎿  Added 1 line
+      1  "use client";
+      2  import { useEffect, useState, useMemo, useRef, useCallback } fro
+         m "react";
+      3  import { Trade, QuoteMap } from "@/lib/types";
+      4 +import { calcRRAchieved } from "@/lib/trade-utils";             
+      5  import TradeTable from "@/components/TradeTable";
+      6  import TradeModal from "@/components/TradeModal";
+      7  import AlertModal from "@/components/AlertModal";
+
+● Now add the daily P&L computation and the daily loss limit warning banner. Let
+   me compute today's P&L:
+
+● Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Update(components\dashboard\DashboardShell.tsx)
+  ⎿  Added 16 lines
+      338    const totalPnl = useMemo(() => closed.reduce((s, t) => s + (
+           t.pnl ?? 0), 0), [closed]);
+      339    const currentBalance = accountSize + trades.filter(t => t.st
+           atus === "closed").reduce((s, t) => s + (t.pnl ?? 0), 0);
+      340  
+      341 +  // ── Today's P&L for daily loss limit ─────────────────────
+          +───────                                                       
+      342 +  const todayPnl = useMemo(() => {                            
+      343 +    const today = new Date().toISOString().slice(0, 10);      
+      344 +    return trades                                             
+      345 +      .filter(t => t.status === "closed" && (t.exit_date ?? t.
+          +created_at.slice(0, 10)) === today)                           
+      346 +      .reduce((s, t) => s + (t.pnl ?? 0), 0);                 
+      347 +  }, [trades]);                                               
+      348 +                                                              
+      349 +  const dailyLossExceeded = useMemo(() => {                   
+      350 +    if (dailyLossLimit == null || dailyLossLimit <= 0) return 
+          +false;                                                        
+      351 +    const limitDollar = dailyLossLimitType === "percent"      
+      352 +      ? (dailyLossLimit / 100) * currentBalance               
+      353 +      : dailyLossLimit;                                       
+      354 +    return todayPnl < 0 && Math.abs(todayPnl) >= limitDollar; 
+      355 +  }, [todayPnl, dailyLossLimit, dailyLossLimitType, currentBal
+          +ance]);                                                       
+      356 +                                                              
+      357    // ── Chart series data ────────────────────────────────────
+           ─────────
+      358    const { cumulativeData, drawdownData, winPctData, avgPnlData
+            } = useMemo(() => {
+      359      let cumulative = 0, peak = 0, wins = 0;
+
+● Now add the new widget rendering cases. Find the renderWidget switch:
+
+● Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Update(components\dashboard\DashboardShell.tsx)
+  ⎿  Added 48 lines
+      696          return <HeatmapWidget trades={timeFilter === "all" ? t
+           rades : closed} ranges={heatmapRanges} />;
+      697        case "symbol-pnl":
+      698          return <SymbolPnlWidget data={symbolPnlData} />;
+      699 +      case "avg-rr": {                                        
+      700 +        const rrValues = closed.map(t => calcRRAchieved(t)).fi
+          +lter((v): v is number => v !== null);                         
+      701 +        const avgRR = rrValues.length > 0 ? rrValues.reduce((s
+          +, v) => s + v, 0) / rrValues.length : 0;                      
+      702 +        return <StatWidget value={rrValues.length > 0 ? `${avg
+          +RR.toFixed(2)}R` : "—"} subtitle={`From ${rrValues.length} tra
+          +des with stop loss`} />;                                      
+      703 +      }                                                       
+      704 +      case "avg-rating": {                                    
+      705 +        const rated = closed.filter(t => t.rating != null && t
+          +.rating > 0);                                                 
+      706 +        const avgRating = rated.length > 0 ? rated.reduce((s, 
+          +t) => s + (t.rating ?? 0), 0) / rated.length : 0;             
+      707 +        return <StatWidget value={rated.length > 0 ? avgRating
+          +.toFixed(1) : "—"} subtitle={`From ${rated.length} rated trade
+          +s`} />;                                                       
+      708 +      }                                                       
+      709 +      case "top-mistakes": {                                  
+      710 +        const mistakeCount = new Map<string, number>();       
+      711 +        for (const t of closed) {                             
+      712 +          if (!t.mistakes) continue;                          
+      713 +          for (const m of t.mistakes.split(",").map(s => s.tri
+          +m()).filter(Boolean)) {                                       
+      714 +            mistakeCount.set(m, (mistakeCount.get(m) ?? 0) + 1
+          +);                                                            
+      715 +          }                                                   
+      716 +        }                                                     
+      717 +        const sorted = Array.from(mistakeCount.entries()).sort
+          +((a, b) => b[1] - a[1]).slice(0, 5);                          
+      718 +        if (sorted.length === 0) return <StatWidget value="Non
+          +e" subtitle="No mistakes recorded" />;                        
+      719 +        return (                                              
+      720 +          <div className="space-y-2">                         
+      721 +            {sorted.map(([name, count]) => (                  
+      722 +              <div key={name} className="flex items-center gap
+          +-2">                                                          
+      723 +                <div className="flex-1 text-xs dark:text-slate
+          +-300 text-slate-700 truncate">{name}</div>                    
+      724 +                <div className="w-16 h-2 rounded-full dark:bg-
+          +slate-700 bg-slate-200 overflow-hidden">                      
+      725 +                  <div className="h-full rounded-full bg-red-4
+          +00" style={{ width: `${(count / sorted[0][1]) * 100}%` }} />  
+      726 +                </div>                                        
+      727 +                <span className="text-xs dark:text-slate-500 t
+          +ext-slate-400 w-6 text-right">{count}</span>                  
+      728 +              </div>                                          
+      729 +            ))}                                               
+      730 +          </div>                                              
+      731 +        );                                                    
+      732 +      }                                                       
+      733 +      case "daily-loss-status": {                             
+      734 +        if (dailyLossLimit == null || dailyLossLimit <= 0) {  
+      735 +          return <StatWidget value="—" subtitle="No daily loss
+          + limit set" />;                                               
+      736 +        }                                                     
+      737 +        const limitDollar = dailyLossLimitType === "percent"  
+      738 +          ? (dailyLossLimit / 100) * currentBalance           
+      739 +          : dailyLossLimit;                                   
+      740 +        return <ComparisonWidget                              
+      741 +          leftLabel="Today's P&L" leftValue={hidden ? mask : `
+          +${todayPnl >= 0 ? "+" : "-"}${fmt$(todayPnl)}`}               
+      742 +          leftColor={todayPnl >= 0 ? "text-emerald-400" : "tex
+          +t-red-400"}                                                   
+      743 +          rightLabel="Daily Limit" rightValue={hidden ? mask :
+          + fmt$(limitDollar)}                                           
+      744 +          rightColor={dailyLossExceeded ? "text-red-400" : "da
+          +rk:text-slate-400 text-slate-500"}                            
+      745 +        />;                                                   
+      746 +      }                                                       
+      747        default:
+      748          return null;
+      749      }
+
+● Now add the daily loss limit warning banner. Let me find where the weekly
+  calendar is rendered:
+
+● Searched for 1 pattern (ctrl+o to expand)
+  ⎿  You're out of extra usage · resets 3pm (Asia/Jerusalem)
+     /upgrade or /extra-usage to finish what you’re working on.
+
+✻ Baked for 17m 0s

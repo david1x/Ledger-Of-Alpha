@@ -12,9 +12,56 @@ import { TRADE_FIELDS } from "@/lib/validate-trade";
 type StatusFilter = "all" | "planned" | "open" | "closed";
 type DirectionFilter = "all" | "long" | "short";
 
+function FilteredSummary({ trades, quotes, hidden, isFiltered }: { trades: Trade[]; quotes?: QuoteMap; hidden: boolean; isFiltered: boolean }) {
+  const closed = trades.filter(t => t.status === "closed");
+  const open = trades.filter(t => t.status === "open");
+  const winners = closed.filter(t => (t.pnl ?? 0) > 0);
+  const losers = closed.filter(t => (t.pnl ?? 0) < 0);
+  const totalPnl = closed.reduce((s, t) => s + (t.pnl ?? 0), 0);
+  const winRate = closed.length > 0 ? (winners.length / closed.length) * 100 : 0;
+  const unrealized = open.reduce((sum, t) => {
+    if (t.entry_price == null || t.shares == null || !quotes?.[t.symbol]) return sum;
+    return sum + (quotes[t.symbol] - t.entry_price) * t.shares * (t.direction === "long" ? 1 : -1);
+  }, 0);
+  const hasLive = open.some(t => quotes?.[t.symbol] !== undefined);
+
+  const mask = "------";
+  const fmt = (n: number) => `$${Math.abs(n).toFixed(2)}`;
+
+  return (
+    <div className="rounded-b-xl dark:bg-slate-900/60 bg-slate-50 px-4 py-2.5 flex items-center gap-5 flex-wrap text-xs border-t dark:border-slate-700/50 border-slate-200">
+      <span className="dark:text-slate-500 text-slate-400 font-medium">
+        {isFiltered ? "Filtered" : "Total"}: {trades.length} trade{trades.length !== 1 ? "s" : ""}
+      </span>
+      <div className="w-px h-4 dark:bg-slate-700 bg-slate-200" />
+      <span className="dark:text-slate-400 text-slate-500">P&L</span>
+      <span className={`font-bold ${totalPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+        {hidden ? mask : `${totalPnl >= 0 ? "+" : "-"}${fmt(totalPnl)}`}
+      </span>
+      <div className="w-px h-4 dark:bg-slate-700 bg-slate-200" />
+      <span className="dark:text-slate-400 text-slate-500">Win Rate</span>
+      <span className={`font-bold ${winRate >= 50 ? "text-emerald-400" : "text-yellow-400"}`}>
+        {hidden ? mask : `${winRate.toFixed(1)}%`}
+      </span>
+      <span className="dark:text-slate-500 text-slate-400">
+        {hidden ? "" : `(${winners.length}W / ${losers.length}L)`}
+      </span>
+      {hasLive && (
+        <>
+          <div className="w-px h-4 dark:bg-slate-700 bg-slate-200" />
+          <span className="dark:text-slate-400 text-slate-500">Unrealized</span>
+          <span className={`font-bold ${unrealized >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            {hidden ? mask : `${unrealized >= 0 ? "+" : "-"}${fmt(unrealized)}`}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function TradesPage() {
   const [me, setMe] = useState<any>(null);
-  const [trades, setTrades] = useState<Trade[]>([]);
+  const [allTrades, setAllTrades] = useState<Trade[]>([]);
   const [quotes, setQuotes] = useState<QuoteMap>({});
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -62,14 +109,9 @@ export default function TradesPage() {
 
   const load = async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (status !== "all") params.set("status", status);
-    if (direction !== "all") params.set("direction", direction);
-    if (symbolQ) params.set("symbol", symbolQ);
-
     try {
       const [tradesRes, settingsRes, meRes] = await Promise.all([
-        fetch(`/api/trades?${params}`),
+        fetch("/api/trades"),
         fetch("/api/settings"),
         fetch("/api/auth/me"),
       ]);
@@ -79,7 +121,7 @@ export default function TradesPage() {
       setMe(meData);
 
       if (Array.isArray(tradesData)) {
-        setTrades(tradesData);
+        setAllTrades(tradesData);
         await loadQuotes(tradesData);
       }
       if (settingsData.account_size) setAccountSize(parseFloat(settingsData.account_size));
@@ -101,14 +143,22 @@ export default function TradesPage() {
     }
   };
 
-  useEffect(() => { load(); }, [status, direction, symbolQ]);
+  useEffect(() => { load(); }, []);
+
+  // Client-side filtering
+  const trades = allTrades.filter(t => {
+    if (status !== "all" && t.status !== status) return false;
+    if (direction !== "all" && t.direction !== direction) return false;
+    if (symbolQ && !t.symbol.toUpperCase().includes(symbolQ.toUpperCase())) return false;
+    return true;
+  });
 
   // Auto-refresh quotes every 60s
   useEffect(() => {
-    if (!trades.length) return;
-    const id = setInterval(() => loadQuotes(trades), 60_000);
+    if (!allTrades.length) return;
+    const id = setInterval(() => loadQuotes(allTrades), 60_000);
     return () => clearInterval(id);
-  }, [trades]);
+  }, [allTrades]);
 
   // Close column menu on outside click
   useEffect(() => {
@@ -315,7 +365,7 @@ export default function TradesPage() {
 
       {/* Account Stats Banner */}
       <AccountBanner
-        trades={trades}
+        trades={allTrades}
         quotes={quotes}
         accountSize={accountSize}
         hidden={hidden}
@@ -429,8 +479,11 @@ export default function TradesPage() {
       {loading ? (
         <div className="text-center py-12 dark:text-slate-400 text-slate-500">Loading...</div>
       ) : (
-        <div className="rounded-xl dark:bg-slate-800/50 bg-white p-4">
-          <TradeTable trades={trades} onEdit={(t) => { setEditTrade(t); setShowModal(true); }} onDelete={handleDelete} onBulkDelete={handleBulkDelete} quotes={quotes} visibleColumns={visibleColumns} defaultRiskPercent={riskPercent} onSetAlert={(symbol, price) => { setAlertDefaults({ symbol, price }); setShowAlertModal(true); }} />
+        <div className="space-y-0">
+          <div className="rounded-xl dark:bg-slate-800/50 bg-white p-4">
+            <TradeTable trades={trades} onEdit={(t) => { setEditTrade(t); setShowModal(true); }} onDelete={handleDelete} onBulkDelete={handleBulkDelete} quotes={quotes} visibleColumns={visibleColumns} defaultRiskPercent={riskPercent} accountSize={accountSize} onSetAlert={(symbol, price) => { setAlertDefaults({ symbol, price }); setShowAlertModal(true); }} />
+          </div>
+          <FilteredSummary trades={trades} quotes={quotes} hidden={hidden} isFiltered={status !== "all" || direction !== "all" || !!symbolQ} />
         </div>
       )}
 

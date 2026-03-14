@@ -27,6 +27,8 @@ export interface SessionUser {
 export type TradeDirection = "long" | "short";
 export type TradeStatus = "planned" | "open" | "closed";
 
+export type MarketContext = "trending_up" | "trending_down" | "ranging" | "volatile" | "choppy" | "news_driven";
+
 export interface Trade {
   id: number;
   symbol: string;
@@ -47,8 +49,20 @@ export interface Trade {
   account_size?: number | null;
   commission?: number | null;
   risk_per_trade?: number | null;
+  rating?: number | null;
+  mistakes?: string | null;
+  market_context?: string | null;
+  lessons?: string | null;
+  chart_tf?: string | null;
+  chart_saved_at?: string | null;
   created_at: string;
   user_id: string | null;
+}
+
+export interface TradeTemplate {
+  id: string;
+  name: string;
+  fields: Partial<Trade>;
 }
 
 export interface TradeStrategy {

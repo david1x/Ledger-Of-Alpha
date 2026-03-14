@@ -92,6 +92,8 @@ export async function POST(req: NextRequest) {
       entry_price, stop_loss, take_profit,
       exit_price, shares, entry_date, exit_date,
       notes, tags, emotions, wyckoff_checklist, account_size, commission, risk_per_trade,
+      rating, mistakes, market_context, lessons,
+      chart_tf, chart_saved_at,
     } = body;
 
     let pnl: number | null = null;
@@ -104,14 +106,17 @@ export async function POST(req: NextRequest) {
 
     const result = db.prepare(`
       INSERT INTO trades (symbol, direction, status, entry_price, stop_loss, take_profit,
-        exit_price, shares, entry_date, exit_date, pnl, notes, tags, emotions, wyckoff_checklist, user_id, account_size, commission, risk_per_trade)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        exit_price, shares, entry_date, exit_date, pnl, notes, tags, emotions, wyckoff_checklist, user_id, account_size, commission, risk_per_trade,
+        rating, mistakes, market_context, lessons, chart_tf, chart_saved_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       symbol?.toUpperCase(), direction, status,
       entry_price ?? null, stop_loss ?? null, take_profit ?? null,
       exit_price ?? null, shares ?? null, entry_date ?? null, exit_date ?? null,
       pnl, notes ?? null, tags ?? null, emotions ?? null, wyckoff_checklist ?? null, user.id,
       account_size ?? null, commission ?? null, risk_per_trade ?? null,
+      rating ?? null, mistakes ?? null, market_context ?? null, lessons ?? null,
+      chart_tf ?? null, chart_saved_at ?? null,
     );
 
     const trade = db.prepare("SELECT * FROM trades WHERE id = ?").get(result.lastInsertRowid);

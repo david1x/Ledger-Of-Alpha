@@ -1,18 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { verifyPassword, signJwt, DUMMY_HASH } from "@/lib/auth";
+import { verifyPassword, signJwt, DUMMY_HASH, cookieOpts } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import type { User } from "@/lib/types";
-
-function cookieOpts(maxAge: number) {
-  return {
-    httpOnly: true,
-    sameSite: "strict" as const,
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge,
-  };
-}
 
 export async function POST(req: NextRequest) {
   try {

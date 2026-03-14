@@ -2,9 +2,9 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Trade, QuoteMap } from "@/lib/types";
-import { Pencil, Trash2, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, LineChart, ExternalLink, Bell } from "lucide-react";
+import { Pencil, Trash2, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, LineChart, ExternalLink, Bell, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
-import MiniChart from "@/components/MiniChart";
+import { calcRRAchieved, calcPercentReturn, formatHoldDuration } from "@/lib/trade-utils";
 import clsx from "clsx";
 
 function buildChartUrl(t: Trade): string {
@@ -31,6 +31,11 @@ export const ALL_COLUMNS = [
   { key: "exit",       label: "Exit",       default: true },
   { key: "shares",     label: "Shares",     default: true },
   { key: "pnl",        label: "P&L",        default: true },
+  { key: "rr_achieved", label: "R:R",       default: false },
+  { key: "pct_return", label: "% Return",   default: false },
+  { key: "hold_duration", label: "Hold",    default: false },
+  { key: "rating",     label: "Rating",     default: false },
+  { key: "market_ctx", label: "Context",    default: false },
   { key: "potential",  label: "Potential",   default: true },
   { key: "unrealized", label: "Unrealized",  default: true },
   { key: "commission", label: "Commission",  default: false },
@@ -52,6 +57,7 @@ interface Props {
   quotes?: QuoteMap;
   visibleColumns?: ColumnKey[];
   defaultRiskPercent?: number;
+  accountSize?: number;
   onSetAlert?: (symbol: string, defaultPrice?: number) => void;
   // External selection control
   selectedIds?: Set<number>;
@@ -83,7 +89,7 @@ function calcPotentialPnl(t: Trade) {
   return { profit, loss };
 }
 
-function getSortValue(t: Trade, key: ColumnKey, quotes: QuoteMap, defaultRiskPercent?: number): string | number {
+function getSortValue(t: Trade, key: ColumnKey, quotes: QuoteMap, defaultRiskPercent?: number, accountSize?: number): string | number {
   switch (key) {
     case "symbol": return t.symbol;
     case "direction": return t.direction;
@@ -94,6 +100,15 @@ function getSortValue(t: Trade, key: ColumnKey, quotes: QuoteMap, defaultRiskPer
     case "exit": return t.exit_price ?? -Infinity;
     case "shares": return t.shares ?? -Infinity;
     case "pnl": return t.pnl ?? -Infinity;
+    case "rr_achieved": return calcRRAchieved(t) ?? -Infinity;
+    case "pct_return": return calcPercentReturn(t, accountSize ?? 10000) ?? -Infinity;
+    case "hold_duration": {
+      if (!t.entry_date) return -Infinity;
+      const end = t.exit_date ? new Date(t.exit_date) : new Date();
+      return end.getTime() - new Date(t.entry_date).getTime();
+    }
+    case "rating": return t.rating ?? -Infinity;
+    case "market_ctx": return t.market_context ?? "";
     case "potential": {
       const pot = calcPotentialPnl(t);
       return pot?.profit ?? -Infinity;
@@ -111,15 +126,16 @@ function getSortValue(t: Trade, key: ColumnKey, quotes: QuoteMap, defaultRiskPer
   }
 }
 
-export default function TradeTable({ 
-  trades, 
-  onEdit, 
-  onDelete, 
-  onBulkDelete, 
-  limit, 
-  quotes = {}, 
-  visibleColumns, 
-  defaultRiskPercent, 
+export default function TradeTable({
+  trades,
+  onEdit,
+  onDelete,
+  onBulkDelete,
+  limit,
+  quotes = {},
+  visibleColumns,
+  defaultRiskPercent,
+  accountSize,
   onSetAlert,
   selectedIds,
   onToggleSelect,
@@ -149,8 +165,8 @@ export default function TradeTable({
 
   const rows = sortKey
     ? [...baseRows].sort((a, b) => {
-        const av = getSortValue(a, sortKey, quotes, defaultRiskPercent);
-        const bv = getSortValue(b, sortKey, quotes, defaultRiskPercent);
+        const av = getSortValue(a, sortKey, quotes, defaultRiskPercent, accountSize);
+        const bv = getSortValue(b, sortKey, quotes, defaultRiskPercent, accountSize);
         let cmp = 0;
         if (typeof av === "string" && typeof bv === "string") cmp = av.localeCompare(bv);
         else cmp = (av as number) - (bv as number);
@@ -194,33 +210,14 @@ export default function TradeTable({
     setInternalSelected(new Set());
   };
 
-  // Symbol hover popover state
-  const [hoverTrade, setHoverTrade] = useState<Trade | null>(null);
-  const [hoverPos, setHoverPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
-  
   // Notes hover state
   const [hoverNote, setHoverNote] = useState<string | null>(null);
   const [notePos, setNotePos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
-  const hoverTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const noteTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
-
-  const handleSymbolEnter = useCallback((e: React.MouseEvent<HTMLTableCellElement>, t: Trade) => {
-    clearTimeout(hoverTimeout.current);
-    const rect = e.currentTarget.getBoundingClientRect();
-    hoverTimeout.current = setTimeout(() => {
-      setHoverPos({ top: rect.bottom + 4, left: rect.left });
-      setHoverTrade(t);
-    }, 300);
-  }, []);
-
-  const handleSymbolLeave = useCallback(() => {
-    clearTimeout(hoverTimeout.current);
-    setHoverTrade(null);
-  }, []);
 
   const handleNoteEnter = useCallback((e: React.MouseEvent<HTMLTableCellElement>, note: string) => {
     if (!note || note.length < 20) return;
@@ -303,7 +300,7 @@ export default function TradeTable({
                         className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
                       />
                     )}
-                    {show("symbol") && <span className="font-bold text-emerald-400 cursor-pointer hover:underline" onClick={() => router.push(buildChartUrl(t))}>{t.symbol}</span>}
+                    {show("symbol") && <span className="font-bold text-emerald-400 cursor-pointer hover:underline" onClick={() => onEdit(t)}>{t.symbol}</span>}
                     {show("direction") && (
                       t.direction === "long"
                         ? <span className="flex items-center gap-0.5 text-xs text-emerald-400"><ArrowUpRight className="w-3 h-3" />Long</span>
@@ -473,9 +470,7 @@ export default function TradeTable({
                     {show("symbol") && (
                       <td
                         className="px-4 py-3 font-bold text-emerald-400 cursor-pointer hover:underline"
-                        onMouseEnter={(e) => handleSymbolEnter(e, t)}
-                        onMouseLeave={handleSymbolLeave}
-                        onClick={() => router.push(buildChartUrl(t))}
+                        onClick={() => onEdit(t)}
                       >
                         {t.symbol}
                       </td>
@@ -503,6 +498,37 @@ export default function TradeTable({
                     {show("pnl") && (
                       <td className={clsx("px-4 py-3 font-semibold text-xs", closedPnlColor)}>
                         {t.pnl !== null ? `${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}` : "—"}
+                      </td>
+                    )}
+                    {show("rr_achieved") && (() => {
+                      const rr = calcRRAchieved(t);
+                      const color = rr === null ? "" : rr >= 2 ? "text-emerald-400" : rr >= 1 ? "text-blue-400" : rr >= 0 ? "text-amber-400" : "text-red-400";
+                      return <td className={clsx("px-4 py-3 text-xs font-semibold", color)}>{rr !== null ? `${rr.toFixed(2)}R` : "—"}</td>;
+                    })()}
+                    {show("pct_return") && (() => {
+                      const pct = calcPercentReturn(t, accountSize ?? 10000);
+                      const color = pct === null ? "" : pct >= 0 ? "text-emerald-400" : "text-red-400";
+                      return <td className={clsx("px-4 py-3 text-xs font-semibold", color)}>{pct !== null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%` : "—"}</td>;
+                    })()}
+                    {show("hold_duration") && (
+                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs">
+                        {formatHoldDuration(t.entry_date, t.exit_date) ?? "—"}
+                      </td>
+                    )}
+                    {show("rating") && (
+                      <td className="px-4 py-3">
+                        {t.rating ? (
+                          <div className="flex items-center gap-0.5">
+                            {[1,2,3,4,5].map(n => (
+                              <Star key={n} className={clsx("w-3 h-3", n <= t.rating! ? "text-amber-400 fill-amber-400" : "dark:text-slate-700 text-slate-300")} />
+                            ))}
+                          </div>
+                        ) : "—"}
+                      </td>
+                    )}
+                    {show("market_ctx") && (
+                      <td className="px-4 py-3 text-xs dark:text-slate-400 text-slate-500 capitalize">
+                        {t.market_context ? t.market_context.replace("_", " ") : "—"}
                       </td>
                     )}
                     {show("potential") && (
@@ -604,27 +630,6 @@ export default function TradeTable({
         </div>
       </div>
 
-      {/* Symbol hover popover */}
-      {mounted && hoverTrade && createPortal(
-        <div
-          className="fixed z-50 rounded-xl dark:bg-slate-900 bg-white shadow-xl overflow-hidden"
-          style={{ top: hoverPos.top, left: hoverPos.left, width: 320 }}
-          onMouseEnter={() => clearTimeout(hoverTimeout.current)}
-          onMouseLeave={handleSymbolLeave}
-        >
-          <div className="px-3 py-1.5 text-xs font-bold text-emerald-400 border-b dark:border-slate-700 border-slate-200">
-            {hoverTrade.symbol}
-          </div>
-          <MiniChart
-            symbol={hoverTrade.symbol}
-            entry={hoverTrade.entry_price}
-            stopLoss={hoverTrade.stop_loss}
-            takeProfit={hoverTrade.take_profit}
-            height={180}
-          />
-        </div>,
-        document.body
-      )}
       {/* Notes hover popover */}
       {mounted && hoverNote && createPortal(
         <div

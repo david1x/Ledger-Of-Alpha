@@ -42,8 +42,9 @@ export async function POST(req: NextRequest) {
     const db = getDb();
     const insert = db.prepare(`
       INSERT INTO trades (symbol, direction, status, entry_price, stop_loss, take_profit,
-        exit_price, shares, entry_date, exit_date, pnl, notes, tags, user_id, account_size, commission, risk_per_trade)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        exit_price, shares, entry_date, exit_date, pnl, notes, tags, user_id, account_size, commission, risk_per_trade,
+        rating, mistakes, market_context, lessons, chart_tf, chart_saved_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     let imported = 0;
@@ -72,6 +73,8 @@ export async function POST(req: NextRequest) {
           entry_price, stop_loss, take_profit,
           exit_price, shares, entry_date, exit_date,
           notes, tags, account_size, commission, risk_per_trade,
+          rating, mistakes, market_context, lessons,
+          chart_tf, chart_saved_at,
         } = cleaned as Record<string, unknown>;
 
         // Compute PnL server-side for closed trades
@@ -95,6 +98,8 @@ export async function POST(req: NextRequest) {
           exit_price ?? null, shares ?? null, entry_date ?? null, exit_date ?? null,
           pnl, notes ?? null, tags ?? null, user.id,
           account_size ?? null, commission ?? null, risk_per_trade ?? null,
+          rating ?? null, mistakes ?? null, market_context ?? null, lessons ?? null,
+          chart_tf ?? null, chart_saved_at ?? null,
         );
         imported++;
       }

@@ -22,6 +22,9 @@ interface Props {
   onStopChange: (p: number) => void;
   onTargetChange: (p: number) => void;
   height?: number;
+  initialInterval?: string;
+  onIntervalChange?: (interval: string) => void;
+  savedAt?: string | null;
 }
 
 const INTERVALS = [
@@ -38,7 +41,7 @@ const roundPrice = (p: number) =>
 const SetupChart = forwardRef<SetupChartHandle, Props>(({
   symbol, direction, entry, stopLoss, takeProfit,
   onEntryChange, onStopChange, onTargetChange,
-  height = 280,
+  height = 280, initialInterval, onIntervalChange, savedAt,
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartApiRef  = useRef<IChartApi | null>(null);
@@ -56,7 +59,14 @@ const SetupChart = forwardRef<SetupChartHandle, Props>(({
   const modeRef   = useRef<"entry" | "stop" | "target">("entry");
 
   const [activeMode, setActiveMode] = useState<"entry" | "stop" | "target">("entry");
-  const [interval, setIntervalKey] = useState("1D");
+  const [interval, setIntervalKeyRaw] = useState(() => {
+    if (initialInterval && INTERVALS.some(i => i.label === initialInterval)) return initialInterval;
+    return "1D";
+  });
+  const setIntervalKey = (label: string) => {
+    setIntervalKeyRaw(label);
+    onIntervalChange?.(label);
+  };
   const [loading, setLoading] = useState(false);
   const [dataError, setDataError] = useState("");
 
@@ -216,7 +226,12 @@ const SetupChart = forwardRef<SetupChartHandle, Props>(({
     const iv = INTERVALS.find(i => i.label === interval) ?? INTERVALS[3];
     setLoading(true);
     setDataError("");
-    fetch(`/api/ohlcv?symbol=${encodeURIComponent(symbol)}&interval=${iv.yf}&range=${iv.range}`)
+    let url = `/api/ohlcv?symbol=${encodeURIComponent(symbol)}&interval=${iv.yf}&range=${iv.range}`;
+    if (savedAt) {
+      const p2 = Math.floor(new Date(savedAt).getTime() / 1000);
+      if (p2 > 0) url += `&period2=${p2}`;
+    }
+    fetch(url)
       .then(r => r.ok ? r.json() : Promise.reject())
       .then((bars: { time: number; open: number; high: number; low: number; close: number }[]) => {
         if (!seriesRef.current || !bars.length) { setDataError("No data"); return; }
@@ -225,7 +240,7 @@ const SetupChart = forwardRef<SetupChartHandle, Props>(({
       })
       .catch(() => setDataError("Failed to load chart data"))
       .finally(() => setLoading(false));
-  }, [symbol, interval]);
+  }, [symbol, interval, savedAt]);
 
   // ── Update price lines whenever prices change ────────────────────────────
   useEffect(() => {

@@ -14,6 +14,8 @@ interface Settings {
   account_size: string;
   risk_per_trade: string;
   commission_per_trade: string;
+  commission_model: string;
+  commission_value: string;
   heatmap_ranges: string;
   charts_collapsed: string;
   privacy_mode: string;
@@ -24,6 +26,11 @@ interface Settings {
   tv_calendar: string;
   tv_studies: string;
   strategies: string;
+  daily_loss_limit: string;
+  daily_loss_limit_type: string;
+  default_tags: string;
+  default_mistakes: string;
+  trade_templates: string;
 }
 
 interface TwoFactorSetup {
@@ -31,10 +38,12 @@ interface TwoFactorSetup {
   qrDataUrl: string;
 }
 
-type Category = "account" | "display" | "chart" | "strategies" | "integrations" | "security" | "data" | "admin-users" | "admin-settings";
+type Category = "account" | "tags" | "templates" | "display" | "chart" | "strategies" | "integrations" | "security" | "data" | "admin-users" | "admin-settings";
 
 const CATEGORIES: { id: Category; label: string; icon: typeof DollarSign; adminOnly?: boolean }[] = [
   { id: "account",        label: "Account",        icon: DollarSign },
+  { id: "tags",           label: "Tags & Mistakes", icon: ListChecks },
+  { id: "templates",      label: "Templates",       icon: Copy },
   { id: "display",        label: "Display",         icon: Grid3X3 },
   { id: "chart",          label: "Chart",           icon: LineChart },
   { id: "strategies",     label: "Strategies",      icon: ListChecks },
@@ -78,8 +87,12 @@ function SettingsContent() {
   const initialCategory = (searchParams.get("tab") ?? "account") as Category;
   const [settings, setSettings] = useState<Settings>({
     discord_webhook: "", alert_discord_webhook: "", fmp_api_key: "", account_size: "10000", risk_per_trade: "1", commission_per_trade: "0",
+    commission_model: "flat", commission_value: "0",
     heatmap_ranges: JSON.stringify({ high: 500, mid: 200, low: 1 }), charts_collapsed: "false", privacy_mode: "revealed",
     tv_hide_side_toolbar: "false", tv_withdateranges: "true", tv_details: "false", tv_hotlist: "false", tv_calendar: "false", tv_studies: JSON.stringify(["Moving Average Simple@tv-basicstudies"]),
+    daily_loss_limit: "", daily_loss_limit_type: "dollar",
+    default_tags: "[]", default_mistakes: JSON.stringify(["Entered too early", "Exited too early", "Exited too late", "Moved stop loss", "Oversized position", "No stop loss", "Chased the trade", "Revenge trade", "Ignored plan", "FOMO entry"]),
+    trade_templates: "[]",
     strategies: JSON.stringify([
       { id: "wyckoff_buy", name: "Wyckoff Buying Tests", checklist: ["Downside objective accomplished", "Activity bullish (Vol increase on rallies)", "Preliminary support / Selling climax", "Relative strength (Bullish vs Market)", "Downward trendline broken", "Higher lows", "Higher highs", "Base forming (Cause)", "RR Potential 3:1 or better"] },
       { id: "wyckoff_sell", name: "Wyckoff Selling Tests", checklist: ["Upside objective accomplished", "Activity bearish (Vol increase on drops)", "Preliminary supply / Buying climax", "Relative weakness (Bearish vs Market)", "Upward trendline broken", "Lower highs", "Lower lows", "Top forming (Cause)", "RR Potential 3:1 or better"] }
@@ -513,10 +526,43 @@ function SettingsContent() {
                 <p className={HINT}>Max % of account to risk per trade</p>
               </div>
               <div>
-                <label className={LABEL}>Commission ($)</label>
-                <input type="number" step="0.01" value={settings.commission_per_trade}
-                  onChange={e => setSettings(s => ({ ...s, commission_per_trade: e.target.value }))} className={INPUT} />
-                <p className={HINT}>Flat commission per trade (x2 round trip)</p>
+                <label className={LABEL}>Commission Model</label>
+                <select value={settings.commission_model}
+                  onChange={e => setSettings(s => ({ ...s, commission_model: e.target.value }))} className={INPUT}>
+                  <option value="flat">Flat (per trade)</option>
+                  <option value="per_share">Per Share</option>
+                  <option value="percent">Percentage</option>
+                </select>
+                <p className={HINT}>
+                  {settings.commission_model === "flat" ? "Fixed $ per trade (×2 round trip)" :
+                   settings.commission_model === "per_share" ? "$ per share (×2 round trip)" :
+                   "% of total trade value"}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className={LABEL}>Commission Value</label>
+                <input type="number" step="0.01" value={settings.commission_value || settings.commission_per_trade}
+                  onChange={e => setSettings(s => ({ ...s, commission_value: e.target.value, commission_per_trade: e.target.value }))} className={INPUT} />
+                <p className={HINT}>
+                  {settings.commission_model === "flat" ? "Dollar amount per trade" :
+                   settings.commission_model === "per_share" ? "Dollar amount per share" :
+                   "Percentage value (e.g., 0.1 for 0.1%)"}
+                </p>
+              </div>
+              <div>
+                <label className={LABEL}>Daily Loss Limit</label>
+                <div className="flex gap-2">
+                  <input type="number" step="0.01" value={settings.daily_loss_limit}
+                    onChange={e => setSettings(s => ({ ...s, daily_loss_limit: e.target.value }))} className={INPUT} placeholder="No limit" />
+                  <select value={settings.daily_loss_limit_type}
+                    onChange={e => setSettings(s => ({ ...s, daily_loss_limit_type: e.target.value }))} className={INPUT + " w-24 shrink-0"}>
+                    <option value="dollar">$</option>
+                    <option value="percent">%</option>
+                  </select>
+                </div>
+                <p className={HINT}>Max daily loss before warning ({settings.daily_loss_limit_type === "percent" ? "% of account" : "dollar amount"})</p>
               </div>
             </div>
 
@@ -541,6 +587,146 @@ function SettingsContent() {
                 </button>
               </div>
             )}
+          </section>
+        )}
+
+        {/* ── Tags & Mistakes ── */}
+        {activeCategory === "tags" && (
+          <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-6">
+            <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+              <ListChecks className="w-4 h-4 text-emerald-400" /> Default Tags & Mistakes
+            </h2>
+
+            {/* Default Tags */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium dark:text-slate-300 text-slate-700">Quick-Select Tags</h3>
+              <p className="text-xs dark:text-slate-500 text-slate-400">These appear as quick-select pills in the Trade Modal.</p>
+              <div className="flex flex-wrap gap-2">
+                {(() => {
+                  let tags: string[] = [];
+                  try { tags = JSON.parse(settings.default_tags || "[]"); } catch {}
+                  return tags.map((tag, i) => (
+                    <span key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+                      {tag}
+                      <button type="button" onClick={() => {
+                        const next = tags.filter((_, j) => j !== i);
+                        setSettings(s => ({ ...s, default_tags: JSON.stringify(next) }));
+                      }} className="hover:text-red-400 transition-colors">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ));
+                })()}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Add a tag..."
+                  className={INPUT + " flex-1"}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) {
+                      const val = (e.target as HTMLInputElement).value.trim();
+                      let tags: string[] = [];
+                      try { tags = JSON.parse(settings.default_tags || "[]"); } catch {}
+                      if (!tags.includes(val)) {
+                        setSettings(s => ({ ...s, default_tags: JSON.stringify([...tags, val]) }));
+                      }
+                      (e.target as HTMLInputElement).value = "";
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Default Mistakes */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium dark:text-slate-300 text-slate-700">Mistake Options</h3>
+              <p className="text-xs dark:text-slate-500 text-slate-400">Customizable list of common trading mistakes shown in the Reflection tab.</p>
+              <div className="flex flex-wrap gap-2">
+                {(() => {
+                  let mistakes: string[] = [];
+                  try { mistakes = JSON.parse(settings.default_mistakes || "[]"); } catch {}
+                  return mistakes.map((m, i) => (
+                    <span key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                      {m}
+                      <button type="button" onClick={() => {
+                        const next = mistakes.filter((_, j) => j !== i);
+                        setSettings(s => ({ ...s, default_mistakes: JSON.stringify(next) }));
+                      }} className="hover:text-white transition-colors">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ));
+                })()}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Add a mistake..."
+                  className={INPUT + " flex-1"}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) {
+                      const val = (e.target as HTMLInputElement).value.trim();
+                      let mistakes: string[] = [];
+                      try { mistakes = JSON.parse(settings.default_mistakes || "[]"); } catch {}
+                      if (!mistakes.includes(val)) {
+                        setSettings(s => ({ ...s, default_mistakes: JSON.stringify([...mistakes, val]) }));
+                      }
+                      (e.target as HTMLInputElement).value = "";
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Templates ── */}
+        {activeCategory === "templates" && (
+          <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
+            <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+              <Copy className="w-4 h-4 text-emerald-400" /> Trade Templates
+            </h2>
+            <p className="text-xs dark:text-slate-500 text-slate-400">
+              Save commonly used trade setups as templates. Load them in the Trade Modal to pre-fill fields.
+            </p>
+            {(() => {
+              let templates: { id: string; name: string; fields: Record<string, unknown> }[] = [];
+              try { templates = JSON.parse(settings.trade_templates || "[]"); } catch {}
+
+              const removeTemplate = (id: string) => {
+                setSettings(s => ({ ...s, trade_templates: JSON.stringify(templates.filter(t => t.id !== id)) }));
+              };
+
+              const updateTemplateName = (id: string, name: string) => {
+                setSettings(s => ({ ...s, trade_templates: JSON.stringify(templates.map(t => t.id === id ? { ...t, name } : t)) }));
+              };
+
+              return (
+                <div className="space-y-3">
+                  {templates.length === 0 && (
+                    <p className="text-sm dark:text-slate-500 text-slate-400 italic">No templates yet. Create one from the Trade Modal using "Save as Template".</p>
+                  )}
+                  {templates.map(tmpl => (
+                    <div key={tmpl.id} className="flex items-center gap-3 p-3 rounded-lg dark:bg-slate-800/50 bg-slate-50 border dark:border-slate-700 border-slate-200">
+                      <input
+                        type="text"
+                        value={tmpl.name}
+                        onChange={e => updateTemplateName(tmpl.id, e.target.value)}
+                        className="flex-1 bg-transparent text-sm font-medium dark:text-white text-slate-900 outline-none"
+                      />
+                      <div className="flex items-center gap-2 text-xs dark:text-slate-500 text-slate-400 shrink-0">
+                        {tmpl.fields.symbol ? <span>{String(tmpl.fields.symbol)}</span> : null}
+                        {tmpl.fields.direction ? <span className="capitalize">{String(tmpl.fields.direction)}</span> : null}
+                      </div>
+                      <button onClick={() => removeTemplate(tmpl.id)} className="p-1.5 rounded hover:bg-red-500/20 text-red-400 transition-colors shrink-0">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </section>
         )}
 

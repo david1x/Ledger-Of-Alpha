@@ -14,6 +14,8 @@ interface MiniChartProps {
   height?: number;
   showPriceScale?: boolean;
   showTimeframeToggle?: boolean;
+  chartTf?: string | null;
+  chartSavedAt?: string | null;
 }
 
 const TIMEFRAMES = [
@@ -27,6 +29,8 @@ export default function MiniChart({
   symbol, entry, stopLoss, takeProfit, height = 160,
   showPriceScale = false,
   showTimeframeToggle = false,
+  chartTf,
+  chartSavedAt,
 }: MiniChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -38,16 +42,24 @@ export default function MiniChart({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [timeframe, setTimeframe] = useState(TIMEFRAMES[2]); // Default 1d
+  const [timeframe, setTimeframe] = useState(() => {
+    // Use trade's saved timeframe if available
+    if (chartTf) {
+      const found = TIMEFRAMES.find(tf => tf.label === chartTf || tf.label === chartTf.toLowerCase());
+      if (found) return found;
+    }
+    return TIMEFRAMES[2]; // Default 1h
+  });
 
-  // Load persisted timeframe
+  // Load persisted timeframe (only if no trade-specific tf)
   useEffect(() => {
+    if (chartTf) return; // trade has its own timeframe
     const saved = localStorage.getItem("minichart_timeframe");
     if (saved) {
       const found = TIMEFRAMES.find(tf => tf.label === saved);
       if (found) setTimeframe(found);
     }
-  }, []);
+  }, [chartTf]);
 
   const handleTimeframeChange = (tf: typeof TIMEFRAMES[0]) => {
     setTimeframe(tf);
@@ -115,7 +127,12 @@ export default function MiniChart({
     if (!symbol || !seriesRef.current) return;
     setLoading(true);
     setError("");
-    fetch(`/api/ohlcv?symbol=${encodeURIComponent(symbol)}&interval=${timeframe.interval}&range=${timeframe.range}`)
+    let url = `/api/ohlcv?symbol=${encodeURIComponent(symbol)}&interval=${timeframe.interval}&range=${timeframe.range}`;
+    if (chartSavedAt) {
+      const p2 = Math.floor(new Date(chartSavedAt).getTime() / 1000);
+      if (p2 > 0) url += `&period2=${p2}`;
+    }
+    fetch(url)
       .then(r => r.ok ? r.json() : Promise.reject())
       .then((bars: { time: number; open: number; high: number; low: number; close: number }[]) => {
         if (!seriesRef.current || !bars.length) { setError("No data"); return; }
@@ -124,7 +141,7 @@ export default function MiniChart({
       })
       .catch(() => setError("Failed to load"))
       .finally(() => setLoading(false));
-  }, [symbol, timeframe]);
+  }, [symbol, timeframe, chartSavedAt]);
 
   // Price lines
   useEffect(() => {

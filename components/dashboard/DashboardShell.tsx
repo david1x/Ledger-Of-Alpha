@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { Trade, QuoteMap } from "@/lib/types";
+import { calcRRAchieved } from "@/lib/trade-utils";
 import TradeTable from "@/components/TradeTable";
 import TradeModal from "@/components/TradeModal";
 import AlertModal from "@/components/AlertModal";
@@ -11,8 +12,12 @@ import PerfTableWidget, { PerfRow } from "./PerfTableWidget";
 import StatWidget from "./StatWidget";
 import HeatmapWidget, { HeatmapRanges } from "./HeatmapWidget";
 import SymbolPnlWidget from "./SymbolPnlWidget";
+import FearGreedWidget from "./FearGreedWidget";
+import VixWidget from "./VixWidget";
+import MarketOverviewWidget from "./MarketOverviewWidget";
 import {
   Plus, RefreshCw, Pencil, Check, GripVertical, EyeOff, Eye, Plus as PlusIcon, Minimize2, Maximize2,
+  RotateCcw,
 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor,
@@ -50,12 +55,76 @@ const ALL_WIDGETS = [
   { id: "avg-daily-volume", title: "Avg Daily Volume" },
   { id: "heatmap", title: "Trading Activity" },
   { id: "symbol-pnl", title: "P&L by Symbol" },
+  { id: "total-return", title: "Total Return %" },
+  { id: "avg-rr", title: "Avg R:R Achieved" },
+  { id: "avg-rating", title: "Avg Trade Rating" },
+  { id: "top-mistakes", title: "Common Mistakes" },
+  { id: "daily-loss-status", title: "Today vs Limit" },
+  { id: "fear-greed", title: "Fear & Greed Index" },
+  { id: "vix", title: "VIX Index" },
+  { id: "market-overview", title: "Market Overview" },
 ] as const;
 
 const WIDGET_MAP = new Map<string, { id: string; title: string }>(ALL_WIDGETS.map(w => [w.id, w]));
 
-const DEFAULT_ORDER = ALL_WIDGETS.map(w => w.id);
+const DEFAULT_ORDER = [
+  // Row 1 (3+1+1+1=6): Hero chart + market gauges
+  "cumulative-pnl", "fear-greed", "vix", "market-overview",
+  // Row 2 (1+1+1+1+1+1=6): Heatmap + key stats
+  "heatmap", "total-return", "profit-factor", "total-trades", "win-vs-loss", "avg-win-vs-loss",
+  // Row 3 (3+3=6): Drawdown + symbol breakdown
+  "cumulative-dd", "symbol-pnl",
+  // Row 4 (2+2+2=6): Secondary charts
+  "win-pct", "avg-trade-pnl", "daily-volume",
+  // Row 5 (1+1+1+1+1+1=6): Comparisons + streaks
+  "largest-gain-loss", "hold-time", "max-consec-wins", "max-consec-losses", "avg-rr", "avg-rating",
+  // Row 6 (1+1+1+3=6): Quick stats + mistakes
+  "daily-loss-status", "total-fees", "avg-daily-volume", "top-mistakes",
+  // Row 7 (2+2+2=6): Performance tables
+  "perf-day-of-week", "perf-month", "perf-symbol",
+  // Row 8 (2+2+2=6): Performance tables continued
+  "perf-duration", "perf-price", "tag-breakdown",
+  // Hidden by default
+  "perf-hour",
+];
 const DEFAULT_HIDDEN = ["perf-hour"] as string[];
+
+const DEFAULT_SIZES: Record<string, WidgetSize> = {
+  // Large (3 cols)
+  "cumulative-pnl": "large",
+  "cumulative-dd": "large",
+  "symbol-pnl": "large",
+  "top-mistakes": "large",
+  // Medium (2 cols)
+  "win-pct": "medium",
+  "avg-trade-pnl": "medium",
+  "daily-volume": "medium",
+  "perf-day-of-week": "medium",
+  "perf-month": "medium",
+  "perf-symbol": "medium",
+  "perf-duration": "medium",
+  "perf-price": "medium",
+  "tag-breakdown": "medium",
+  // Compact (1 col)
+  "fear-greed": "compact",
+  "vix": "compact",
+  "market-overview": "compact",
+  "heatmap": "compact",
+  "total-return": "compact",
+  "profit-factor": "compact",
+  "total-trades": "compact",
+  "win-vs-loss": "compact",
+  "avg-win-vs-loss": "compact",
+  "largest-gain-loss": "compact",
+  "hold-time": "compact",
+  "max-consec-wins": "compact",
+  "max-consec-losses": "compact",
+  "avg-rr": "compact",
+  "avg-rating": "compact",
+  "total-fees": "compact",
+  "avg-daily-volume": "compact",
+  "daily-loss-status": "compact",
+};
 
 type TimeFilter = 30 | 60 | 90 | "all";
 
@@ -96,9 +165,9 @@ function WidgetCard({ id, title, editMode, size, onHide, onToggleSize, children 
 
   return (
     <div ref={setNodeRef} style={style}
-      className={`rounded-xl dark:bg-slate-800/50 bg-white p-3 ${spanClass}`}
+      className={`rounded-xl dark:bg-slate-800/50 bg-white p-3 flex flex-col ${spanClass}`}
     >
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2 shrink-0">
         <h3 className="text-sm font-semibold dark:text-white text-slate-900">{title}</h3>
         {editMode && (
           <div className="flex items-center gap-1">
@@ -123,7 +192,9 @@ function WidgetCard({ id, title, editMode, size, onHide, onToggleSize, children 
           </div>
         )}
       </div>
-      {children}
+      <div className="flex-1 min-h-0">
+        {children}
+      </div>
     </div>
   );
 }
@@ -178,10 +249,12 @@ export default function DashboardShell() {
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertDefaults, setAlertDefaults] = useState<{ symbol?: string; price?: number }>({});
   const [heatmapRanges, setHeatmapRanges] = useState<HeatmapRanges>({ high: 500, mid: 200, low: 1 });
+  const [dailyLossLimit, setDailyLossLimit] = useState<number | null>(null);
+  const [dailyLossLimitType, setDailyLossLimitType] = useState<"dollar" | "percent">("dollar");
 
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [editMode, setEditMode] = useState(false);
-  const [layout, setLayout] = useState<DashboardLayout>({ order: DEFAULT_ORDER, hidden: DEFAULT_HIDDEN, sizes: {} });
+  const [layout, setLayout] = useState<DashboardLayout>({ order: DEFAULT_ORDER, hidden: DEFAULT_HIDDEN, sizes: { ...DEFAULT_SIZES } });
   const [hidden, setHidden] = useState(false);
 
   // ── Privacy persistence ──
@@ -237,6 +310,11 @@ export default function DashboardShell() {
       if (settingsData.heatmap_ranges) {
         try { setHeatmapRanges(JSON.parse(settingsData.heatmap_ranges)); } catch { /* keep defaults */ }
       }
+      if (settingsData.daily_loss_limit) {
+        const v = parseFloat(settingsData.daily_loss_limit);
+        if (!isNaN(v) && v > 0) setDailyLossLimit(v);
+      }
+      if (settingsData.daily_loss_limit_type === "percent") setDailyLossLimitType("percent");
       if (settingsData.dashboard_layout) {
         try {
           const parsed = JSON.parse(settingsData.dashboard_layout);
@@ -253,7 +331,7 @@ export default function DashboardShell() {
             for (const [k, v] of Object.entries(rawSizes)) {
               sizes[k] = v === "normal" ? "large" : v as WidgetSize;
             }
-            setLayout({ order: merged, hidden: parsed.hidden ?? [], sizes });
+            setLayout({ order: merged, hidden: parsed.hidden ?? [], sizes: { ...DEFAULT_SIZES, ...sizes } });
           }
         } catch { /* keep defaults */ }
       }
@@ -324,6 +402,22 @@ export default function DashboardShell() {
   const totalPnl = useMemo(() => closed.reduce((s, t) => s + (t.pnl ?? 0), 0), [closed]);
   const currentBalance = accountSize + trades.filter(t => t.status === "closed").reduce((s, t) => s + (t.pnl ?? 0), 0);
 
+  // ── Today's P&L for daily loss limit ────────────────────────────
+  const todayPnl = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return trades
+      .filter(t => t.status === "closed" && (t.exit_date ?? t.created_at.slice(0, 10)) === today)
+      .reduce((s, t) => s + (t.pnl ?? 0), 0);
+  }, [trades]);
+
+  const dailyLossExceeded = useMemo(() => {
+    if (dailyLossLimit == null || dailyLossLimit <= 0) return false;
+    const limitDollar = dailyLossLimitType === "percent"
+      ? (dailyLossLimit / 100) * currentBalance
+      : dailyLossLimit;
+    return todayPnl < 0 && Math.abs(todayPnl) >= limitDollar;
+  }, [todayPnl, dailyLossLimit, dailyLossLimitType, currentBalance]);
+
   // ── Chart series data ─────────────────────────────────────────────
   const { cumulativeData, drawdownData, winPctData, avgPnlData } = useMemo(() => {
     let cumulative = 0, peak = 0, wins = 0;
@@ -389,7 +483,7 @@ export default function DashboardShell() {
 
     for (const t of closed) {
       const pnl = t.pnl ?? 0;
-      totalFees += t.commission ?? 0;
+      totalFees += (t.commission ?? 0) * 2;
       const d = t.exit_date ?? t.created_at.slice(0, 10);
       daySet.add(d);
 
@@ -562,6 +656,15 @@ export default function DashboardShell() {
     saveLayout(layout, true);
   };
 
+  const resetLayout = () => {
+    const defaultLayout: DashboardLayout = {
+      order: [...DEFAULT_ORDER],
+      hidden: [...DEFAULT_HIDDEN],
+      sizes: { ...DEFAULT_SIZES },
+    };
+    saveLayout(defaultLayout, true);
+  };
+
   // ── Visible widgets ───────────────────────────────────────────────
   const visibleWidgets = useMemo(() => {
     const hiddenSet = new Set(layout.hidden);
@@ -666,6 +769,67 @@ export default function DashboardShell() {
         return <HeatmapWidget trades={timeFilter === "all" ? trades : closed} ranges={heatmapRanges} />;
       case "symbol-pnl":
         return <SymbolPnlWidget data={symbolPnlData} />;
+      case "total-return": {
+        const pctReturn = accountSize > 0 ? (totalPnl / accountSize) * 100 : 0;
+        return <StatWidget
+          value={hidden ? mask : `${pctReturn >= 0 ? "+" : ""}${pctReturn.toFixed(2)}%`}
+          subtitle={hidden ? "" : `${totalPnl >= 0 ? "+" : "-"}${fmt$(totalPnl)} on $${accountSize.toFixed(0)}`}
+        />;
+      }
+      case "avg-rr": {
+        const rrValues = closed.map(t => calcRRAchieved(t)).filter((v): v is number => v !== null);
+        const avgRR = rrValues.length > 0 ? rrValues.reduce((s, v) => s + v, 0) / rrValues.length : 0;
+        return <StatWidget value={rrValues.length > 0 ? `${avgRR.toFixed(2)}R` : "—"} subtitle={`From ${rrValues.length} trades with stop loss`} />;
+      }
+      case "avg-rating": {
+        const rated = closed.filter(t => t.rating != null && t.rating > 0);
+        const avgRating = rated.length > 0 ? rated.reduce((s, t) => s + (t.rating ?? 0), 0) / rated.length : 0;
+        return <StatWidget value={rated.length > 0 ? avgRating.toFixed(1) : "—"} subtitle={`From ${rated.length} rated trades`} />;
+      }
+      case "top-mistakes": {
+        const mistakeCount = new Map<string, number>();
+        for (const t of closed) {
+          if (!t.mistakes) continue;
+          for (const m of t.mistakes.split(",").map(s => s.trim()).filter(Boolean)) {
+            mistakeCount.set(m, (mistakeCount.get(m) ?? 0) + 1);
+          }
+        }
+        const sorted = Array.from(mistakeCount.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        if (sorted.length === 0) return <StatWidget value="None" subtitle="No mistakes recorded" />;
+        return (
+          <div className="space-y-2">
+            {sorted.map(([name, count]) => (
+              <div key={name} className="flex items-center gap-2">
+                <div className="flex-1 text-xs dark:text-slate-300 text-slate-700 truncate">{name}</div>
+                <div className="w-16 h-2 rounded-full dark:bg-slate-700 bg-slate-200 overflow-hidden">
+                  <div className="h-full rounded-full bg-red-400" style={{ width: `${(count / sorted[0][1]) * 100}%` }} />
+                </div>
+                <span className="text-xs dark:text-slate-500 text-slate-400 w-6 text-right">{count}</span>
+              </div>
+            ))}
+          </div>
+        );
+      }
+      case "daily-loss-status": {
+        if (dailyLossLimit == null || dailyLossLimit <= 0) {
+          return <StatWidget value="—" subtitle="No daily loss limit set" />;
+        }
+        const limitDollar = dailyLossLimitType === "percent"
+          ? (dailyLossLimit / 100) * currentBalance
+          : dailyLossLimit;
+        return <ComparisonWidget
+          leftLabel="Today's P&L" leftValue={hidden ? mask : `${todayPnl >= 0 ? "+" : "-"}${fmt$(todayPnl)}`}
+          leftColor={todayPnl >= 0 ? "text-emerald-400" : "text-red-400"}
+          rightLabel="Daily Limit" rightValue={hidden ? mask : fmt$(limitDollar)}
+          rightColor={dailyLossExceeded ? "text-red-400" : "dark:text-slate-400 text-slate-500"}
+        />;
+      }
+      case "fear-greed":
+        return <FearGreedWidget />;
+      case "vix":
+        return <VixWidget />;
+      case "market-overview":
+        return <MarketOverviewWidget />;
       default:
         return null;
     }
@@ -704,13 +868,21 @@ export default function DashboardShell() {
             ))}
           </div>
 
-          {/* Edit / Done */}
+          {/* Edit / Done / Reset */}
           {editMode ? (
-            <button onClick={finishEdit}
-              className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium transition-colors shadow-sm">
-              <Check className="w-4 h-4" />
-              Done
-            </button>
+            <>
+              <button onClick={resetLayout}
+                className="flex items-center gap-1.5 h-9 px-3 rounded-lg dark:bg-slate-700/50 bg-slate-200/50 hover:dark:bg-slate-700 hover:bg-slate-300 text-sm dark:text-slate-300 text-slate-600 transition-colors"
+                title="Reset to default layout">
+                <RotateCcw className="w-3.5 h-3.5" />
+                Reset
+              </button>
+              <button onClick={finishEdit}
+                className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium transition-colors shadow-sm">
+                <Check className="w-4 h-4" />
+                Done
+              </button>
+            </>
           ) : (
             <button onClick={() => setEditMode(true)}
               className="flex items-center gap-1.5 h-9 px-3 rounded-lg dark:bg-slate-800/50 bg-slate-100/50 hover:dark:bg-slate-800 hover:bg-slate-200 text-sm dark:text-slate-300 text-slate-600 transition-colors">
@@ -746,6 +918,74 @@ export default function DashboardShell() {
           </button>
         </div>
       </div>
+
+      {/* Account Summary Strip */}
+      <div className="rounded-xl dark:bg-slate-900/80 bg-white border dark:border-slate-800 border-slate-200 px-4 py-3">
+        <div className="flex items-center gap-6 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium dark:text-slate-400 text-slate-500">Balance</span>
+            <span className={`text-sm font-bold ${totalPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {hidden ? mask : `$${currentBalance.toFixed(2)}`}
+            </span>
+          </div>
+          <div className="w-px h-5 dark:bg-slate-700 bg-slate-200" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium dark:text-slate-400 text-slate-500">P&L</span>
+            <span className={`text-sm font-bold ${totalPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {hidden ? mask : `${totalPnl >= 0 ? "+" : "-"}${fmt$(totalPnl)}`}
+            </span>
+            <span className={`text-xs font-semibold ${totalPnl >= 0 ? "text-emerald-400/70" : "text-red-400/70"}`}>
+              {hidden ? "" : `(${totalPnl >= 0 ? "+" : ""}${(totalPnl / accountSize * 100).toFixed(2)}%)`}
+            </span>
+          </div>
+          <div className="w-px h-5 dark:bg-slate-700 bg-slate-200" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium dark:text-slate-400 text-slate-500">Today</span>
+            <span className={`text-sm font-bold ${todayPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {hidden ? mask : `${todayPnl >= 0 ? "+" : "-"}${fmt$(todayPnl)}`}
+            </span>
+            <span className={`text-xs font-semibold ${todayPnl >= 0 ? "text-emerald-400/70" : "text-red-400/70"}`}>
+              {hidden ? "" : `(${todayPnl >= 0 ? "+" : ""}${(currentBalance > 0 ? todayPnl / currentBalance * 100 : 0).toFixed(2)}%)`}
+            </span>
+          </div>
+          <div className="w-px h-5 dark:bg-slate-700 bg-slate-200" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium dark:text-slate-400 text-slate-500">Trades</span>
+            <span className="text-sm font-bold dark:text-slate-300 text-slate-700">
+              {closed.length}
+            </span>
+          </div>
+          <div className="w-px h-5 dark:bg-slate-700 bg-slate-200" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium dark:text-slate-400 text-slate-500">Win Rate</span>
+            {(() => {
+              const wins = closed.filter(t => (t.pnl ?? 0) > 0).length;
+              const wr = closed.length > 0 ? (wins / closed.length) * 100 : 0;
+              return <span className={`text-sm font-bold ${wr >= 50 ? "text-emerald-400" : "text-yellow-400"}`}>
+                {hidden ? mask : `${wr.toFixed(1)}%`}
+              </span>;
+            })()}
+          </div>
+        </div>
+      </div>
+
+      {/* Daily Loss Limit Warning */}
+      {dailyLossExceeded && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+            <span className="text-lg">&#9888;</span>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-red-400">Daily Loss Limit Exceeded</p>
+            <p className="text-xs text-red-400/70">
+              Today&apos;s P&L: {hidden ? "***" : `${todayPnl >= 0 ? "+" : "-"}$${Math.abs(todayPnl).toFixed(2)}`}
+              {" "}| Limit: {hidden ? "***" : dailyLossLimitType === "percent"
+                ? `${dailyLossLimit}% ($${((dailyLossLimit! / 100) * currentBalance).toFixed(2)})`
+                : `$${dailyLossLimit!.toFixed(2)}`}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Weekly Calendar */}
       <WeeklyCalendar dailyPnl={dailyPnl} dailyCounts={dailyCounts} trades={trades} />

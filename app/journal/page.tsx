@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Trade } from "@/lib/types";
-import { ArrowUpRight, ArrowDownRight, Tag, FileText, Pencil, Trash2, ChevronDown, ChevronUp, LineChart, ExternalLink, Search, LayoutGrid, List, Columns, RefreshCw, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Tag, FileText, Pencil, Trash2, ChevronDown, ChevronUp, LineChart, ExternalLink, Search, LayoutGrid, List, Columns, RefreshCw, ShieldCheck, Star, Lightbulb, AlertTriangle } from "lucide-react";
+import { calcRRAchieved, calcPercentReturn, formatHoldDuration } from "@/lib/trade-utils";
 import AccountBanner from "@/components/AccountBanner";
 import { useRouter } from "next/navigation";
 import TradeModal from "@/components/TradeModal";
@@ -391,6 +392,39 @@ export default function JournalPage() {
         </div>
       </div>
 
+      {/* Filtered Summary */}
+      {!loading && (filter !== "all" || symbolQ || status !== "all" || direction !== "all") && displayed.length > 0 && (
+        <div className="rounded-xl dark:bg-slate-900/60 bg-slate-50 px-4 py-2.5 flex items-center gap-5 flex-wrap text-xs border dark:border-slate-800 border-slate-200">
+          <span className="dark:text-slate-500 text-slate-400 font-medium">
+            Filtered: {displayed.length} trade{displayed.length !== 1 ? "s" : ""}
+          </span>
+          {(() => {
+            const closed = displayed.filter(t => t.status === "closed");
+            const winners = closed.filter(t => (t.pnl ?? 0) > 0);
+            const losers = closed.filter(t => (t.pnl ?? 0) < 0);
+            const totalPnl = closed.reduce((s, t) => s + (t.pnl ?? 0), 0);
+            const winRate = closed.length > 0 ? (winners.length / closed.length) * 100 : 0;
+            return (
+              <>
+                <div className="w-px h-4 dark:bg-slate-700 bg-slate-200" />
+                <span className="dark:text-slate-400 text-slate-500">P&L</span>
+                <span className={`font-bold ${totalPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {hidden ? mask : `${totalPnl >= 0 ? "+" : "-"}$${Math.abs(totalPnl).toFixed(2)}`}
+                </span>
+                <div className="w-px h-4 dark:bg-slate-700 bg-slate-200" />
+                <span className="dark:text-slate-400 text-slate-500">Win Rate</span>
+                <span className={`font-bold ${winRate >= 50 ? "text-emerald-400" : "text-yellow-400"}`}>
+                  {hidden ? mask : `${winRate.toFixed(1)}%`}
+                </span>
+                <span className="dark:text-slate-500 text-slate-400">
+                  {hidden ? "" : `(${winners.length}W / ${losers.length}L)`}
+                </span>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center py-12 dark:text-slate-400 text-slate-500">
           <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
@@ -670,6 +704,44 @@ export default function JournalPage() {
                       </div>
                     </div>
 
+                    {/* Rating + R:R + % Return + Hold Time */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      {selectedTrade.rating != null && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold">Rating</span>
+                          <div className="flex items-center gap-0.5">
+                            {[1,2,3,4,5].map(n => (
+                              <Star key={n} className={clsx("w-4 h-4", n <= selectedTrade.rating! ? "text-amber-400 fill-amber-400" : "dark:text-slate-700 text-slate-300")} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {(() => { const rr = calcRRAchieved(selectedTrade); return rr !== null ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold">R:R</span>
+                          <span className={clsx("text-sm font-bold", rr >= 2 ? "text-emerald-400" : rr >= 1 ? "text-blue-400" : rr >= 0 ? "text-amber-400" : "text-red-400")}>{rr.toFixed(2)}R</span>
+                        </div>
+                      ) : null; })()}
+                      {(() => { const pct = calcPercentReturn(selectedTrade, accountSize); return pct !== null && !hidden ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold">Return</span>
+                          <span className={clsx("text-sm font-bold", pct >= 0 ? "text-emerald-400" : "text-red-400")}>{pct >= 0 ? "+" : ""}{pct.toFixed(2)}%</span>
+                        </div>
+                      ) : null; })()}
+                      {(() => { const hold = formatHoldDuration(selectedTrade.entry_date, selectedTrade.exit_date); return hold ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold">Hold</span>
+                          <span className="text-sm font-medium dark:text-slate-300 text-slate-700">{hold}</span>
+                        </div>
+                      ) : null; })()}
+                      {selectedTrade.market_context && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase tracking-widest dark:text-slate-500 text-slate-400 font-bold">Context</span>
+                          <span className="text-sm font-medium dark:text-slate-300 text-slate-700 capitalize">{selectedTrade.market_context.replace("_", " ")}</span>
+                        </div>
+                      )}
+                    </div>
+
                     {selectedTrade.emotions && (
                       <div className="space-y-2">
                         <h3 className="text-sm font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Emotions / Feelings</h3>
@@ -679,6 +751,31 @@ export default function JournalPage() {
                               {emo.trim()}
                             </span>
                           ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Mistakes */}
+                    {selectedTrade.mistakes && (
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Mistakes</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedTrade.mistakes.split(",").map(m => m.trim()).filter(Boolean).map(m => (
+                            <span key={m} className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                              {m}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Lessons */}
+                    {selectedTrade.lessons && (
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Lessons Learned</h3>
+                        <div className="flex items-start gap-2.5 p-4 rounded-xl dark:bg-amber-500/5 bg-amber-50 border dark:border-amber-500/10 border-amber-100">
+                          <Lightbulb className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                          <p className="text-sm dark:text-amber-300/80 text-amber-700 leading-relaxed">{selectedTrade.lessons}</p>
                         </div>
                       </div>
                     )}
@@ -708,6 +805,8 @@ export default function JournalPage() {
                         height={350}
                         showPriceScale={true}
                         showTimeframeToggle={true}
+                        chartTf={selectedTrade.chart_tf}
+                        chartSavedAt={selectedTrade.chart_saved_at}
                       />
                     </div>
                   </div>
@@ -742,7 +841,7 @@ export default function JournalPage() {
                     </div>
                     <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-emerald-400 text-lg cursor-pointer hover:underline" onClick={() => router.push(buildChartUrl(t))}>{t.symbol}</span>
+                      <span className="font-bold text-emerald-400 text-lg cursor-pointer hover:underline" onClick={() => { setEditTrade(t); setShowModal(true); }}>{t.symbol}</span>
                       <span className={clsx("px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider", STATUS_COLOR[t.status])}>
                         {t.status}
                       </span>
@@ -787,6 +886,52 @@ export default function JournalPage() {
                     </span>
                   )}
                 </div>
+
+                {/* Rating + R:R + % Return + Market Context badges */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {t.rating != null && (
+                    <div className="flex items-center gap-0.5">
+                      {[1,2,3,4,5].map(n => (
+                        <Star key={n} className={clsx("w-3 h-3", n <= t.rating! ? "text-amber-400 fill-amber-400" : "dark:text-slate-700 text-slate-300")} />
+                      ))}
+                    </div>
+                  )}
+                  {(() => { const rr = calcRRAchieved(t); return rr !== null ? (
+                    <span className={clsx("px-1.5 py-0.5 rounded text-[10px] font-bold", rr >= 2 ? "bg-emerald-500/10 text-emerald-400" : rr >= 1 ? "bg-blue-500/10 text-blue-400" : rr >= 0 ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400")}>
+                      {rr.toFixed(2)}R
+                    </span>
+                  ) : null; })()}
+                  {(() => { const pct = calcPercentReturn(t, accountSize); return pct !== null && !hidden ? (
+                    <span className={clsx("px-1.5 py-0.5 rounded text-[10px] font-bold", pct >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
+                      {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%
+                    </span>
+                  ) : null; })()}
+                  {t.market_context && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-500/10 dark:text-slate-400 text-slate-500 capitalize">
+                      {t.market_context.replace("_", " ")}
+                    </span>
+                  )}
+                </div>
+
+                {/* Mistakes */}
+                {t.mistakes && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <AlertTriangle className="w-3 h-3 text-red-400 mt-0.5 shrink-0" />
+                    {t.mistakes.split(",").map(m => m.trim()).filter(Boolean).map(m => (
+                      <span key={m} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                        {m}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Lessons */}
+                {t.lessons && (
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg dark:bg-amber-500/5 bg-amber-50 border dark:border-amber-500/10 border-amber-100">
+                    <Lightbulb className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+                    <p className="text-xs dark:text-amber-300/80 text-amber-700 leading-relaxed">{t.lessons}</p>
+                  </div>
+                )}
 
                 {/* Notes */}
                 {t.notes ? (
@@ -838,6 +983,8 @@ export default function JournalPage() {
                         stopLoss={t.stop_loss}
                         takeProfit={t.take_profit}
                         height={160}
+                        chartTf={t.chart_tf}
+                        chartSavedAt={t.chart_saved_at}
                       />
                     </div>
                   </div>
