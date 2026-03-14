@@ -227,7 +227,8 @@ export default function TradesPage() {
   const exportTrades = async (format: "csv" | "json") => {
     setShowExportMenu(false);
     try {
-      const res = await fetch("/api/trades");
+      const exportUrl = activeAccountId ? `/api/trades?account_id=${activeAccountId}` : "/api/trades";
+      const res = await fetch(exportUrl);
       const allTrades = await res.json();
       if (!Array.isArray(allTrades) || allTrades.length === 0) return;
 
@@ -287,7 +288,7 @@ export default function TradesPage() {
       const res = await fetch("/api/trades/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trades: parsedTrades }),
+        body: JSON.stringify({ trades: parsedTrades, account_id: activeAccountId ?? undefined }),
       });
       const result = await res.json();
 
