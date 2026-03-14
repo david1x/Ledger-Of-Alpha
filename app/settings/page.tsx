@@ -526,7 +526,7 @@ function SettingsContent() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0 space-y-6 sm:max-w-2xl">
+      <div className="flex-1 min-w-0 space-y-6 sm:max-w-2xl min-h-[80vh]">
         <div>
           <h1 className="text-2xl font-bold dark:text-white text-slate-900">Settings</h1>
           <p className="text-sm dark:text-slate-400 text-slate-500 mt-0.5">Configure your account preferences and integrations</p>
