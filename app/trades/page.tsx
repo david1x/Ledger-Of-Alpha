@@ -8,6 +8,7 @@ import AccountBanner from "@/components/AccountBanner";
 import AlertModal from "@/components/AlertModal";
 import { tradesToCsv, csvToTrades } from "@/lib/csv";
 import { TRADE_FIELDS } from "@/lib/validate-trade";
+import { useAccounts } from "@/lib/account-context";
 
 type StatusFilter = "all" | "planned" | "open" | "closed";
 type DirectionFilter = "all" | "long" | "short";
@@ -60,6 +61,7 @@ function FilteredSummary({ trades, quotes, hidden, isFiltered }: { trades: Trade
 }
 
 export default function TradesPage() {
+  const { accounts, activeAccountId, activeAccount } = useAccounts();
   const [me, setMe] = useState<any>(null);
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
   const [quotes, setQuotes] = useState<QuoteMap>({});
@@ -110,8 +112,9 @@ export default function TradesPage() {
   const load = async () => {
     setLoading(true);
     try {
+      const tradesUrl = activeAccountId ? `/api/trades?account_id=${activeAccountId}` : "/api/trades";
       const [tradesRes, settingsRes, meRes] = await Promise.all([
-        fetch("/api/trades"),
+        fetch(tradesUrl),
         fetch("/api/settings"),
         fetch("/api/auth/me"),
       ]);
@@ -124,8 +127,17 @@ export default function TradesPage() {
         setAllTrades(tradesData);
         await loadQuotes(tradesData);
       }
-      if (settingsData.account_size) setAccountSize(parseFloat(settingsData.account_size));
-      if (settingsData.risk_per_trade) setRiskPercent(parseFloat(settingsData.risk_per_trade));
+
+      if (activeAccount) {
+        setAccountSize(activeAccount.starting_balance);
+        setRiskPercent(activeAccount.risk_per_trade);
+      } else if (accounts.length > 0) {
+        setAccountSize(accounts.reduce((sum, a) => sum + a.starting_balance, 0));
+        if (settingsData.risk_per_trade) setRiskPercent(parseFloat(settingsData.risk_per_trade));
+      } else {
+        if (settingsData.account_size) setAccountSize(parseFloat(settingsData.account_size));
+        if (settingsData.risk_per_trade) setRiskPercent(parseFloat(settingsData.risk_per_trade));
+      }
 
       // Check privacy mode if not explicitly set in localStorage
       if (localStorage.getItem("privacy_hidden") === null && settingsData.privacy_mode) {
@@ -143,7 +155,7 @@ export default function TradesPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [activeAccountId, accounts.length]);
 
   // Client-side filtering
   const trades = allTrades.filter(t => {

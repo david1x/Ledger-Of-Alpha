@@ -63,6 +63,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       pnl = gross - (comm * 2);
     }
 
+    // Validate account_id if being changed
+    if (merged.account_id !== undefined && merged.account_id !== null && merged.account_id !== existing.account_id) {
+      const acct = db.prepare("SELECT id FROM accounts WHERE id = ? AND user_id = ?").get(merged.account_id, user.id);
+      if (!acct) return NextResponse.json({ error: "Account not found" }, { status: 400 });
+    }
+
     db.prepare(`
       UPDATE trades SET
         symbol = ?, direction = ?, status = ?,
@@ -70,7 +76,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         exit_price = ?, shares = ?, entry_date = ?, exit_date = ?,
         pnl = ?, notes = ?, tags = ?, emotions = ?, wyckoff_checklist = ?, account_size = ?, commission = ?, risk_per_trade = ?,
         rating = ?, mistakes = ?, market_context = ?, lessons = ?,
-        chart_tf = ?, chart_saved_at = ?
+        chart_tf = ?, chart_saved_at = ?, account_id = ?
       WHERE id = ? AND user_id = ?
     `).run(
       String(merged.symbol).toUpperCase(), merged.direction, merged.status,
@@ -79,7 +85,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       merged.exit_date ?? null, pnl ?? null, merged.notes ?? null, merged.tags ?? null,
       merged.emotions ?? null, merged.wyckoff_checklist ?? null, merged.account_size ?? null, merged.commission ?? null, merged.risk_per_trade ?? null,
       merged.rating ?? null, merged.mistakes ?? null, merged.market_context ?? null, merged.lessons ?? null,
-      merged.chart_tf ?? null, merged.chart_saved_at ?? null,
+      merged.chart_tf ?? null, merged.chart_saved_at ?? null, merged.account_id ?? null,
       id, user.id,
     );
 

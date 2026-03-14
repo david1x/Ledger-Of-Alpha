@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { trades } = body;
+    const { trades, account_id } = body;
 
     if (!Array.isArray(trades) || trades.length === 0) {
       return NextResponse.json(
@@ -40,11 +40,22 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getDb();
+
+    // Resolve account_id: validate or default
+    let resolvedAccountId: string | null = null;
+    if (account_id) {
+      const acct = db.prepare("SELECT id FROM accounts WHERE id = ? AND user_id = ?").get(account_id, user.id);
+      if (!acct) return NextResponse.json({ error: "Account not found" }, { status: 400 });
+      resolvedAccountId = account_id;
+    } else {
+      const defaultAcct = db.prepare("SELECT id FROM accounts WHERE user_id = ? AND is_default = 1").get(user.id) as { id: string } | undefined;
+      resolvedAccountId = defaultAcct?.id ?? null;
+    }
     const insert = db.prepare(`
       INSERT INTO trades (symbol, direction, status, entry_price, stop_loss, take_profit,
         exit_price, shares, entry_date, exit_date, pnl, notes, tags, user_id, account_size, commission, risk_per_trade,
-        rating, mistakes, market_context, lessons, chart_tf, chart_saved_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        rating, mistakes, market_context, lessons, chart_tf, chart_saved_at, account_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     let imported = 0;
@@ -99,7 +110,7 @@ export async function POST(req: NextRequest) {
           pnl, notes ?? null, tags ?? null, user.id,
           account_size ?? null, commission ?? null, risk_per_trade ?? null,
           rating ?? null, mistakes ?? null, market_context ?? null, lessons ?? null,
-          chart_tf ?? null, chart_saved_at ?? null,
+          chart_tf ?? null, chart_saved_at ?? null, resolvedAccountId,
         );
         imported++;
       }

@@ -5,8 +5,9 @@ import SymbolSearch from "./SymbolSearch";
 import RiskCalculator from "./RiskCalculator";
 import PositionSizer from "./PositionSizer";
 import SetupChart from "./SetupChart";
-import { X, ChevronDown, ChevronUp, RefreshCw, ListChecks, Star, AlertTriangle, Cloud, Lightbulb } from "lucide-react";
+import { X, ChevronDown, ChevronUp, RefreshCw, ListChecks, Star, AlertTriangle, Cloud, Lightbulb, Wallet } from "lucide-react";
 import clsx from "clsx";
+import { useAccounts } from "@/lib/account-context";
 
 interface Props {
   trade?: Trade | null;
@@ -55,6 +56,10 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
   const [accountSize, setAccountSize] = useState(accountSizeProp ?? 10000);
   const [riskPercent, setRiskPercent] = useState(riskPercentProp ?? 1);
   const [defaultCommission, setDefaultCommission] = useState(0);
+  const { accounts, activeAccountId, activeAccount } = useAccounts();
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
+    trade?.account_id ?? activeAccountId ?? null
+  );
   const [showTradeSettings, setShowTradeSettings] = useState(false);
   const [strategies, setStrategies] = useState<TradeStrategy[]>([]);
   const [defaultMistakes, setDefaultMistakes] = useState<string[]>(["Entered too early", "Exited too early", "Exited too late", "Moved stop loss", "Oversized position", "No stop loss", "Chased the trade", "Revenge trade", "Ignored plan", "FOMO entry"]);
@@ -128,6 +133,13 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
         }
         if (!riskPercentProp && s.risk_per_trade) setRiskPercent(parseFloat(s.risk_per_trade));
         if (s.commission_per_trade) setDefaultCommission(parseFloat(s.commission_per_trade));
+
+        // Override with account-specific settings if an account is selected
+        const selAcct = accounts.find(a => a.id === selectedAccountId);
+        if (selAcct) {
+          if (!riskPercentProp) setRiskPercent(selAcct.risk_per_trade);
+          setDefaultCommission(selAcct.commission_value);
+        }
       })
       .catch(() => {});
   }, [accountSizeProp, riskPercentProp]);
@@ -151,7 +163,11 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
     setSaving(true);
     setError("");
 
-    const payload = { ...form };
+    const payload: Record<string, unknown> = { ...form };
+    // Include account_id
+    if (selectedAccountId) {
+      payload.account_id = selectedAccountId;
+    }
     // Inject default commission if user didn't explicitly set one
     if (payload.commission == null && defaultCommission > 0) {
       payload.commission = defaultCommission;
@@ -309,7 +325,7 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
                       </div>
                     </div>
                   )}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className={clsx("grid gap-4", accounts.length > 1 ? "grid-cols-3" : "grid-cols-2")}>
                     <div>
                       <label className={LABEL}>Symbol</label>
                       <SymbolSearch value={form.symbol ?? ""} onChange={(v) => set("symbol", v)} placeholder="Type symbol..." />
@@ -321,6 +337,23 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
                         <button onClick={() => set("direction", "short")} className={clsx("flex-1 rounded-lg text-xs font-bold transition-all", form.direction === "short" ? "bg-red-600 text-white shadow-md" : "dark:text-slate-400 text-slate-500")}>Short</button>
                       </div>
                     </div>
+                    {accounts.length > 1 && (
+                      <div>
+                        <label className={LABEL}>Account</label>
+                        <div className="relative">
+                          <select
+                            value={selectedAccountId ?? ""}
+                            onChange={(e) => setSelectedAccountId(e.target.value || null)}
+                            className={clsx(INPUT, "appearance-none pr-8")}
+                          >
+                            {accounts.map(a => (
+                              <option key={a.id} value={a.id}>{a.name}</option>
+                            ))}
+                          </select>
+                          <Wallet className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 dark:text-slate-500 text-slate-400 pointer-events-none" />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">

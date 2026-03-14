@@ -320,6 +320,60 @@ function runMigrations(db: Database.Database) {
     }
     markMigration(db, "014_chart_snapshot");
   }
+
+  // ── 015: multi-account support ──────────────────────────────────────
+  if (!hasMigration(db, "015_accounts")) {
+    // Create accounts table
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS accounts (
+        id               TEXT PRIMARY KEY,
+        user_id          TEXT NOT NULL,
+        name             TEXT NOT NULL,
+        starting_balance REAL NOT NULL DEFAULT 10000,
+        risk_per_trade   REAL NOT NULL DEFAULT 1,
+        commission_value REAL NOT NULL DEFAULT 0,
+        is_default       INTEGER NOT NULL DEFAULT 0,
+        created_at       TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_accounts_user ON accounts(user_id);
+    `);
+
+    // Add account_id column to trades
+    const tradeCols = (db.pragma("table_info(trades)") as { name: string }[]).map(c => c.name);
+    if (!tradeCols.includes("account_id")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN account_id TEXT;`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_trades_account_id ON trades(account_id);`);
+    }
+
+    // Backfill: create a default account for each existing user and assign their trades
+    const users = db.prepare("SELECT id FROM users").all() as { id: string }[];
+    const getSetting = db.prepare("SELECT value FROM settings WHERE user_id = ? AND key = ?");
+    const insertAccount = db.prepare(
+      "INSERT INTO accounts (id, user_id, name, starting_balance, risk_per_trade, commission_value, is_default) VALUES (?, ?, ?, ?, ?, ?, 1)"
+    );
+    const updateTrades = db.prepare("UPDATE trades SET account_id = ? WHERE user_id = ?");
+
+    for (const user of users) {
+      const accountId = crypto.randomUUID();
+      const accountSizeRow = getSetting.get(user.id, "account_size") as { value: string } | undefined;
+      const riskRow = getSetting.get(user.id, "risk_per_trade") as { value: string } | undefined;
+      const commRow = getSetting.get(user.id, "commission_per_trade") as { value: string } | undefined;
+
+      // Fall back to system defaults
+      const sysAccountSize = getSetting.get("_system", "account_size") as { value: string } | undefined;
+      const sysRisk = getSetting.get("_system", "risk_per_trade") as { value: string } | undefined;
+      const sysComm = getSetting.get("_system", "commission_per_trade") as { value: string } | undefined;
+
+      const startingBalance = parseFloat(accountSizeRow?.value ?? sysAccountSize?.value ?? "10000");
+      const riskPerTrade = parseFloat(riskRow?.value ?? sysRisk?.value ?? "1");
+      const commissionValue = parseFloat(commRow?.value ?? sysComm?.value ?? "0");
+
+      insertAccount.run(accountId, user.id, "Main Account", startingBalance, riskPerTrade, commissionValue);
+      updateTrades.run(accountId, user.id);
+    }
+
+    markMigration(db, "015_accounts");
+  }
 }
 
 // ── Auto-promote admin from env var ─────────────────────────────────────

@@ -28,6 +28,7 @@ import {
   useSortable, arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useAccounts } from "@/lib/account-context";
 
 // ── Widget definitions ──────────────────────────────────────────────────
 const ALL_WIDGETS = [
@@ -246,6 +247,7 @@ export default function DashboardShell() {
   const [editTrade, setEditTrade] = useState<Trade | null>(null);
   const [accountSize, setAccountSize] = useState(10000);
   const [riskPercent, setRiskPercent] = useState(1);
+  const { accounts, activeAccountId, activeAccount } = useAccounts();
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertDefaults, setAlertDefaults] = useState<{ symbol?: string; price?: number }>({});
   const [heatmapRanges, setHeatmapRanges] = useState<HeatmapRanges>({ high: 500, mid: 200, low: 1 });
@@ -285,8 +287,9 @@ export default function DashboardShell() {
   const load = async () => {
     setLoading(true);
     try {
+      const tradesUrl = activeAccountId ? `/api/trades?account_id=${activeAccountId}` : "/api/trades";
       const [tradesRes, settingsRes, meRes] = await Promise.all([
-        fetch("/api/trades"),
+        fetch(tradesUrl),
         fetch("/api/settings"),
         fetch("/api/auth/me"),
       ]);
@@ -299,8 +302,19 @@ export default function DashboardShell() {
         setTrades(tradesData);
         await loadQuotes(tradesData);
       }
-      if (settingsData.account_size) setAccountSize(parseFloat(settingsData.account_size));
-      if (settingsData.risk_per_trade) setRiskPercent(parseFloat(settingsData.risk_per_trade));
+
+      // Account-aware sizing
+      if (activeAccount) {
+        setAccountSize(activeAccount.starting_balance);
+        setRiskPercent(activeAccount.risk_per_trade);
+      } else if (accounts.length > 0) {
+        // "All Accounts" — sum starting balances
+        setAccountSize(accounts.reduce((sum, a) => sum + a.starting_balance, 0));
+        if (settingsData.risk_per_trade) setRiskPercent(parseFloat(settingsData.risk_per_trade));
+      } else {
+        if (settingsData.account_size) setAccountSize(parseFloat(settingsData.account_size));
+        if (settingsData.risk_per_trade) setRiskPercent(parseFloat(settingsData.risk_per_trade));
+      }
 
       // Check privacy mode if not explicitly set in localStorage
       if (localStorage.getItem("privacy_hidden") === null && settingsData.privacy_mode) {
@@ -345,7 +359,7 @@ export default function DashboardShell() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [activeAccountId, accounts.length]);
 
   useEffect(() => {
     if (!trades.length) return;

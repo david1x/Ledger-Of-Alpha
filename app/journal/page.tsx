@@ -10,6 +10,7 @@ import MiniChart from "@/components/MiniChart";
 import clsx from "clsx";
 import TradeTable from "@/components/TradeTable";
 import Logo from "@/components/Logo";
+import { useAccounts } from "@/lib/account-context";
 
 type ViewMode = "cards" | "list" | "review";
 
@@ -45,6 +46,7 @@ function buildChartUrl(t: Trade): string {
 
 export default function JournalPage() {
   const router = useRouter();
+  const { accounts, activeAccountId, activeAccount } = useAccounts();
   const [me, setMe] = useState<any>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,21 +87,28 @@ export default function JournalPage() {
 
   const load = async () => {
     setLoading(true);
+    const tradesUrl = activeAccountId ? `/api/trades?account_id=${activeAccountId}` : "/api/trades";
     const [tradesRes, settingsRes, meRes] = await Promise.all([
-      fetch("/api/trades"),
+      fetch(tradesUrl),
       fetch("/api/settings"),
       fetch("/api/auth/me"),
     ]);
     const data = await tradesRes.json();
     const settingsData = await settingsRes.json();
     const meData = await meRes.json();
-    
+
     setMe(meData);
     if (Array.isArray(data)) {
       setTrades(data);
       if (data.length > 0) setSelectedTradeId(data[0].id);
     }
-    if (settingsData.account_size) setAccountSize(parseFloat(settingsData.account_size));
+    if (activeAccount) {
+      setAccountSize(activeAccount.starting_balance);
+    } else if (accounts.length > 0) {
+      setAccountSize(accounts.reduce((sum, a) => sum + a.starting_balance, 0));
+    } else if (settingsData.account_size) {
+      setAccountSize(parseFloat(settingsData.account_size));
+    }
 
     // Check privacy mode if not explicitly set in localStorage
     if (localStorage.getItem("privacy_hidden") === null && settingsData.privacy_mode) {
@@ -109,7 +118,7 @@ export default function JournalPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [activeAccountId, accounts.length]);
 
   const displayed = trades.filter((t) => {
     if (filter === "with-notes" && (!t.notes || !t.notes.trim().length)) return false;

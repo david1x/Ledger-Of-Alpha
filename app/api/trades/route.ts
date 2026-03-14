@@ -11,6 +11,8 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status");
     const direction = searchParams.get("direction");
     const symbol = searchParams.get("symbol");
+    const guestAccountId = searchParams.get("account_id");
+    if (guestAccountId) trades = trades.filter(t => t.account_id === guestAccountId);
     if (status)    trades = trades.filter(t => t.status === status);
     if (direction) trades = trades.filter(t => t.direction === direction);
     if (symbol)    trades = trades.filter(t => t.symbol.includes(symbol.toUpperCase()));
@@ -29,6 +31,9 @@ export async function GET(req: NextRequest) {
 
     let query = "SELECT * FROM trades WHERE user_id = ?";
     const params: unknown[] = [user.id];
+
+    const accountId = searchParams.get("account_id");
+    if (accountId) { query += " AND account_id = ?"; params.push(accountId); }
 
     if (status)    { query += " AND status = ?";   params.push(status); }
     if (direction) { query += " AND direction = ?"; params.push(direction); }
@@ -93,8 +98,19 @@ export async function POST(req: NextRequest) {
       exit_price, shares, entry_date, exit_date,
       notes, tags, emotions, wyckoff_checklist, account_size, commission, risk_per_trade,
       rating, mistakes, market_context, lessons,
-      chart_tf, chart_saved_at,
+      chart_tf, chart_saved_at, account_id,
     } = body;
+
+    // Validate account_id if provided
+    let resolvedAccountId = account_id;
+    if (resolvedAccountId) {
+      const acct = db.prepare("SELECT id FROM accounts WHERE id = ? AND user_id = ?").get(resolvedAccountId, user.id);
+      if (!acct) return NextResponse.json({ error: "Account not found" }, { status: 400 });
+    } else {
+      // Default to user's default account
+      const defaultAcct = db.prepare("SELECT id FROM accounts WHERE user_id = ? AND is_default = 1").get(user.id) as { id: string } | undefined;
+      resolvedAccountId = defaultAcct?.id ?? null;
+    }
 
     let pnl: number | null = null;
     if (status === "closed" && entry_price && exit_price && shares) {
@@ -107,8 +123,8 @@ export async function POST(req: NextRequest) {
     const result = db.prepare(`
       INSERT INTO trades (symbol, direction, status, entry_price, stop_loss, take_profit,
         exit_price, shares, entry_date, exit_date, pnl, notes, tags, emotions, wyckoff_checklist, user_id, account_size, commission, risk_per_trade,
-        rating, mistakes, market_context, lessons, chart_tf, chart_saved_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        rating, mistakes, market_context, lessons, chart_tf, chart_saved_at, account_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       symbol?.toUpperCase(), direction, status,
       entry_price ?? null, stop_loss ?? null, take_profit ?? null,
@@ -116,7 +132,7 @@ export async function POST(req: NextRequest) {
       pnl, notes ?? null, tags ?? null, emotions ?? null, wyckoff_checklist ?? null, user.id,
       account_size ?? null, commission ?? null, risk_per_trade ?? null,
       rating ?? null, mistakes ?? null, market_context ?? null, lessons ?? null,
-      chart_tf ?? null, chart_saved_at ?? null,
+      chart_tf ?? null, chart_saved_at ?? null, resolvedAccountId ?? null,
     );
 
     const trade = db.prepare("SELECT * FROM trades WHERE id = ?").get(result.lastInsertRowid);

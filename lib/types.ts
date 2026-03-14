@@ -23,6 +23,18 @@ export interface SessionUser {
   isAdmin: boolean;
 }
 
+// ── Account ──────────────────────────────────────────────────────────────
+export interface Account {
+  id: string;
+  user_id: string;
+  name: string;
+  starting_balance: number;
+  risk_per_trade: number;
+  commission_value: number;
+  is_default: number; // 0 | 1
+  created_at: string;
+}
+
 // ── Trade ─────────────────────────────────────────────────────────────────
 export type TradeDirection = "long" | "short";
 export type TradeStatus = "planned" | "open" | "closed";
@@ -55,6 +67,7 @@ export interface Trade {
   lessons?: string | null;
   chart_tf?: string | null;
   chart_saved_at?: string | null;
+  account_id?: string | null;
   created_at: string;
   user_id: string | null;
 }
