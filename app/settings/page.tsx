@@ -1109,7 +1109,7 @@ function SettingsContent() {
                   onChange={e => setSettings(s => ({ ...s, fmp_api_key: e.target.value }))}
                   placeholder="Enter your FMP API key..." className={INPUT} />
                 <p className={HINT}>
-                  Get a free key at <span className="text-emerald-400">financialmodelingprep.com</span>.
+                  Get a free key at <a href="https://financialmodelingprep.com" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">financialmodelingprep.com</a>.
                   Enables live symbol search as you type.
                 </p>
               </div>
