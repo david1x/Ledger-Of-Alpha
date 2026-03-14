@@ -67,7 +67,15 @@
   </tr>
 </table>
 
-*Stats stack to single column · Trade log renders as cards · Chart fills the screen with a floating "Add Trade" button · All forms stack vertically*
+---
+
+## 📚 Documentation
+
+Detailed documentation is available in the `docs/` directory:
+
+- **[User Guide](docs/USER-GUIDE.md)**: How to use advanced features like Monte Carlo simulations and multi-account management.
+- **[API Documentation](docs/API.md)**: Details on the available API endpoints.
+- **[Architecture](docs/ARCHITECTURE.md)**: Technical overview of the system design and database migrations.
 
 ---
 
@@ -79,6 +87,11 @@
 - Paginated recent-trades table with inline edit/delete
 - Add-trade modal directly from the dashboard
 
+### 🏦 Multi-Account Management
+- Create separate accounts for Live, Paper, Futures, or different strategies.
+- Each account maintains its own starting balance, risk parameters, and commission model.
+- View aggregate stats or filter the entire app by a specific account.
+
 ### 📋 Trade Log
 - Full trade history with live filters: symbol search, status (planned / open / closed), direction (long / short)
 - P&L coloring, live unrealized P&L for open positions (refreshes every 60s via Yahoo Finance)
@@ -87,7 +100,7 @@
 - Hover any symbol to preview a mini candlestick chart with trade levels
 - **Export** trades as CSV or JSON for backup and analysis
 - **Import** trades from CSV or JSON files with validation and error reporting
-- Mobile: card-per-trade layout; Desktop: full sortable table
+- **Multi-Broker Import** — import your history directly from **ThinkOrSwim (TOS)**, **Interactive Brokers (IBKR)**, or **Robinhood**.
 
 ### 📓 Trade Journal
 - Card-based view of every trade with full notes, tags, symbol, and P&L
@@ -95,8 +108,11 @@
 - Expandable mini candlestick chart per card with entry/stop/target price lines
 - Potential P&L and R:R ratio displayed per card
 - Global chart toggle to show/hide all mini charts at once
-- Always-visible "Select All" checkbox with inline bulk delete
-- Clean reading layout for post-trade review
+
+### 🔬 Analytics & Simulation
+- **Risk Simulator (Monte Carlo)** — run 5,000 simulations of your future performance based on your historical win rate and returns.
+- Visualize ruin probability, median final balance, and potential drawdowns.
+- **Equity Comparison** — compare your actual performance against a benchmark or target growth curve.
 
 ### 📈 Chart Page
 - Full-screen **TradingView Advanced Chart** embed (dark/light theme sync)
@@ -137,7 +153,7 @@
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 15 (App Router) |
+| Framework | Next.js 14 (App Router) |
 | Language | TypeScript |
 | Styling | Tailwind CSS v3 + dark/light theme via `next-themes` |
 | Database | SQLite via `better-sqlite3` |
@@ -159,6 +175,9 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). The SQLite database is created automatically — no setup required.
 
 > **Try it instantly** — click **Continue as Guest** on the login page to explore with pre-loaded demo trades. No account needed.
+
+### Initial Admin Setup
+To access the admin panel, set your email in the `ADMIN_EMAIL` environment variable before starting the app.
 
 ### Docker
 

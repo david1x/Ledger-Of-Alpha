@@ -11,7 +11,10 @@
       "Bash(powershell:*)",
       "WebFetch(domain:production.dataviz.cnn.io)",
       "Bash(find /d/code/projects/claude-test/ledger-of-alpha -name \"*.ts\" -path \"*/api/trades*\" -o -path \"*/api/settings*\" -o -path \"*/api/quotes*\" 2>/dev/null | head -20)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Skill(gsd:map-codebase)",
+      "Bash(wc:*)",
+      "Bash(grep:*)"
     ]
   }
 }

@@ -236,7 +236,7 @@ export default function TradeTable({
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl dark:bg-slate-800/50 bg-slate-50 p-8 text-center">
+      <div className="rounded-2xl dark:bg-slate-800/50 bg-slate-50 p-8 text-center shadow-sm border dark:border-slate-800/50 border-slate-100/50">
         <p className="dark:text-slate-500 text-slate-400 text-sm">No trades found. Add your first trade!</p>
       </div>
     );
@@ -251,13 +251,13 @@ export default function TradeTable({
     <div>
       {/* Bulk action bar */}
       {selectable && selected.size > 0 && (
-        <div className="flex items-center gap-3 mb-3 px-3 py-2 rounded-lg dark:bg-slate-800 bg-slate-100">
+        <div className="flex items-center gap-3 mb-3 px-3 py-2 rounded-xl dark:bg-slate-800 bg-slate-100 shadow-sm border dark:border-slate-700/50 border-slate-200/50 animate-in fade-in slide-in-from-top-1 duration-200">
           <span className="text-sm dark:text-slate-300 text-slate-700 font-medium">
             {selected.size} selected
           </span>
           <button
             onClick={handleBulkDelete}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs font-medium transition-colors shadow-sm"
           >
             <Trash2 className="w-3.5 h-3.5" />
             Delete Selected
@@ -274,7 +274,7 @@ export default function TradeTable({
         </div>
       )}
 
-      <div className="rounded-xl overflow-hidden">
+      <div className="rounded-2xl overflow-hidden">
 
         {/* ── Mobile card view (< sm) ── */}
         <div className="sm:hidden divide-y dark:divide-slate-800 divide-slate-100">
@@ -298,6 +298,7 @@ export default function TradeTable({
                         checked={isSelected}
                         onChange={() => toggleOne(t.id)}
                         className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                        aria-label={`Select trade ${t.symbol}`}
                       />
                     )}
                     {show("symbol") && <span className="font-bold text-emerald-400 cursor-pointer hover:underline" onClick={() => onEdit(t)}>{t.symbol}</span>}
@@ -313,21 +314,21 @@ export default function TradeTable({
                     )}
                   </div>
                   <div className="flex items-center gap-0.5 shrink-0">
-                    <button onClick={() => router.push(buildChartUrl(t))} className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors" title="Open in Chart">
+                    <button onClick={() => router.push(buildChartUrl(t))} className="p-1.5 rounded-xl hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors" title="Open in Chart" aria-label="Open in Chart">
                       <LineChart className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
                     </button>
-                    <a href={buildTradingViewUrl(t.symbol)} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors" title="Open in TradingView">
+                    <a href={buildTradingViewUrl(t.symbol)} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-xl hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors" title="Open in TradingView" aria-label="Open in TradingView">
                       <ExternalLink className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
                     </a>
                     {onSetAlert && (
-                      <button onClick={() => onSetAlert(t.symbol, t.entry_price ?? undefined)} className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors" title="Set Price Alert">
+                      <button onClick={() => onSetAlert(t.symbol, t.entry_price ?? undefined)} className="p-1.5 rounded-xl hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors" title="Set Price Alert" aria-label="Set Price Alert">
                         <Bell className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
                       </button>
                     )}
-                    <button onClick={() => onEdit(t)} className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors" title="Edit">
+                    <button onClick={() => onEdit(t)} className="p-1.5 rounded-xl hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors" title="Edit" aria-label="Edit trade">
                       <Pencil className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
                     </button>
-                    <button onClick={() => { if (confirm(`Delete trade for ${t.symbol}?`)) onDelete(t.id); }} className="p-1.5 rounded-lg hover:bg-red-500/20 transition-colors" title="Delete">
+                    <button onClick={() => { if (confirm(`Delete trade for ${t.symbol}?`)) onDelete(t.id); }} className="p-1.5 rounded-xl hover:bg-red-500/20 transition-colors" title="Delete" aria-label="Delete trade">
                       <Trash2 className="w-3.5 h-3.5 text-red-400" />
                     </button>
                   </div>
@@ -581,8 +582,9 @@ export default function TradeTable({
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => router.push(buildChartUrl(t))}
-                          className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
+                          className="p-1.5 rounded-xl hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
                           title="Open in Chart"
+                          aria-label="Open in Chart"
                         >
                           <LineChart className="w-4 h-4 dark:text-slate-400 text-slate-500" />
                         </button>
@@ -590,24 +592,27 @@ export default function TradeTable({
                           href={buildTradingViewUrl(t.symbol)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
+                          className="p-1.5 rounded-xl hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
                           title="Open in TradingView"
+                          aria-label="Open in TradingView"
                         >
                           <ExternalLink className="w-4 h-4 dark:text-slate-400 text-slate-500" />
                         </a>
                         {onSetAlert && (
                           <button
                             onClick={() => onSetAlert(t.symbol, t.entry_price ?? undefined)}
-                            className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
+                            className="p-1.5 rounded-xl hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
                             title="Set Price Alert"
+                            aria-label="Set Price Alert"
                           >
                             <Bell className="w-4 h-4 dark:text-slate-400 text-slate-500" />
                           </button>
                         )}
                         <button
                           onClick={() => onEdit(t)}
-                          className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
+                          className="p-1.5 rounded-xl hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
                           title="Edit"
+                          aria-label="Edit trade"
                         >
                           <PencilIcon className="w-4 h-4 dark:text-slate-400 text-slate-500" />
                         </button>
@@ -615,8 +620,9 @@ export default function TradeTable({
                           onClick={() => {
                             if (confirm(`Delete trade for ${t.symbol}?`)) onDelete(t.id);
                           }}
-                          className="p-1.5 rounded-lg hover:bg-red-500/20 transition-colors"
+                          className="p-1.5 rounded-xl hover:bg-red-500/20 transition-colors"
                           title="Delete"
+                          aria-label="Delete trade"
                         >
                           <Trash2 className="w-4 h-4 text-red-400" />
                         </button>

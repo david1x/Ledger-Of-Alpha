@@ -12,6 +12,17 @@ export const TOOLTIP_STYLE = {
   fontSize: "12px",
   color: "#f1f5f9",
 };
+
+export const TOOLTIP_ITEM_STYLE = {
+  color: "#f1f5f9",
+};
+
+export const TOOLTIP_LABEL_STYLE = {
+  color: "#94a3b8",
+  fontWeight: "bold",
+  marginBottom: "4px",
+};
+
 export const GRID_STROKE = "#1e293b";
 export const TICK = { fontSize: 11, fill: "#64748b" };
 
@@ -46,7 +57,11 @@ export function AreaChartWidget({
             tickFormatter={(v) => `${valuePrefix}${v}${valueSuffix}`}
             domain={yDomain}
           />
-          <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "rgba(148,163,184,0.1)" }}
+          <Tooltip 
+            contentStyle={TOOLTIP_STYLE} 
+            labelStyle={TOOLTIP_LABEL_STYLE}
+            itemStyle={TOOLTIP_ITEM_STYLE}
+            cursor={{ fill: "rgba(148,163,184,0.1)" }}
             formatter={(value: number) => [`${valuePrefix}${value.toFixed(2)}${valueSuffix}`, "Value"]}
             labelFormatter={(label, payload) =>
               payload?.[0]?.payload?.label
@@ -78,7 +93,11 @@ export function BarChartWidget({ data }: BarChartWidgetProps) {
           <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
           <XAxis dataKey="date" tick={TICK} axisLine={false} tickLine={false} />
           <YAxis tick={TICK} axisLine={false} tickLine={false} allowDecimals={false} />
-          <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "rgba(148,163,184,0.1)" }}
+          <Tooltip 
+            contentStyle={TOOLTIP_STYLE} 
+            labelStyle={TOOLTIP_LABEL_STYLE}
+            itemStyle={TOOLTIP_ITEM_STYLE}
+            cursor={{ fill: "rgba(148,163,184,0.1)" }}
             formatter={(value: number) => [value, "Trades"]}
           />
           <Bar dataKey="value" radius={[4, 4, 0, 0]}>

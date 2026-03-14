@@ -374,6 +374,37 @@ function runMigrations(db: Database.Database) {
 
     markMigration(db, "015_accounts");
   }
+
+  // ── 016: trade strategy ──────────────────────────────────────────────
+  if (!hasMigration(db, "016_trade_strategy")) {
+    const tradeCols = (db.pragma("table_info(trades)") as { name: string }[]).map(c => c.name);
+    if (!tradeCols.includes("strategy_id")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN strategy_id TEXT;`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_trades_strategy_id ON trades(strategy_id);`);
+    }
+    markMigration(db, "016_trade_strategy");
+  }
+
+  // ── 017: checklist items ──────────────────────────────────────────────
+  if (!hasMigration(db, "017_checklist_items")) {
+    const tradeCols = (db.pragma("table_info(trades)") as { name: string }[]).map(c => c.name);
+    if (!tradeCols.includes("checklist_items")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN checklist_items TEXT;`);
+    }
+    markMigration(db, "017_checklist_items");
+  }
+
+  // ── 018: alert notifications ──────────────────────────────────────────
+  if (!hasMigration(db, "018_alert_notifications")) {
+    const alertCols = (db.pragma("table_info(alerts)") as { name: string }[]).map(c => c.name);
+    if (!alertCols.includes("notify_email")) {
+      db.exec(`ALTER TABLE alerts ADD COLUMN notify_email INTEGER NOT NULL DEFAULT 0;`);
+    }
+    if (!alertCols.includes("notify_discord")) {
+      db.exec(`ALTER TABLE alerts ADD COLUMN notify_discord INTEGER NOT NULL DEFAULT 1;`);
+    }
+    markMigration(db, "018_alert_notifications");
+  }
 }
 
 // ── Auto-promote admin from env var ─────────────────────────────────────

@@ -181,9 +181,9 @@ export default function MiniChart({
   }, [takeProfit, showPriceScale]);
 
   return (
-    <div className="relative rounded-lg overflow-hidden border dark:border-slate-700 border-slate-200">
+    <div className="relative rounded-xl overflow-hidden border dark:border-slate-700 border-slate-200">
       {showTimeframeToggle && (
-        <div className="absolute top-2 left-2 z-10 flex gap-1 bg-slate-900/80 p-1 rounded-lg border border-slate-700/50 backdrop-blur-sm">
+        <div className="absolute top-2 left-2 z-10 flex gap-1 bg-slate-900/80 p-1 rounded border border-slate-700/50 backdrop-blur-sm">
           {TIMEFRAMES.map((tf) => (
             <button
               key={tf.label}

@@ -129,3 +129,20 @@ export async function sendPasswordResetEmail(
      <p>If you didn't request a password reset, you can safely ignore this email.</p>`
   );
 }
+
+export async function sendAlertEmail(
+  to: string,
+  name: string,
+  alertHeadline: string,
+  note: string | null
+): Promise<void> {
+  await send(
+    to,
+    `Price Alert: ${alertHeadline.replace(/\*\*/g, "")}`,
+    `<p>Hi ${escHtml(name)},</p>
+     <h2 style="color:#10b981;">Price Alert Triggered</h2>
+     <p style="font-size:1.1rem;">${escHtml(alertHeadline.replace(/\*\*/g, ""))}</p>
+     ${note ? `<p style="padding:10px;background:#f3f4f6;border-left:4px solid #10b981;font-style:italic;">${escHtml(note)}</p>` : ""}
+     <p><a href="${getAppUrl()}/alerts" style="color:#10b981;text-decoration:none;font-weight:bold;">Manage your alerts</a></p>`
+  );
+}

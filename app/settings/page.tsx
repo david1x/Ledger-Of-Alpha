@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database, Send, Grid3X3, Users, Settings, Trash2, UserCheck, UserX, LineChart, ListChecks, Plus, GripVertical, ChevronDown, ChevronRight, Wallet } from "lucide-react";
+import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database, Send, Grid3X3, Users, Settings, Trash2, UserCheck, UserX, LineChart, ListChecks, Plus, GripVertical, ChevronDown, ChevronRight, ChevronUp, Wallet } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback } from "react";
 import { tradesToCsv, csvToTrades } from "@/lib/csv";
@@ -8,6 +8,25 @@ import { TRADE_FIELDS } from "@/lib/validate-trade";
 import clsx from "clsx";
 import { useAccounts } from "@/lib/account-context";
 import type { Account } from "@/lib/types";
+
+// dnd-kit imports
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface Settings {
   discord_webhook: string;
@@ -85,6 +104,92 @@ const SYS_DEFAULTS: SystemSettings = {
   smtp_user: "", smtp_pass: "", smtp_from: "", app_url: "",
 };
 
+function SortableStrategy({ 
+  strat, 
+  isCollapsed, 
+  toggleCollapse, 
+  updateStrategyName, 
+  removeStrategy, 
+  addChecklistItem, 
+  updateChecklistItem, 
+  removeChecklistItem 
+}: any) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: strat.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    opacity: isDragging ? 0.5 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white overflow-hidden shadow-sm">
+      <div className="p-4 dark:bg-slate-800/30 bg-slate-50/50 flex items-center gap-3">
+        <div {...attributes} {...listeners} className="p-1.5 rounded hover:dark:bg-slate-700 hover:bg-slate-200 cursor-grab active:cursor-grabbing transition-colors shrink-0">
+          <GripVertical className="w-4 h-4 dark:text-slate-500 text-slate-400" />
+        </div>
+        <button type="button" onClick={toggleCollapse} className="p-0.5 rounded hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors shrink-0">
+          {isCollapsed ? <ChevronRight className="w-4 h-4 dark:text-slate-400 text-slate-500" /> : <ChevronDown className="w-4 h-4 dark:text-slate-400 text-slate-500" />}
+        </button>
+        <input
+          type="text"
+          value={strat.name}
+          onChange={e => updateStrategyName(strat.id, e.target.value)}
+          className="flex-1 bg-transparent border-none p-0 font-bold dark:text-white text-slate-900 focus:ring-0 text-sm"
+          placeholder="Strategy Name"
+        />
+        <span className="text-[10px] font-medium dark:text-slate-500 text-slate-400 tabular-nums shrink-0">{strat.checklist.length} items</span>
+        <button
+          onClick={() => removeStrategy(strat.id)}
+          className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-400 transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+      {!isCollapsed && (
+        <div className="p-4 space-y-3 border-t dark:border-slate-800 border-slate-100">
+          <div className="space-y-2">
+            {strat.checklist.map((item: string, idx: number) => (
+              <div key={idx} className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-md border dark:border-slate-700 border-slate-300 flex items-center justify-center text-[10px] dark:text-slate-500 text-slate-400 font-bold">
+                  {idx + 1}
+                </div>
+                <input
+                  type="text"
+                  value={item}
+                  onChange={e => updateChecklistItem(strat.id, idx, e.target.value)}
+                  className="flex-1 px-3 py-1.5 text-xs rounded-lg border dark:border-slate-800 border-slate-200 dark:bg-slate-950 bg-white dark:text-slate-300 text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="Checklist item..."
+                />
+                <button
+                  onClick={() => removeChecklistItem(strat.id, idx)}
+                  className="p-1.5 text-slate-400 hover:text-red-400 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => addChecklistItem(strat.id)}
+            className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-colors mt-2"
+          >
+            <Plus className="w-3 h-3" /> Add Item
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SettingsContent() {
   const searchParams = useSearchParams();
   const initialCategory = (searchParams.get("tab") ?? "account") as Category;
@@ -122,6 +227,14 @@ function SettingsContent() {
     updateStrategies(strategies.map((s: any) => s.id === id ? { ...s, name } : s));
   };
 
+  const moveStrategy = (idx: number, direction: "up" | "down") => {
+    const nextIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (nextIdx < 0 || nextIdx >= strategies.length) return;
+    const next = [...strategies];
+    [next[idx], next[nextIdx]] = [next[nextIdx], next[idx]];
+    updateStrategies(next);
+  };
+
   const addChecklistItem = (stratId: string) => {
     updateStrategies(strategies.map((s: any) => s.id === stratId ? { ...s, checklist: [...s.checklist, ""] } : s));
   };
@@ -139,6 +252,23 @@ function SettingsContent() {
       checklist: s.checklist.filter((_: any, i: number) => i !== idx) 
     } : s));
   };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = strategies.findIndex((s: any) => s.id === active.id);
+      const newIndex = strategies.findIndex((s: any) => s.id === over.id);
+      updateStrategies(arrayMove(strategies, oldIndex, newIndex));
+    }
+  };
+
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -1027,70 +1157,34 @@ function SettingsContent() {
             </div>
 
             <div className="space-y-4">
-              {strategies.map((strat: any) => {
-                const isCollapsed = !expandedStrategies.has(strat.id);
-                const toggleCollapse = () => setExpandedStrategies(prev => {
-                  const next = new Set(prev);
-                  if (next.has(strat.id)) next.delete(strat.id); else next.add(strat.id);
-                  return next;
-                });
-                return (
-                <div key={strat.id} className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white overflow-hidden">
-                  <div className="p-4 dark:bg-slate-800/30 bg-slate-50/50 flex items-center gap-3">
-                    <GripVertical className="w-4 h-4 dark:text-slate-600 text-slate-400 cursor-grab" />
-                    <button type="button" onClick={toggleCollapse} className="p-0.5 rounded hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors shrink-0">
-                      {isCollapsed ? <ChevronRight className="w-4 h-4 dark:text-slate-400 text-slate-500" /> : <ChevronDown className="w-4 h-4 dark:text-slate-400 text-slate-500" />}
-                    </button>
-                    <input
-                      type="text"
-                      value={strat.name}
-                      onChange={e => updateStrategyName(strat.id, e.target.value)}
-                      className="flex-1 bg-transparent border-none p-0 font-bold dark:text-white text-slate-900 focus:ring-0 text-sm"
-                      placeholder="Strategy Name"
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={strategies.map((s: any) => s.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {strategies.map((strat: any) => (
+                    <SortableStrategy
+                      key={strat.id}
+                      strat={strat}
+                      isCollapsed={!expandedStrategies.has(strat.id)}
+                      toggleCollapse={() => setExpandedStrategies(prev => {
+                        const next = new Set(prev);
+                        if (next.has(strat.id)) next.delete(strat.id); else next.add(strat.id);
+                        return next;
+                      })}
+                      updateStrategyName={updateStrategyName}
+                      removeStrategy={removeStrategy}
+                      addChecklistItem={addChecklistItem}
+                      updateChecklistItem={updateChecklistItem}
+                      removeChecklistItem={removeChecklistItem}
                     />
-                    <span className="text-[10px] font-medium dark:text-slate-500 text-slate-400 tabular-nums shrink-0">{strat.checklist.length} items</span>
-                    <button
-                      onClick={() => removeStrategy(strat.id)}
-                      className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-400 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                  {!isCollapsed && (
-                  <div className="p-4 space-y-3 border-t dark:border-slate-800 border-slate-100">
-                    <div className="space-y-2">
-                      {strat.checklist.map((item: string, idx: number) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          <div className="w-5 h-5 rounded-md border dark:border-slate-700 border-slate-300 flex items-center justify-center text-[10px] dark:text-slate-500 text-slate-400 font-bold">
-                            {idx + 1}
-                          </div>
-                          <input
-                            type="text"
-                            value={item}
-                            onChange={e => updateChecklistItem(strat.id, idx, e.target.value)}
-                            className="flex-1 px-3 py-1.5 text-xs rounded-lg border dark:border-slate-800 border-slate-200 dark:bg-slate-950 bg-white dark:text-slate-300 text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            placeholder="Checklist item..."
-                          />
-                          <button
-                            onClick={() => removeChecklistItem(strat.id, idx)}
-                            className="p-1.5 text-slate-400 hover:text-red-400 transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => addChecklistItem(strat.id)}
-                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-colors mt-2"
-                    >
-                      <Plus className="w-3 h-3" /> Add Item
-                    </button>
-                  </div>
-                  )}
-                </div>
-                );
-              })}
+                  ))}
+                </SortableContext>
+              </DndContext>
             </div>
           </section>
         )}

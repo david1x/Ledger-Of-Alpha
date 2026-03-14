@@ -5,7 +5,7 @@ import SymbolSearch from "./SymbolSearch";
 import RiskCalculator from "./RiskCalculator";
 import PositionSizer from "./PositionSizer";
 import SetupChart from "./SetupChart";
-import { X, ChevronDown, ChevronUp, RefreshCw, ListChecks, Star, AlertTriangle, Cloud, Lightbulb, Wallet } from "lucide-react";
+import { X, ChevronDown, RefreshCw, Star, Wallet, Sparkles, Layout, Target, BookOpen, Tag, Smile, Plus } from "lucide-react";
 import clsx from "clsx";
 import { useAccounts } from "@/lib/account-context";
 
@@ -40,8 +40,8 @@ const EMPTY: Partial<Trade> = {
   chart_saved_at: null,
 };
 
-const LABEL = "block text-xs font-medium dark:text-slate-400 text-slate-500 mb-1";
-const INPUT = "w-full px-3 py-2 rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500";
+const LABEL = "block text-[10px] font-black uppercase tracking-[0.2em] dark:text-slate-500 text-slate-400 mb-2 ml-1";
+const INPUT = "w-full px-4 py-2.5 rounded-xl border dark:border-slate-700 border-slate-300 dark:bg-slate-800/50 bg-white dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-sm hover:border-slate-400 dark:hover:border-slate-600";
 
 const DEFAULT_STRATEGIES: TradeStrategy[] = [
   { id: "wyckoff_buy", name: "Wyckoff Buying Tests", checklist: ["Downside objective accomplished", "Activity bullish (Vol increase on rallies)", "Preliminary support / Selling climax", "Relative strength (Bullish vs Market)", "Downward trendline broken", "Higher lows", "Higher highs", "Base forming (Cause)", "RR Potential 3:1 or better"] },
@@ -56,11 +56,10 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
   const [accountSize, setAccountSize] = useState(accountSizeProp ?? 10000);
   const [riskPercent, setRiskPercent] = useState(riskPercentProp ?? 1);
   const [defaultCommission, setDefaultCommission] = useState(0);
-  const { accounts, activeAccountId, activeAccount } = useAccounts();
+  const { accounts, activeAccountId } = useAccounts();
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     trade?.account_id ?? activeAccountId ?? null
   );
-  const [showTradeSettings, setShowTradeSettings] = useState(false);
   const [strategies, setStrategies] = useState<TradeStrategy[]>([]);
   const [defaultMistakes, setDefaultMistakes] = useState<string[]>(["Entered too early", "Exited too early", "Exited too late", "Moved stop loss", "Oversized position", "No stop loss", "Chased the trade", "Revenge trade", "Ignored plan", "FOMO entry"]);
   const [defaultTags, setDefaultTags] = useState<string[]>([]);
@@ -70,27 +69,19 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
   const [chartInterval, setChartInterval] = useState(trade?.chart_tf ?? "1D");
 
   const modalRef = useRef<HTMLDivElement>(null);
-
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    mouseDownTarget.current = e.target;
-  };
-
+  const handleMouseDown = (e: React.MouseEvent) => { mouseDownTarget.current = e.target; };
   const handleMouseUp = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget && mouseDownTarget.current === e.currentTarget) {
-      onClose();
-    }
+    if (e.target === e.currentTarget && mouseDownTarget.current === e.currentTarget) onClose();
   };
 
-  // Close on Escape
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, [onClose]);
 
-  // Always fetch settings
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => r.json())
@@ -98,51 +89,24 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
         if (s.strategies) {
           try {
             const parsed = JSON.parse(s.strategies);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setStrategies(parsed);
-            } else {
-              setStrategies(DEFAULT_STRATEGIES);
-            }
-          } catch (e) {
-            console.error("Failed to parse strategies", e);
-            setStrategies(DEFAULT_STRATEGIES);
-          }
-        } else {
-          setStrategies(DEFAULT_STRATEGIES);
-        }
-        if (s.default_mistakes) {
-          try { const m = JSON.parse(s.default_mistakes); if (Array.isArray(m)) setDefaultMistakes(m); } catch {}
-        }
-        if (s.default_tags) {
-          try { const t = JSON.parse(s.default_tags); if (Array.isArray(t)) setDefaultTags(t); } catch {}
-        }
-        if (s.trade_templates) {
-          try { const t = JSON.parse(s.trade_templates); if (Array.isArray(t)) setTemplates(t); } catch {}
-        }
-        if (!accountSizeProp && s.account_size) {
-          const startBal = parseFloat(s.account_size);
-          fetch("/api/trades").then(r => r.json()).then(trades => {
-            if (Array.isArray(trades)) {
-              const totalPnl = trades.filter((t: { status: string; pnl?: number }) => t.status === "closed")
-                .reduce((sum: number, t: { pnl?: number }) => sum + (t.pnl ?? 0), 0);
-              setAccountSize(startBal + totalPnl);
-            } else {
-              setAccountSize(startBal);
-            }
-          }).catch(() => setAccountSize(startBal));
-        }
+            setStrategies(Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_STRATEGIES);
+          } catch { setStrategies(DEFAULT_STRATEGIES); }
+        } else { setStrategies(DEFAULT_STRATEGIES); }
+        
+        if (s.default_mistakes) { try { const m = JSON.parse(s.default_mistakes); if (Array.isArray(m)) setDefaultMistakes(m); } catch {} }
+        if (s.default_tags) { try { const t = JSON.parse(s.default_tags); if (Array.isArray(t)) setDefaultTags(t); } catch {} }
+        if (s.trade_templates) { try { const t = JSON.parse(s.trade_templates); if (Array.isArray(t)) setTemplates(t); } catch {} }
+        if (!accountSizeProp && s.account_size) setAccountSize(parseFloat(s.account_size));
         if (!riskPercentProp && s.risk_per_trade) setRiskPercent(parseFloat(s.risk_per_trade));
         if (s.commission_per_trade) setDefaultCommission(parseFloat(s.commission_per_trade));
 
-        // Override with account-specific settings if an account is selected
         const selAcct = accounts.find(a => a.id === selectedAccountId);
         if (selAcct) {
           if (!riskPercentProp) setRiskPercent(selAcct.risk_per_trade);
           setDefaultCommission(selAcct.commission_value);
         }
-      })
-      .catch(() => {});
-  }, [accountSizeProp, riskPercentProp]);
+      }).catch(() => {});
+  }, [selectedAccountId, accounts, accountSizeProp, riskPercentProp]);
 
   useEffect(() => { setForm(trade ?? EMPTY); }, [trade]);
 
@@ -150,7 +114,7 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
 
   const numField = (key: keyof Trade) => ({
     type: "number" as const,
-    step: "0.01",
+    step: "any",
     value: form[key] ?? "",
     onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
       set(key, e.target.value === "" ? null : parseFloat(e.target.value)),
@@ -159,23 +123,13 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
 
   const save = async () => {
     if (!form.symbol) { setError("Symbol is required"); return; }
-    if (!form.direction) { setError("Direction is required"); return; }
     setSaving(true);
     setError("");
 
     const payload: Record<string, unknown> = { ...form };
-    // Include account_id
-    if (selectedAccountId) {
-      payload.account_id = selectedAccountId;
-    }
-    // Inject default commission if user didn't explicitly set one
-    if (payload.commission == null && defaultCommission > 0) {
-      payload.commission = defaultCommission;
-    }
-    if (payload.exit_price != null && payload.status !== "closed") {
-      payload.status = "closed";
-    }
-    // Save chart timeframe and current timestamp so the chart can be restored
+    if (selectedAccountId) payload.account_id = selectedAccountId;
+    if (payload.commission == null) payload.commission = defaultCommission;
+    if (payload.exit_price != null && payload.status !== "closed") payload.status = "closed";
     payload.chart_tf = chartInterval;
     payload.chart_saved_at = new Date().toISOString();
 
@@ -187,31 +141,18 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error ?? "Failed to save");
-        return;
-      }
-      onSaved();
-      onClose();
-    } finally {
-      setSaving(false);
-    }
+      if (res.ok) { onSaved(); onClose(); }
+      else { const d = await res.json(); setError(d.error ?? "Failed to save"); }
+    } finally { setSaving(false); }
   };
 
-  const loadTemplate = (tmpl: TradeTemplate) => {
-    setForm(f => ({ ...f, ...tmpl.fields }));
-  };
+  const loadTemplate = (tmpl: TradeTemplate) => setForm(f => ({ ...f, ...tmpl.fields }));
 
   const saveAsTemplate = async () => {
     if (!templateName.trim()) return;
     const { id, created_at, user_id, pnl, ...fields } = form as any;
-    const newTemplate: TradeTemplate = {
-      id: crypto.randomUUID(),
-      name: templateName.trim(),
-      fields,
-    };
-    const updated = [...templates, newTemplate];
+    const newTmpl: TradeTemplate = { id: crypto.randomUUID(), name: templateName.trim(), fields };
+    const updated = [...templates, newTmpl];
     setTemplates(updated);
     setShowTemplateSave(false);
     setTemplateName("");
@@ -223,343 +164,245 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
   };
 
   const rrData = useMemo(() => {
-    const e = form.entry_price;
-    const s = form.stop_loss;
-    const t = form.take_profit;
+    const e = form.entry_price, s = form.stop_loss, t = form.take_profit;
     if (!e || !s || !t) return null;
-    const risk = Math.abs(e - s);
-    const reward = Math.abs(t - e);
+    const risk = Math.abs(e - s), reward = Math.abs(t - e);
     if (risk === 0) return null;
     const ratio = reward / risk;
-    let color = "text-slate-400 bg-slate-400/10";
-    if (ratio >= 3) color = "text-emerald-400 bg-emerald-400/10";
-    else if (ratio >= 2) color = "text-blue-400 bg-blue-400/10";
-    else if (ratio >= 1) color = "text-amber-400 bg-amber-400/10";
-    else color = "text-red-400 bg-red-400/10";
+    let color = "bg-slate-500/10 text-slate-400 border-slate-500/20";
+    if (ratio >= 3) color = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+    else if (ratio >= 2) color = "bg-blue-500/10 text-blue-400 border-blue-500/20";
+    else if (ratio >= 1) color = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+    else color = "bg-red-500/10 text-red-400 border-red-500/20";
     return { ratio: ratio.toFixed(2), color };
   }, [form.entry_price, form.stop_loss, form.take_profit]);
 
   return (
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" 
+      className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-300" 
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
     >
-      <div ref={modalRef} className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl dark:bg-slate-900 bg-white shadow-2xl overflow-hidden border dark:border-slate-800 border-slate-200">
+      <div ref={modalRef} className="w-full max-w-6xl max-h-[95vh] sm:max-h-[90vh] flex flex-col rounded-2xl dark:bg-slate-900 bg-white shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] overflow-hidden border dark:border-slate-800 border-slate-200 animate-in zoom-in-95 duration-300">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b dark:border-slate-800 border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className={clsx("w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white", form.direction === "long" ? "bg-emerald-600" : "bg-red-600")}>
-              {form.symbol ? form.symbol[0].toUpperCase() : "?"}
+        <div className="flex items-center justify-between p-6 sm:p-8 border-b dark:border-slate-800 border-slate-100 shrink-0">
+          <div className="flex items-center gap-4">
+            <div className={clsx("w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl text-white shadow-2xl transition-all", form.direction === "long" ? "bg-emerald-600 rotate-0" : "bg-red-600 -rotate-12")}>
+              {form.symbol ? form.symbol[0].toUpperCase() : <Plus className="w-8 h-8" />}
             </div>
             <div>
-              <h2 className="font-bold dark:text-white text-slate-900 flex items-center gap-2 text-lg">
-                {trade ? "Edit Trade" : "New Trade Setup"} 
+              <h2 className="font-black dark:text-white text-slate-900 flex items-center gap-3 text-xl sm:text-2xl tracking-tighter">
+                {trade ? "Edit Trade" : "New Entry"} 
                 {form.symbol && <span className="text-slate-500 font-medium">/ {form.symbol.toUpperCase()}</span>}
               </h2>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className={clsx("text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded", form.direction === "long" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
+              <div className="flex items-center gap-3 mt-1">
+                <span className={clsx("text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-lg border", form.direction === "long" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-red-500/10 text-red-400 border-red-500/20")}>
                   {form.direction}
                 </span>
                 {rrData && (
-                  <span className={clsx("text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded", rrData.color)}>
+                  <span className={clsx("text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-lg border", rrData.color)}>
                     R:R 1:{rrData.ratio}
                   </span>
                 )}
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors">
-            <X className="w-5 h-5 dark:text-slate-400 text-slate-500" />
+          <button onClick={onClose} className="p-3 rounded-2xl hover:dark:bg-slate-800 hover:bg-slate-100 transition-all active:scale-90" aria-label="Close modal">
+            <X className="w-6 h-6 dark:text-slate-400 text-slate-500" />
           </button>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex px-4 pt-2 border-b dark:border-slate-800 border-slate-100 dark:bg-slate-950 bg-slate-50/50">
+        {/* Tab Navigation */}
+        <div className="flex px-6 sm:px-10 pt-2 border-b dark:border-slate-800 border-slate-100 dark:bg-slate-950 bg-slate-50/50 overflow-x-auto no-scrollbar shrink-0">
           {[
-            { id: "setup", label: "Setup & Logic" },
-            { id: "execution", label: "Execution" },
-            { id: "reflection", label: "Reflections" },
+            { id: "setup", label: "Setup & Strategy", icon: Target },
+            { id: "execution", label: "Market Execution", icon: Layout },
+            { id: "reflection", label: "Psychology & Reflection", icon: BookOpen },
           ].map(t => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id as any)}
               className={clsx(
-                "px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all border-b-2",
+                "px-6 py-4 text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap",
                 activeTab === t.id 
-                  ? "border-emerald-500 text-emerald-400" 
+                  ? "border-emerald-500 text-emerald-400 bg-emerald-500/5" 
                   : "border-transparent dark:text-slate-500 text-slate-400 hover:dark:text-slate-300 hover:text-slate-600"
               )}
             >
+              <t.icon className={clsx("w-4 h-4", activeTab === t.id ? "text-emerald-400" : "text-slate-500")} />
               {t.label}
             </button>
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="flex-1 overflow-y-auto p-6 sm:p-10 scrollbar-thin custom-scrollbar bg-slate-50/30 dark:bg-slate-900/30">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16">
             
-            {/* Left Column: Form Fields */}
-            <div className="lg:col-span-7 space-y-6">
+            {/* Left Panel: Form Content */}
+            <div className="lg:col-span-7 space-y-10">
               
               {activeTab === "setup" && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-left-2 duration-300">
-                  {/* Template controls */}
-                  {templates.length > 0 && !trade && (
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs font-medium dark:text-slate-500 text-slate-400 shrink-0">Load Template:</label>
-                      <div className="relative flex-1">
-                        <select
-                          value=""
-                          onChange={e => {
-                            const tmpl = templates.find(t => t.id === e.target.value);
-                            if (tmpl) loadTemplate(tmpl);
-                          }}
-                          className={clsx(INPUT, "appearance-none pr-8 text-xs")}
-                        >
-                          <option value="">— Select template —</option>
-                          {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                        </select>
-                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 dark:text-slate-500 text-slate-400 pointer-events-none" />
-                      </div>
-                    </div>
-                  )}
-                  <div className={clsx("grid gap-4", accounts.length > 1 ? "grid-cols-3" : "grid-cols-2")}>
-                    <div>
-                      <label className={LABEL}>Symbol</label>
-                      <SymbolSearch value={form.symbol ?? ""} onChange={(v) => set("symbol", v)} placeholder="Type symbol..." />
-                    </div>
-                    <div>
-                      <label className={LABEL}>Direction</label>
-                      <div className="flex h-10 p-1 rounded-xl dark:bg-slate-800 bg-slate-100">
-                        <button onClick={() => set("direction", "long")} className={clsx("flex-1 rounded-lg text-xs font-bold transition-all", form.direction === "long" ? "bg-emerald-600 text-white shadow-md" : "dark:text-slate-400 text-slate-500")}>Long</button>
-                        <button onClick={() => set("direction", "short")} className={clsx("flex-1 rounded-lg text-xs font-bold transition-all", form.direction === "short" ? "bg-red-600 text-white shadow-md" : "dark:text-slate-400 text-slate-500")}>Short</button>
-                      </div>
-                    </div>
-                    {accounts.length > 1 && (
+                <div className="space-y-10 animate-in fade-in slide-in-from-left-4 duration-500">
+                  <section>
+                    <SectionHeader icon={Target} title="Core Setup" sub="Select your asset and bias" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                       <div>
-                        <label className={LABEL}>Account</label>
-                        <div className="relative">
-                          <select
-                            value={selectedAccountId ?? ""}
-                            onChange={(e) => setSelectedAccountId(e.target.value || null)}
-                            className={clsx(INPUT, "appearance-none pr-8")}
-                          >
-                            {accounts.map(a => (
-                              <option key={a.id} value={a.id}>{a.name}</option>
-                            ))}
-                          </select>
-                          <Wallet className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 dark:text-slate-500 text-slate-400 pointer-events-none" />
+                        <label className={LABEL}>Asset Symbol</label>
+                        <SymbolSearch value={form.symbol ?? ""} onChange={(v) => set("symbol", v)} placeholder="AAPL, TSLA, BTC..." />
+                      </div>
+                      <div>
+                        <label className={LABEL}>Trade Bias</label>
+                        <div className="flex h-11 p-1 rounded-2xl dark:bg-slate-800 bg-slate-200/50 shadow-inner">
+                          <button onClick={() => set("direction", "long")} className={clsx("flex-1 rounded-xl text-xs font-black uppercase tracking-widest transition-all", form.direction === "long" ? "bg-emerald-600 text-white shadow-xl scale-[1.02]" : "dark:text-slate-500 text-slate-500")}>Long</button>
+                          <button onClick={() => set("direction", "short")} className={clsx("flex-1 rounded-xl text-xs font-black uppercase tracking-widest transition-all", form.direction === "short" ? "bg-red-600 text-white shadow-xl scale-[1.02]" : "dark:text-slate-500 text-slate-500")}>Short</button>
                         </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  </section>
 
-                  <div className="grid grid-cols-3 gap-4">
-                    <div><label className={LABEL}>Target Entry</label><input placeholder="0.00" {...numField("entry_price")} /></div>
-                    <div><label className={LABEL}>Stop Loss</label><input placeholder="0.00" {...numField("stop_loss")} /></div>
-                    <div><label className={LABEL}>Take Profit</label><input placeholder="0.00" {...numField("take_profit")} /></div>
-                  </div>
+                  <section className="pt-6 border-t dark:border-slate-800 border-slate-200">
+                    <SectionHeader icon={Wallet} title="Account & Status" sub="Manage risk allocation" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {accounts.length > 1 && (
+                        <div>
+                          <label className={LABEL}>Target Account</label>
+                          <div className="relative">
+                            <select value={selectedAccountId ?? ""} onChange={(e) => setSelectedAccountId(e.target.value || null)} className={clsx(INPUT, "appearance-none pr-10 h-11")}>
+                              {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                            </select>
+                            <Wallet className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 dark:text-slate-500 text-slate-400 pointer-events-none" />
+                          </div>
+                        </div>
+                      )}
+                      <div>
+                        <label className={LABEL}>Trade Lifecycle</label>
+                        <div className="relative">
+                          <select value={form.status} onChange={e => set("status", e.target.value as any)} className={clsx(INPUT, "appearance-none pr-10 h-11")}>
+                            <option value="planned">Planned Idea</option>
+                            <option value="open">Active Order</option>
+                            <option value="closed">Closed / History</option>
+                          </select>
+                          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 dark:text-slate-500 text-slate-400 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
+                  </section>
 
-                  <StrategyChecklist 
-                    strategies={strategies}
-                    direction={form.direction ?? "long"} 
-                    value={form.wyckoff_checklist ?? ""} 
-                    onChange={(v) => set("wyckoff_checklist", v)} 
-                  />
+                  <section className="pt-6 border-t dark:border-slate-800 border-slate-200">
+                    <StrategyChecklist 
+                      strategies={strategies} direction={form.direction ?? "long"} 
+                      strategyId={form.strategy_id} checklist={form.checklist_items ?? ""}
+                      onStrategyChange={(sid: string) => set("strategy_id", sid)} onChecklistChange={(val: string) => set("checklist_items", val)}
+                    />
+                  </section>
                 </div>
               )}
 
               {activeTab === "execution" && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-left-2 duration-300">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={LABEL}>Current Status</label>
-                      <select value={form.status} onChange={(e) => set("status", e.target.value)} className={INPUT}>
-                        <option value="planned">Planned</option>
-                        <option value="open">Open</option>
-                        <option value="closed">Closed</option>
-                      </select>
+                <div className="space-y-10 animate-in fade-in slide-in-from-left-4 duration-500">
+                  <section>
+                    <SectionHeader icon={Layout} title="Price Levels" sub="Entry and risk boundaries" />
+                    <div className="grid grid-cols-3 gap-4">
+                      <div><label className={LABEL}>Entry</label><input placeholder="0.00" {...numField("entry_price")} /></div>
+                      <div><label className={LABEL}>Stop</label><input placeholder="0.00" {...numField("stop_loss")} /></div>
+                      <div><label className={LABEL}>Target</label><input placeholder="0.00" {...numField("take_profit")} /></div>
                     </div>
-                    <div><label className={LABEL}>Execution Date</label><input type="date" value={form.entry_date ?? ""} onChange={(e) => set("entry_date", e.target.value || null)} className={INPUT} /></div>
-                  </div>
+                  </section>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><label className={LABEL}>Quantity (Shares)</label><input placeholder="0" {...numField("shares")} /></div>
-                    <div><label className={LABEL}>Exit Price</label><input placeholder="0.00" {...numField("exit_price")} /></div>
-                  </div>
-
-                  {form.status === "closed" && form.entry_price && form.exit_price && form.stop_loss && (() => {
-                    const risk = Math.abs(form.entry_price! - form.stop_loss!);
-                    if (risk === 0) return null;
-                    const reward = form.direction === "long"
-                      ? form.exit_price! - form.entry_price!
-                      : form.entry_price! - form.exit_price!;
-                    const rr = reward / risk;
-                    const color = rr >= 2 ? "text-emerald-400" : rr >= 1 ? "text-blue-400" : rr >= 0 ? "text-amber-400" : "text-red-400";
-                    return (
-                      <div className="p-3 rounded-xl dark:bg-slate-800/50 bg-slate-50 flex items-center gap-3">
-                        <span className="text-xs font-medium dark:text-slate-400 text-slate-500">R:R Achieved</span>
-                        <span className={`text-sm font-bold ${color}`}>{rr.toFixed(2)}R</span>
-                      </div>
-                    );
-                  })()}
-
-                  <div className="p-4 rounded-2xl border-2 border-dashed dark:border-slate-800 border-slate-100 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400">Position Overrides</h3>
-                      <button onClick={() => setShowTradeSettings(!showTradeSettings)} className="text-[10px] font-bold text-emerald-400 hover:underline">
-                        {showTradeSettings ? "Hide" : "Show Settings"}
-                      </button>
+                  <section className="pt-6 border-t dark:border-slate-800 border-slate-200">
+                    <SectionHeader icon={RefreshCw} title="Position Detail" sub="Execution timing and size" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div><label className={LABEL}>Size / Shares</label><input placeholder="0" {...numField("shares")} /></div>
+                      <div><label className={LABEL}>Entry Date</label><input type="date" value={form.entry_date ?? ""} onChange={e => set("entry_date", e.target.value)} className={INPUT} /></div>
                     </div>
-                    {showTradeSettings && (
-                      <div className="grid grid-cols-3 gap-3 animate-in fade-in zoom-in-95 duration-200">
-                        <div><label className={LABEL}>Account ($)</label><input type="number" step="0.01" value={form.account_size ?? ""} onChange={(e) => set("account_size", e.target.value === "" ? null : parseFloat(e.target.value))} placeholder={String(accountSize)} className={INPUT} /></div>
-                        <div><label className={LABEL}>Risk (%)</label><input type="number" step="0.1" value={form.risk_per_trade ?? ""} onChange={(e) => set("risk_per_trade", e.target.value === "" ? null : parseFloat(e.target.value))} placeholder={String(riskPercent)} className={INPUT} /></div>
-                        <div><label className={LABEL}>Comm. ($)</label><input type="number" step="0.01" value={form.commission ?? ""} onChange={(e) => set("commission", e.target.value === "" ? null : parseFloat(e.target.value))} placeholder={String(defaultCommission)} className={INPUT} /></div>
+                  </section>
+
+                  {form.status === "closed" && (
+                    <section className="pt-6 border-t dark:border-slate-800 border-slate-200 bg-emerald-500/5 p-6 rounded-2xl border-2 border-emerald-500/20">
+                      <SectionHeader icon={Sparkles} title="Exit Result" sub="Finalized trade data" />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div><label className={LABEL}>Final Exit Price</label><input placeholder="0.00" {...numField("exit_price")} /></div>
+                        <div><label className={LABEL}>Exit Date</label><input type="date" value={form.exit_date ?? ""} onChange={e => set("exit_date", e.target.value)} className={INPUT} /></div>
                       </div>
-                    )}
-                  </div>
+                    </section>
+                  )}
                 </div>
               )}
 
               {activeTab === "reflection" && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-left-2 duration-300">
-                  {/* Star Rating */}
-                  <div>
-                    <label className={LABEL}>Trade Rating</label>
-                    <div className="flex items-center gap-1 mt-1">
-                      {[1, 2, 3, 4, 5].map(n => (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() => set("rating", form.rating === n ? null : n)}
-                          className="p-0.5 transition-colors"
-                        >
-                          <Star
-                            className={clsx("w-6 h-6", (form.rating ?? 0) >= n ? "text-amber-400 fill-amber-400" : "dark:text-slate-600 text-slate-300")}
-                          />
-                        </button>
-                      ))}
-                      {form.rating && (
-                        <span className="text-xs dark:text-slate-400 text-slate-500 ml-2">{form.rating}/5</span>
-                      )}
+                <div className="space-y-10 animate-in fade-in slide-in-from-left-4 duration-500">
+                  <section>
+                    <SectionHeader icon={Smile} title="Psychology" sub="How did you feel?" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                      <div>
+                        <label className={LABEL}>Star Performance</label>
+                        <div className="flex items-center gap-2 mt-2">
+                          {[1, 2, 3, 4, 5].map(n => (
+                            <button key={n} type="button" onClick={() => set("rating", form.rating === n ? null : n)}
+                              className={clsx("w-11 h-11 rounded-2xl flex items-center justify-center transition-all", (form.rating ?? 0) >= n ? "bg-amber-400 text-white shadow-xl shadow-amber-400/20 scale-110" : "dark:bg-slate-800 bg-slate-100 dark:text-slate-600 text-slate-300 hover:scale-105")}>
+                              <Star className={clsx("w-6 h-6", (form.rating ?? 0) >= n ? "fill-current" : "")} />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className={LABEL}>Market Vibe</label>
+                        <div className="relative">
+                          <select value={form.market_context ?? ""} onChange={e => set("market_context", e.target.value || null)} className={clsx(INPUT, "appearance-none pr-10 h-11")}>
+                            <option value="">— Select Context —</option>
+                            <option value="trending_up">Trending Up (Bullish)</option>
+                            <option value="trending_down">Trending Down (Bearish)</option>
+                            <option value="ranging">Ranging / Sideways</option>
+                            <option value="choppy">Choppy / No Trend</option>
+                          </select>
+                          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 dark:text-slate-500 text-slate-400 pointer-events-none" />
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  </section>
 
-                  {/* Mistakes Pill Selector */}
-                  <div>
-                    <label className={LABEL}>Mistakes</label>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {defaultMistakes.map(mistake => {
-                        const selected = form.mistakes ? form.mistakes.split(",").map(s => s.trim()).filter(Boolean) : [];
-                        const isSelected = selected.includes(mistake);
-                        return (
-                          <button
-                            key={mistake}
-                            type="button"
-                            onClick={() => {
-                              const current = form.mistakes ? form.mistakes.split(",").map(s => s.trim()).filter(Boolean) : [];
-                              const next = isSelected ? current.filter(s => s !== mistake) : [...current, mistake];
-                              set("mistakes", next.join(","));
-                            }}
-                            className={clsx(
-                              "px-2.5 py-1 rounded-full text-xs font-medium border transition-all duration-200",
-                              isSelected
-                                ? "bg-red-500/20 border-red-500/50 text-red-400"
-                                : "dark:bg-slate-800/50 bg-slate-50 dark:border-slate-700 border-slate-200 dark:text-slate-400 text-slate-500 hover:border-slate-400"
-                            )}
-                          >
-                            {mistake}
-                          </button>
-                        );
-                      })}
+                  <section className="pt-6 border-t dark:border-slate-800 border-slate-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                      <TagsInput value={form.tags ?? ""} onChange={(v: string) => set("tags", v)} defaultTags={defaultTags} />
+                      <EmotionsInput value={form.emotions ?? ""} onChange={(v: string) => set("emotions", v)} />
                     </div>
-                  </div>
+                  </section>
 
-                  {/* Market Context Dropdown */}
-                  <div>
-                    <label className={LABEL}>Market Context</label>
-                    <div className="relative">
-                      <select
-                        value={form.market_context ?? ""}
-                        onChange={(e) => set("market_context", e.target.value || null)}
-                        className={clsx(INPUT, "appearance-none pr-10")}
-                      >
-                        <option value="">— Select —</option>
-                        <option value="trending_up">Trending Up</option>
-                        <option value="trending_down">Trending Down</option>
-                        <option value="ranging">Ranging</option>
-                        <option value="volatile">Volatile</option>
-                        <option value="choppy">Choppy</option>
-                        <option value="news_driven">News Driven</option>
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 dark:text-slate-500 text-slate-400 pointer-events-none" />
+                  <section className="pt-6 border-t dark:border-slate-800 border-slate-200">
+                    <SectionHeader icon={BookOpen} title="Lessons & Notes" sub="Final journaling" />
+                    <div className="space-y-6">
+                      <div><label className={LABEL}>Lessons Learned</label><textarea value={form.lessons ?? ""} onChange={e => set("lessons", e.target.value)} className={clsx(INPUT, "min-h-[120px] resize-none p-5 rounded-2xl")} placeholder="Key takeaways from this setup..." /></div>
+                      <div><label className={LABEL}>Inner Dialogue</label><textarea value={form.notes ?? ""} onChange={e => set("notes", e.target.value)} className={clsx(INPUT, "min-h-[140px] resize-none p-5 rounded-2xl")} placeholder="Detailed thoughts and execution notes..." /></div>
                     </div>
-                  </div>
-
-                  <TagsInput value={form.tags ?? ""} onChange={(v) => set("tags", v)} defaultTags={defaultTags} />
-                  <EmotionsInput value={form.emotions ?? ""} onChange={(v) => set("emotions", v)} />
-
-                  {/* Lessons Textarea */}
-                  <div>
-                    <label className={LABEL}>Lessons Learned</label>
-                    <textarea
-                      value={form.lessons ?? ""}
-                      onChange={(e) => set("lessons", e.target.value)}
-                      placeholder="What would you do differently? What worked well?"
-                      rows={4}
-                      className={INPUT + " resize-none min-h-[100px] p-4"}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={LABEL}>Notes / Rationale</label>
-                    <textarea value={form.notes ?? ""} onChange={(e) => set("notes", e.target.value)} placeholder="What did you see? How did you feel? What did you learn?" rows={6} className={INPUT + " resize-none min-h-[150px] p-4"} />
-                  </div>
+                  </section>
                 </div>
               )}
 
             </div>
 
-            {/* Right Column: Calculators & Visuals */}
-            <div className="lg:col-span-5 space-y-6 border-l dark:border-slate-800 border-slate-100 lg:pl-8">
-              <div className="rounded-2xl overflow-hidden border dark:border-slate-800 border-slate-100 shadow-inner">
+            {/* Right Panel: Tools & Analytics */}
+            <div className="lg:col-span-5 space-y-10 lg:border-l dark:border-slate-800 border-slate-100 pt-8 lg:pt-0 lg:pl-16">
+              <div className="rounded-2xl overflow-hidden border dark:border-slate-800 border-slate-100 shadow-2xl bg-white dark:bg-slate-950 relative group">
+                <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/5 to-transparent pointer-events-none" />
                 <SetupChart
-                  symbol={form.symbol ?? ""}
-                  entry={form.entry_price ?? null}
-                  stopLoss={form.stop_loss ?? null}
-                  takeProfit={form.take_profit ?? null}
-                  direction={form.direction ?? "long"}
-                  onEntryChange={p => set("entry_price", p)}
-                  onStopChange={p => set("stop_loss", p)}
-                  onTargetChange={p => set("take_profit", p)}
-                  height={280}
-                  initialInterval={trade?.chart_tf ?? undefined}
-                  onIntervalChange={setChartInterval}
-                  savedAt={trade?.chart_saved_at}
+                  symbol={form.symbol ?? ""} entry={form.entry_price ?? null} stopLoss={form.stop_loss ?? null}
+                  takeProfit={form.take_profit ?? null} direction={form.direction ?? "long"}
+                  onEntryChange={p => set("entry_price", p)} onStopChange={p => set("stop_loss", p)}
+                  onTargetChange={p => set("take_profit", p)} height={320}
+                  initialInterval={trade?.chart_tf ?? undefined} onIntervalChange={setChartInterval} savedAt={trade?.chart_saved_at}
                 />
               </div>
               
-              <div className="space-y-4">
+              <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-700">
                 <RiskCalculator
-                  entry={form.entry_price ?? null}
-                  stopLoss={form.stop_loss ?? null}
-                  takeProfit={form.take_profit ?? null}
-                  shares={form.shares ?? null}
-                  direction={form.direction ?? "long"}
-                  commission={form.commission ?? defaultCommission}
+                  entry={form.entry_price ?? null} stopLoss={form.stop_loss ?? null} takeProfit={form.take_profit ?? null}
+                  shares={form.shares ?? null} direction={form.direction ?? "long"} commission={form.commission ?? defaultCommission}
                 />
                 <PositionSizer
-                  accountSize={form.account_size ?? accountSize}
-                  riskPercent={form.risk_per_trade ?? riskPercent}
-                  entry={form.entry_price ?? null}
-                  stopLoss={form.stop_loss ?? null}
-                  direction={form.direction ?? "long"}
-                  manualShares={form.shares ?? null}
-                  onApplyShares={(s) => set("shares", s)}
-                  commission={form.commission ?? defaultCommission}
+                  accountSize={form.account_size ?? accountSize} riskPercent={form.risk_per_trade ?? riskPercent}
+                  entry={form.entry_price ?? null} stopLoss={form.stop_loss ?? null} direction={form.direction ?? "long"}
+                  manualShares={form.shares ?? null} onApplyShares={(s) => set("shares", s)} commission={form.commission ?? defaultCommission}
                 />
               </div>
             </div>
@@ -567,43 +410,28 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
           </div>
         </div>
 
-        {/* Save as Template popup */}
-        {showTemplateSave && (
-          <div className="px-4 py-3 border-t dark:border-slate-800 border-slate-100 dark:bg-slate-950/50 bg-slate-50/30 flex items-center gap-3">
-            <input
-              type="text"
-              value={templateName}
-              onChange={e => setTemplateName(e.target.value)}
-              placeholder="Template name..."
-              className={INPUT + " flex-1 text-xs"}
-              autoFocus
-              onKeyDown={e => { if (e.key === "Enter") saveAsTemplate(); if (e.key === "Escape") setShowTemplateSave(false); }}
-            />
-            <button onClick={saveAsTemplate} disabled={!templateName.trim()} className="px-3 py-2 rounded-lg text-xs font-bold bg-emerald-600 text-white disabled:opacity-50">Save</button>
-            <button onClick={() => setShowTemplateSave(false)} className="px-3 py-2 rounded-lg text-xs font-bold dark:text-slate-400 text-slate-500">Cancel</button>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t dark:border-slate-800 border-slate-100 dark:bg-slate-950 bg-slate-50/50">
-          <div className="flex-1 flex items-center gap-3">
-            {error && <p className="text-red-400 text-sm font-medium animate-pulse">{error}</p>}
+        {/* Footer Actions */}
+        <div className="flex flex-col sm:flex-row items-center justify-between p-6 sm:p-8 border-t dark:border-slate-800 border-slate-100 dark:bg-slate-950 bg-slate-50/50 gap-6">
+          <div className="flex items-center gap-6">
             {!trade && !showTemplateSave && (
-              <button onClick={() => setShowTemplateSave(true)} className="text-xs dark:text-slate-500 text-slate-400 hover:text-emerald-400 transition-colors">
-                Save as Template
+              <button onClick={() => setShowTemplateSave(true)} className="flex items-center gap-2 text-xs font-black uppercase tracking-widest dark:text-slate-500 text-slate-400 hover:text-emerald-400 transition-colors">
+                <Layout className="w-4 h-4" /> Save as Template
               </button>
             )}
+            {showTemplateSave && (
+              <div className="flex items-center gap-3 animate-in slide-in-from-left-4 duration-300">
+                <input value={templateName} onChange={e => setTemplateName(e.target.value)} placeholder="Template name..." className={INPUT + " !py-1.5 h-9 w-48 text-xs"} />
+                <button onClick={saveAsTemplate} className="px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest bg-emerald-600 text-white">Save</button>
+                <button onClick={() => setShowTemplateSave(false)} className="text-xs font-black uppercase tracking-widest text-slate-500">Cancel</button>
+              </div>
+            )}
           </div>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="px-6 py-2.5 rounded-xl text-sm font-bold dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors">
-              Cancel
-            </button>
-            <button
-              onClick={save}
-              disabled={saving}
-              className="px-8 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all disabled:opacity-50 shadow-lg shadow-emerald-500/20 active:scale-95"
-            >
-              {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : trade ? "Update Trade" : "Save Trade Setup"}
+          
+          <div className="flex items-center gap-4 w-full sm:w-auto">
+            {error && <p className="text-red-400 text-[10px] font-black uppercase tracking-widest animate-pulse mr-2">{error}</p>}
+            <button onClick={onClose} className="flex-1 sm:flex-none px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-200 transition-all active:scale-95">Cancel</button>
+            <button onClick={save} disabled={saving} className="flex-1 sm:flex-none px-10 py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-emerald-600 hover:bg-emerald-500 text-white transition-all disabled:opacity-50 shadow-xl shadow-emerald-600/20 active:scale-95 flex items-center justify-center gap-2">
+              {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : (trade ? "Update Trade" : "Initialize Setup")}
             </button>
           </div>
         </div>
@@ -612,268 +440,110 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
   );
 }
 
-function StrategyChecklist({ strategies, direction, value, onChange }: { strategies: TradeStrategy[]; direction: string; value: string; onChange: (v: string) => void }) {
-  // Parse value. Format can be: 
-  // 1. "Item 1, Item 2" (Legacy Wyckoff)
-  // 2. "JSON:{"strategyId":"...","items":["..."]}" (New format)
-  
-  let currentStratId = "";
-  let selected: string[] = [];
+function SectionHeader({ icon: Icon, title, sub }: { icon: any, title: string, sub?: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-6">
+      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+        <Icon className="w-5 h-5 text-emerald-500" />
+      </div>
+      <div>
+        <h3 className="text-sm font-black uppercase tracking-widest dark:text-white text-slate-900">{title}</h3>
+        {sub && <p className="text-[9px] dark:text-slate-500 text-slate-400 font-bold uppercase tracking-widest mt-0.5">{sub}</p>}
+      </div>
+    </div>
+  );
+}
 
-  if (value.startsWith("JSON:")) {
-    try {
-      const parsed = JSON.parse(value.substring(5));
-      currentStratId = parsed.strategyId;
-      selected = parsed.items;
-    } catch {
-      selected = value.split(",").map(t => t.trim()).filter(Boolean);
-    }
-  } else {
-    selected = value.split(",").map(t => t.trim()).filter(Boolean);
-    // Try to guess strategy ID for legacy data
-    if (selected.length > 0) {
-      if (direction === "long") currentStratId = "wyckoff_buy";
-      else currentStratId = "wyckoff_sell";
-    }
-  }
-
-  // If no strategy selected, try to find a matching one for the direction
-  if (!currentStratId && strategies.length > 0) {
-    const defaultStrat = strategies.find(s => 
-      direction === "long" ? s.id.includes("buy") : s.id.includes("sell")
-    ) || strategies[0];
-    currentStratId = defaultStrat.id;
-  }
-
-  const currentStrat = strategies.find(s => s.id === currentStratId) || strategies[0];
-
-  const update = (stratId: string, items: string[]) => {
-    onChange(`JSON:${JSON.stringify({ strategyId: stratId, items })}`);
-  };
+function StrategyChecklist({ strategies, direction, strategyId, checklist, onStrategyChange, onChecklistChange }: any) {
+  const currentStratId = strategyId || (strategies.length > 0 ? (strategies.find((s: any) => direction === "long" ? s.id.includes("buy") : s.id.includes("sell"))?.id || strategies[0].id) : "");
+  const selected = useMemo(() => checklist ? checklist.split(",").map((t: any) => t.trim()).filter(Boolean) : [], [checklist]);
+  const currentStrat = strategies.find((s: any) => s.id === currentStratId) || strategies[0];
 
   const toggle = (item: string) => {
-    let next: string[];
-    if (selected.includes(item)) {
-      next = selected.filter(s => s !== item);
-    } else {
-      next = [...selected, item];
-    }
-    update(currentStratId, next);
+    const next = selected.includes(item) ? selected.filter((s: any) => s !== item) : [...selected, item];
+    onChecklistChange(next.join(", "));
   };
 
   if (strategies.length === 0) return null;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-1.5">
-        <label className={LABEL}>Trade Strategy & Checklist</label>
-        <div className="flex items-center gap-3">
+    <div className="space-y-6">
+      <SectionHeader icon={Target} title="System Strategy" sub="Operational checklist" />
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-4">
           <div className="flex-1 relative">
-            <select 
-              value={currentStratId}
-              onChange={(e) => update(e.target.value, [])}
-              className={clsx(INPUT, "appearance-none pr-10 truncate")}
-            >
-              {strategies.map(s => (
-                <option key={s.id} value={s.id} className="dark:bg-slate-900 bg-white">{s.name}</option>
-              ))}
+            <select value={currentStratId} onChange={(e) => { onStrategyChange(e.target.value); onChecklistChange(""); }} className={clsx(INPUT, "appearance-none pr-10 h-11")}>
+              {strategies.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 dark:text-slate-500 text-slate-400 pointer-events-none" />
+            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 dark:text-slate-500 text-slate-400 pointer-events-none" />
           </div>
-          <div className="px-3 py-2 rounded-lg dark:bg-slate-800 bg-slate-100 dark:text-slate-400 text-slate-500 text-xs font-bold whitespace-nowrap border dark:border-slate-700 border-slate-200">
+          <div className="px-4 py-2.5 rounded-xl dark:bg-slate-800 bg-slate-200 dark:text-emerald-400 text-emerald-600 text-xs font-black tabular-nums border dark:border-emerald-500/20 border-emerald-500/10">
             {selected.length} / {currentStrat?.checklist.length || 0}
           </div>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {currentStrat?.checklist.map(item => {
-          const isSelected = selected.includes(item);
-          return (
-            <label 
-              key={item} 
-              className={clsx(
-                "flex items-center gap-2.5 p-3 rounded-xl border transition-all cursor-pointer",
-                isSelected 
-                  ? "dark:border-emerald-500/50 border-emerald-500/50 dark:bg-emerald-500/5 bg-emerald-50/50" 
-                  : "dark:border-slate-800 border-slate-100 dark:bg-slate-800/30 bg-slate-50 hover:border-slate-300 dark:hover:border-slate-600"
-              )}
-            >
-              <input 
-                type="checkbox" 
-                checked={isSelected}
-                onChange={() => toggle(item)}
-                className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500" 
-              />
-              <span className={clsx(
-                "text-xs font-medium transition-colors",
-                isSelected ? "dark:text-emerald-400 text-emerald-600" : "dark:text-slate-400 text-slate-600"
-              )}>
-                {item}
-              </span>
-            </label>
-          );
-        })}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {currentStrat?.checklist.map((item: string) => {
+            const isSelected = selected.includes(item);
+            return (
+              <label key={item} className={clsx("flex items-center gap-3 p-4 rounded-2xl border transition-all cursor-pointer group", isSelected ? "dark:border-emerald-500/50 border-emerald-500/50 dark:bg-emerald-500/10 bg-emerald-50" : "dark:border-slate-800 border-slate-100 dark:bg-slate-800/30 bg-slate-50 hover:border-slate-400 dark:hover:border-slate-600")}>
+                <input type="checkbox" checked={isSelected} onChange={() => toggle(item)} className="w-5 h-5 rounded-lg border-slate-600 text-emerald-500 focus:ring-emerald-500" />
+                <span className={clsx("text-xs font-bold transition-colors", isSelected ? "dark:text-emerald-400 text-emerald-600" : "dark:text-slate-500 text-slate-600")}>{item}</span>
+              </label>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 }
 
-function TagsInput({ value, onChange, defaultTags = [] }: { value: string; onChange: (v: string) => void; defaultTags?: string[] }) {
-  const tags = value ? value.split(",").map(t => t.trim()).filter(Boolean) : [];
+function TagsInput({ value, onChange, defaultTags = [] }: any) {
+  const tags = value ? value.split(",").map((t: any) => t.trim()).filter(Boolean) : [];
   const [input, setInput] = useState("");
-  const [editingIdx, setEditingIdx] = useState<number | null>(null);
-  const [editValue, setEditValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const editRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (editingIdx !== null) editRef.current?.focus();
-  }, [editingIdx]);
 
   const commitTag = (raw: string) => {
     const tag = raw.trim();
-    if (!tag) return;
-    const next = [...tags, tag];
-    onChange(next.join(", "));
+    if (tag && !tags.includes(tag)) onChange([...tags, tag].join(", "));
     setInput("");
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "," || e.key === "Enter") {
-      e.preventDefault();
-      commitTag(input);
-    } else if (e.key === "Backspace" && !input && tags.length > 0) {
-      const next = tags.slice(0, -1);
-      onChange(next.join(", "));
-    }
-  };
-
-  const removeTag = (idx: number) => {
-    const next = tags.filter((_, i) => i !== idx);
-    onChange(next.join(", "));
-  };
-
-  const startEdit = (idx: number) => {
-    setEditingIdx(idx);
-    setEditValue(tags[idx]);
-  };
-
-  const commitEdit = () => {
-    if (editingIdx === null) return;
-    const trimmed = editValue.trim();
-    if (trimmed) {
-      const next = [...tags];
-      next[editingIdx] = trimmed;
-      onChange(next.join(", "));
-    } else {
-      removeTag(editingIdx);
-    }
-    setEditingIdx(null);
-    setEditValue("");
-  };
-
   return (
-    <div className="space-y-2">
-      <label className={LABEL}>Tags</label>
-      {defaultTags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-1.5">
-          {defaultTags.filter(dt => !tags.includes(dt)).map(dt => (
-            <button
-              key={dt}
-              type="button"
-              onClick={() => onChange([...tags, dt].join(", "))}
-              className="px-2 py-0.5 rounded-md text-[10px] font-medium dark:bg-slate-700/50 bg-slate-100 dark:text-slate-400 text-slate-500 hover:dark:bg-slate-600 hover:bg-slate-200 transition-colors border dark:border-slate-600 border-slate-200"
-            >
-              + {dt}
-            </button>
-          ))}
-        </div>
-      )}
-      <div
-        className="flex flex-wrap gap-1.5 min-h-[38px] px-2.5 py-1.5 rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white focus-within:ring-2 focus-within:ring-emerald-500 cursor-text"
-        onClick={() => inputRef.current?.focus()}
-      >
-        {tags.map((tag, i) => (
-          editingIdx === i ? (
-            <input
-              key={i}
-              ref={editRef}
-              value={editValue}
-              onChange={e => setEditValue(e.target.value)}
-              onBlur={commitEdit}
-              onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") { setEditingIdx(null); setEditValue(""); } }}
-              className="px-2 py-0.5 text-xs rounded-md border border-emerald-500 dark:bg-slate-700 bg-slate-100 dark:text-white text-slate-900 outline-none min-w-[60px] w-auto"
-              style={{ width: `${Math.max(editValue.length, 4)}ch` }}
-            />
-          ) : (
-            <span
-              key={i}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 text-xs font-medium select-none"
-              onDoubleClick={() => startEdit(i)}
-            >
-              {tag}
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); removeTag(i); }}
-                className="hover:text-red-400 transition-colors"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          )
+    <div className="space-y-4">
+      <SectionHeader icon={Tag} title="Categorization" sub="Metadata tags" />
+      <div className="flex flex-wrap gap-2 mb-2">
+        {defaultTags.filter((dt: any) => !tags.includes(dt)).map((dt: any) => (
+          <button key={dt} type="button" onClick={() => onChange([...tags, dt].join(", "))} className="px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest dark:bg-slate-800 bg-slate-100 dark:text-slate-400 text-slate-500 border dark:border-slate-700 border-slate-200">+ {dt}</button>
         ))}
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={() => { if (input.trim()) commitTag(input); }}
-          placeholder={tags.length === 0 ? "Type and press comma or enter..." : ""}
-          className="flex-1 min-w-[80px] bg-transparent text-sm dark:text-white text-slate-900 outline-none py-0.5"
-        />
+      </div>
+      <div className="flex flex-wrap gap-2 p-3 rounded-2xl border dark:border-slate-700 border-slate-300 dark:bg-slate-800/50 bg-white focus-within:ring-2 focus-within:ring-emerald-500/50 min-h-[50px] transition-all shadow-inner" onClick={() => inputRef.current?.focus()}>
+        {tags.map((tag: string, i: number) => (
+          <span key={i} className="flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">
+            {tag}
+            <button type="button" onClick={(e) => { e.stopPropagation(); onChange(tags.filter((_: any, idx: number) => idx !== i).join(", ")); }} className="hover:text-red-400 transition-colors"><X className="w-3 h-3" /></button>
+          </span>
+        ))}
+        <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); commitTag(input); } }} placeholder={tags.length ? "" : "Add tags..."} className="flex-1 bg-transparent text-sm outline-none dark:text-white" />
       </div>
     </div>
   );
 }
 
-const EMOTIONS = [
-  "Fear", "Greed", "Frustration", "Impatience", "FOMO", 
-  "Overconfidence", "Anxiety", "Regret", "Hope", "Boredom", "Satisfaction"
-];
-
-function EmotionsInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const selected = value ? value.split(",").map(t => t.trim()).filter(Boolean) : [];
-
+function EmotionsInput({ value, onChange }: any) {
+  const selected = value ? value.split(",").map((t: any) => t.trim()).filter(Boolean) : [];
   const toggle = (emo: string) => {
-    let next: string[];
-    if (selected.includes(emo)) {
-      next = selected.filter(s => s !== emo);
-    } else {
-      next = [...selected, emo];
-    }
+    const next = selected.includes(emo) ? selected.filter((s: any) => s !== emo) : [...selected, emo];
     onChange(next.join(", "));
   };
 
   return (
-    <div className="space-y-2">
-      <label className={LABEL}>Emotions / Feelings</label>
+    <div className="space-y-4">
+      <SectionHeader icon={Smile} title="Mood Tracker" sub="Emotional state" />
       <div className="flex flex-wrap gap-2">
-        {EMOTIONS.map(emo => {
+        {["Fear", "Greed", "Fomo", "Anxiety", "Regret", "Frustration", "Calm", "Confident"].map(emo => {
           const isSelected = selected.includes(emo);
           return (
-            <button
-              key={emo}
-              type="button"
-              onClick={() => toggle(emo)}
-              className={clsx(
-                "px-2.5 py-1 rounded-full text-xs font-medium border transition-all duration-200",
-                isSelected 
-                  ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400" 
-                  : "dark:bg-slate-800/50 bg-slate-50 dark:border-slate-700 border-slate-200 dark:text-slate-400 text-slate-500 hover:border-slate-400"
-              )}
-            >
+            <button key={emo} type="button" onClick={() => toggle(emo)} className={clsx("px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all", isSelected ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-xl" : "dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 dark:text-slate-500 text-slate-500 hover:border-slate-400")}>
               {emo}
             </button>
           );

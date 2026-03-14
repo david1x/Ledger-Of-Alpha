@@ -4,7 +4,7 @@ import {
   ResponsiveContainer, ReferenceLine,
   BarChart, Bar, Cell,
 } from "recharts";
-import { TOOLTIP_STYLE, GRID_STROKE, TICK } from "./ChartWidgets";
+import { TOOLTIP_STYLE, TOOLTIP_LABEL_STYLE, TOOLTIP_ITEM_STYLE, GRID_STROKE, TICK } from "./ChartWidgets";
 
 interface Props {
   data: { symbol: string; pnl: number }[];
@@ -26,7 +26,11 @@ export default function SymbolPnlWidget({ data }: Props) {
           <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} horizontal={false} />
           <XAxis type="number" tick={TICK} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} />
           <YAxis type="category" dataKey="symbol" tick={TICK} axisLine={false} tickLine={false} width={50} />
-          <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "rgba(148,163,184,0.1)" }}
+          <Tooltip 
+            contentStyle={TOOLTIP_STYLE} 
+            labelStyle={TOOLTIP_LABEL_STYLE}
+            itemStyle={TOOLTIP_ITEM_STYLE}
+            cursor={{ fill: "rgba(148,163,184,0.1)" }}
             formatter={(value: number) => [`$${value.toFixed(2)}`, "P&L"]}
           />
           <ReferenceLine x={0} stroke="#475569" strokeDasharray="4 4" />

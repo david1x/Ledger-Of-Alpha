@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
-import { Trade, QuoteMap } from "@/lib/types";
+import { Trade, QuoteMap, TradeStrategy } from "@/lib/types";
 import { calcRRAchieved } from "@/lib/trade-utils";
 import TradeTable from "@/components/TradeTable";
 import TradeModal from "@/components/TradeModal";
@@ -15,9 +15,12 @@ import SymbolPnlWidget from "./SymbolPnlWidget";
 import FearGreedWidget from "./FearGreedWidget";
 import VixWidget from "./VixWidget";
 import MarketOverviewWidget from "./MarketOverviewWidget";
+import DistributionChart from "./DistributionChart";
+import RiskSimulator from "./RiskSimulator";
+import AIInsightsWidget from "./AIInsightsWidget";
 import {
   Plus, RefreshCw, Pencil, Check, GripVertical, EyeOff, Eye, Plus as PlusIcon, Minimize2, Maximize2,
-  RotateCcw,
+  RotateCcw, Download, ChevronDown as ChevronDownIcon
 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor,
@@ -29,6 +32,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useAccounts } from "@/lib/account-context";
+import clsx from "clsx";
 
 // ── Widget definitions ──────────────────────────────────────────────────
 const ALL_WIDGETS = [
@@ -64,6 +68,12 @@ const ALL_WIDGETS = [
   { id: "fear-greed", title: "Fear & Greed Index" },
   { id: "vix", title: "VIX Index" },
   { id: "market-overview", title: "Market Overview" },
+  { id: "dist-weekday", title: "P&L by Day of Week" },
+  { id: "dist-hour", title: "P&L by Hour of Day" },
+  { id: "dist-month", title: "P&L by Month" },
+  { id: "strategy-perf", title: "Strategy Performance" },
+  { id: "risk-simulator", title: "Monte Carlo Risk Simulator" },
+  { id: "ai-insights", title: "AI Edge Discovery Engine" },
 ] as const;
 
 const WIDGET_MAP = new Map<string, { id: string; title: string }>(ALL_WIDGETS.map(w => [w.id, w]));
@@ -86,9 +96,9 @@ const DEFAULT_ORDER = [
   // Row 8 (2+2+2=6): Performance tables continued
   "perf-duration", "perf-price", "tag-breakdown",
   // Hidden by default
-  "perf-hour",
+  "dist-weekday", "dist-hour", "dist-month", "strategy-perf", "risk-simulator", "ai-insights", "perf-hour",
 ];
-const DEFAULT_HIDDEN = ["perf-hour"] as string[];
+const DEFAULT_HIDDEN = ["dist-weekday", "dist-hour", "dist-month", "strategy-perf", "risk-simulator", "ai-insights", "perf-hour"] as string[];
 
 const DEFAULT_SIZES: Record<string, WidgetSize> = {
   // Large (3 cols)
@@ -96,6 +106,8 @@ const DEFAULT_SIZES: Record<string, WidgetSize> = {
   "cumulative-dd": "large",
   "symbol-pnl": "large",
   "top-mistakes": "large",
+  "risk-simulator": "large",
+  "ai-insights": "large",
   // Medium (2 cols)
   "win-pct": "medium",
   "avg-trade-pnl": "medium",
@@ -166,7 +178,7 @@ function WidgetCard({ id, title, editMode, size, onHide, onToggleSize, children 
 
   return (
     <div ref={setNodeRef} style={style}
-      className={`rounded-xl dark:bg-slate-800/50 bg-white p-3 flex flex-col ${spanClass}`}
+      className={`rounded-2xl dark:bg-slate-800/50 bg-white p-3 flex flex-col shadow-sm ${spanClass}`}
     >
       <div className="flex items-center justify-between mb-2 shrink-0">
         <h3 className="text-sm font-semibold dark:text-white text-slate-900">{title}</h3>
@@ -175,6 +187,7 @@ function WidgetCard({ id, title, editMode, size, onHide, onToggleSize, children 
             <button onClick={onToggleSize}
               className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors dark:text-slate-400 text-slate-500"
               title={`Size: ${size} (click to cycle)`}
+              aria-label={`Change size of ${title}, current size: ${size}`}
             >
               {size === "large" ? <Minimize2 className="w-3 h-3" /> : size === "medium" ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
               <span className="uppercase">{size[0]}</span>
@@ -182,11 +195,14 @@ function WidgetCard({ id, title, editMode, size, onHide, onToggleSize, children 
             <button onClick={onHide}
               className="p-1 rounded hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
               title="Hide widget"
+              aria-label={`Hide ${title} widget`}
             >
               <EyeOff className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
             </button>
             <div {...attributes} {...listeners}
               className="p-1 rounded cursor-grab active:cursor-grabbing hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
+              aria-label={`Drag to reorder ${title}`}
+              title="Drag to reorder"
             >
               <GripVertical className="w-3.5 h-3.5 dark:text-slate-500 text-slate-400" />
             </div>
@@ -241,6 +257,7 @@ function buildPerfRows(groups: Map<string, Trade[]>, sortKeys?: string[]): PerfR
 export default function DashboardShell() {
   const [me, setMe] = useState<any>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [strategies, setStrategies] = useState<TradeStrategy[]>([]);
   const [quotes, setQuotes] = useState<QuoteMap>({});
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -253,6 +270,7 @@ export default function DashboardShell() {
   const [heatmapRanges, setHeatmapRanges] = useState<HeatmapRanges>({ high: 500, mid: 200, low: 1 });
   const [dailyLossLimit, setDailyLossLimit] = useState<number | null>(null);
   const [dailyLossLimitType, setDailyLossLimitType] = useState<"dollar" | "percent">("dollar");
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [editMode, setEditMode] = useState(false);
@@ -329,15 +347,23 @@ export default function DashboardShell() {
         if (!isNaN(v) && v > 0) setDailyLossLimit(v);
       }
       if (settingsData.daily_loss_limit_type === "percent") setDailyLossLimitType("percent");
+      
+      if (settingsData.strategies) {
+        try { setStrategies(JSON.parse(settingsData.strategies)); } catch { /* keep defaults */ }
+      }
+
       if (settingsData.dashboard_layout) {
         try {
           const parsed = JSON.parse(settingsData.dashboard_layout);
           if (parsed.order && Array.isArray(parsed.order)) {
             // Ensure all widget IDs are present (new widgets added after save)
-            const existing = new Set(parsed.order);
+            const existingOrder = new Set(parsed.order);
+            const hiddenSet = new Set(parsed.hidden ?? []);
             const merged = [...parsed.order];
             for (const w of DEFAULT_ORDER) {
-              if (!existing.has(w)) merged.push(w);
+              if (!existingOrder.has(w) && !hiddenSet.has(w)) {
+                merged.push(w);
+              }
             }
             // Migrate old "normal" size values to "large"
             const rawSizes: Record<string, string> = parsed.sizes ?? {};
@@ -357,6 +383,23 @@ export default function DashboardShell() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExport = async (format: "csv" | "json") => {
+    const url = `/api/trades/export?format=${format}${activeAccountId ? `&account_id=${activeAccountId}` : ""}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = `trades-export-${new Date().toISOString().split("T")[0]}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(downloadUrl);
+      document.body.removeChild(a);
+    }
+    setShowExportMenu(false);
   };
 
   useEffect(() => { load(); }, [activeAccountId, accounts.length]);
@@ -732,8 +775,8 @@ export default function DashboardShell() {
           gradientId="avgPnlGrad" valuePrefix="$" />;
       case "win-vs-loss":
         return <ComparisonWidget
-          leftLabel="Winners" leftValue={String(compStats.winCount)} leftColor="text-emerald-400"
-          rightLabel="Losers" rightValue={String(compStats.lossCount)} rightColor="text-red-400"
+          leftLabel="Winners" leftValue={hidden ? mask : String(compStats.winCount)} leftColor="text-emerald-400"
+          rightLabel="Losers" rightValue={hidden ? mask : String(compStats.lossCount)} rightColor="text-red-400"
         />;
       case "avg-win-vs-loss":
         return <ComparisonWidget
@@ -844,6 +887,18 @@ export default function DashboardShell() {
         return <VixWidget />;
       case "market-overview":
         return <MarketOverviewWidget />;
+      case "dist-weekday":
+        return <DistributionChart trades={closed} type="weekday" title="P&L by Weekday" />;
+      case "dist-hour":
+        return <DistributionChart trades={closed} type="hour" title="P&L by Hour" />;
+      case "dist-month":
+        return <DistributionChart trades={closed} type="month" title="P&L by Month" />;
+      case "strategy-perf":
+        return <ComparisonWidget trades={closed} strategies={strategies} />;
+      case "risk-simulator":
+        return <RiskSimulator trades={trades} startingBalance={accountSize} />;
+      case "ai-insights":
+        return <AIInsightsWidget trades={trades} />;
       default:
         return null;
     }
@@ -858,124 +913,135 @@ export default function DashboardShell() {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-2">
         <div>
-          <h1 className="text-2xl font-bold dark:text-white text-slate-900">Dashboard</h1>
-          <p className="text-sm dark:text-slate-400 text-slate-500 mt-0.5">Your trading performance at a glance</p>
+          <h1 className="text-2xl sm:text-3xl font-black dark:text-white text-slate-900 tracking-tight">Dashboard</h1>
+          <p className="text-sm dark:text-slate-400 text-slate-500 mt-1 font-medium">Your trading performance at a glance</p>
         </div>
-        <div className="flex items-center gap-2">
+        
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
           {/* Time filter */}
-          <div className="flex h-9 rounded-lg dark:bg-slate-800/50 bg-slate-100/50 overflow-hidden">
+          <div className="flex p-1 rounded-2xl dark:bg-slate-900 bg-slate-200/50 border dark:border-slate-800 border-slate-200 shadow-inner">
             {timeFilters.map(tf => (
               <button key={tf.label}
                 onClick={() => saveTimeFilter(tf.value)}
-                className={`px-3 flex items-center text-xs font-medium transition-colors ${
+                className={clsx(
+                  "px-4 py-1.5 rounded-xl text-xs font-bold transition-all",
                   timeFilter === tf.value
-                    ? "bg-emerald-500 text-white shadow-sm"
-                    : "dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-200"
-                }`}
+                    ? "bg-white dark:bg-slate-800 dark:text-emerald-400 text-emerald-600 shadow-sm"
+                    : "dark:text-slate-500 text-slate-500 hover:dark:text-slate-300 hover:text-slate-700"
+                )}
               >
                 {tf.label}
               </button>
             ))}
           </div>
 
-          {/* Edit / Done / Reset */}
-          {editMode ? (
-            <>
-              <button onClick={resetLayout}
-                className="flex items-center gap-1.5 h-9 px-3 rounded-lg dark:bg-slate-700/50 bg-slate-200/50 hover:dark:bg-slate-700 hover:bg-slate-300 text-sm dark:text-slate-300 text-slate-600 transition-colors"
-                title="Reset to default layout">
-                <RotateCcw className="w-3.5 h-3.5" />
-                Reset
+          <div className="flex items-center gap-3">
+            {/* Utility group */}
+            <div className="flex items-center gap-1 p-1 rounded-2xl dark:bg-slate-900 bg-slate-200/50 border dark:border-slate-800 border-slate-200 shadow-sm">
+              <button onClick={() => setEditMode(!editMode)}
+                className={clsx(
+                  "flex items-center justify-center h-7 w-7 sm:h-8 sm:w-8 rounded-xl transition-colors",
+                  editMode ? "bg-emerald-500 text-white" : "hover:dark:bg-slate-800 hover:bg-white text-slate-500"
+                )}
+                title="Edit layout">
+                {editMode ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
               </button>
-              <button onClick={finishEdit}
-                className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium transition-colors shadow-sm">
-                <Check className="w-4 h-4" />
-                Done
+
+              <button onClick={load}
+                className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:dark:bg-slate-800 hover:bg-white text-slate-500 transition-colors"
+                title="Refresh">
+                <RefreshCw className={clsx("w-3.5 h-3.5 sm:w-4 sm:h-4", loading && "animate-spin")} />
               </button>
-            </>
-          ) : (
-            <button onClick={() => setEditMode(true)}
-              className="flex items-center gap-1.5 h-9 px-3 rounded-lg dark:bg-slate-800/50 bg-slate-100/50 hover:dark:bg-slate-800 hover:bg-slate-200 text-sm dark:text-slate-300 text-slate-600 transition-colors">
-              <Pencil className="w-3.5 h-3.5" />
-              Edit Layout
+
+              <div className="relative">
+                <button
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:dark:bg-slate-800 hover:bg-white text-slate-500 transition-colors"
+                  title="Export data"
+                >
+                  <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </button>
+                {showExportMenu && (
+                  <div className="absolute right-0 mt-3 w-40 rounded-2xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                    <button onClick={() => handleExport("csv")} className="w-full px-4 py-3 text-left text-xs font-bold dark:text-slate-300 text-slate-600 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors border-b dark:border-slate-800 border-slate-100">Download CSV</button>
+                    <button onClick={() => handleExport("json")} className="w-full px-4 py-3 text-left text-xs font-bold dark:text-slate-300 text-slate-600 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors">Download JSON</button>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => {
+                  const next = !hidden;
+                  setHidden(next);
+                  localStorage.setItem("privacy_hidden", String(next));
+                }}
+                className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:dark:bg-slate-800 hover:bg-white text-slate-500 transition-colors"
+                title={hidden ? "Show numbers" : "Hide numbers"}
+              >
+                {hidden ? <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+              </button>
+            </div>
+
+            <button onClick={() => { setEditTrade(null); setShowModal(true); }}
+              className="flex items-center gap-2 h-10 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-[0.1em] transition-all shadow-lg shadow-emerald-600/20 active:scale-95 whitespace-nowrap">
+              <Plus className="w-4 h-4" />
+              <span>New Trade</span>
             </button>
-          )}
-
-          <button onClick={load}
-            className="h-9 w-9 flex items-center justify-center rounded-lg dark:bg-slate-800/50 bg-slate-100/50 hover:dark:bg-slate-800 hover:bg-slate-200 transition-colors"
-            title="Refresh">
-            <RefreshCw className={`w-4 h-4 dark:text-slate-400 text-slate-500 ${loading ? "animate-spin" : ""}`} />
-          </button>
-
-          <button
-            onClick={() => {
-              const next = !hidden;
-              setHidden(next);
-              localStorage.setItem("privacy_hidden", String(next));
-            }}
-            className="h-9 w-9 flex items-center justify-center rounded-lg dark:bg-slate-800/50 bg-slate-100/50 hover:dark:bg-slate-800 hover:bg-slate-200 transition-colors"
-            title={hidden ? "Show numbers" : "Hide numbers"}
-          >
-            {hidden
-              ? <EyeOff className="w-4 h-4 dark:text-slate-400 text-slate-500" />
-              : <Eye className="w-4 h-4 dark:text-slate-400 text-slate-500" />}
-          </button>
-
-          <button onClick={() => { setEditTrade(null); setShowModal(true); }}
-            className="flex items-center gap-2 h-9 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium transition-colors shadow-sm ml-1">
-            <Plus className="w-4 h-4" />
-            New Trade
-          </button>
+          </div>
         </div>
       </div>
 
       {/* Account Summary Strip */}
-      <div className="rounded-xl dark:bg-slate-900/80 bg-white border dark:border-slate-800 border-slate-200 px-4 py-3">
-        <div className="flex items-center gap-6 flex-wrap">
+      <div className="rounded-2xl dark:bg-slate-900/80 bg-white border dark:border-slate-800 border-slate-200 px-4 py-3 shadow-sm">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-y-4 gap-x-6 sm:flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium dark:text-slate-400 text-slate-500">Balance</span>
-            <span className={`text-sm font-bold ${totalPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            <span className="text-[10px] sm:text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">Balance</span>
+            <span className={`text-sm sm:text-base font-bold ${totalPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
               {hidden ? mask : `$${currentBalance.toFixed(2)}`}
             </span>
           </div>
-          <div className="w-px h-5 dark:bg-slate-700 bg-slate-200" />
+          <div className="hidden sm:block w-px h-5 dark:bg-slate-700 bg-slate-200" />
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium dark:text-slate-400 text-slate-500">P&L</span>
-            <span className={`text-sm font-bold ${totalPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-              {hidden ? mask : `${totalPnl >= 0 ? "+" : "-"}${fmt$(totalPnl)}`}
-            </span>
-            <span className={`text-xs font-semibold ${totalPnl >= 0 ? "text-emerald-400/70" : "text-red-400/70"}`}>
-              {hidden ? "" : `(${totalPnl >= 0 ? "+" : ""}${(totalPnl / accountSize * 100).toFixed(2)}%)`}
-            </span>
+            <span className="text-[10px] sm:text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">P&L</span>
+            <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-1.5">
+              <span className={`text-sm sm:text-base font-bold ${totalPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {hidden ? mask : `${totalPnl >= 0 ? "+" : "-"}${fmt$(totalPnl)}`}
+              </span>
+              <span className={`text-[10px] sm:text-xs font-semibold ${totalPnl >= 0 ? "text-emerald-400/70" : "text-red-400/70"}`}>
+                {hidden ? "" : `(${totalPnl >= 0 ? "+" : ""}${(totalPnl / accountSize * 100).toFixed(2)}%)`}
+              </span>
+            </div>
           </div>
-          <div className="w-px h-5 dark:bg-slate-700 bg-slate-200" />
+          <div className="hidden sm:block w-px h-5 dark:bg-slate-700 bg-slate-200" />
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium dark:text-slate-400 text-slate-500">Today</span>
-            <span className={`text-sm font-bold ${todayPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-              {hidden ? mask : `${todayPnl >= 0 ? "+" : "-"}${fmt$(todayPnl)}`}
-            </span>
-            <span className={`text-xs font-semibold ${todayPnl >= 0 ? "text-emerald-400/70" : "text-red-400/70"}`}>
-              {hidden ? "" : `(${todayPnl >= 0 ? "+" : ""}${(currentBalance > 0 ? todayPnl / currentBalance * 100 : 0).toFixed(2)}%)`}
-            </span>
+            <span className="text-[10px] sm:text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">Today</span>
+            <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-1.5">
+              <span className={`text-sm sm:text-base font-bold ${todayPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {hidden ? mask : `${todayPnl >= 0 ? "+" : "-"}${fmt$(todayPnl)}`}
+              </span>
+              <span className={`text-[10px] sm:text-xs font-semibold ${todayPnl >= 0 ? "text-emerald-400/70" : "text-red-400/70"}`}>
+                {hidden ? "" : `(${todayPnl >= 0 ? "+" : ""}${(currentBalance > 0 ? todayPnl / currentBalance * 100 : 0).toFixed(2)}%)`}
+              </span>
+            </div>
           </div>
-          <div className="w-px h-5 dark:bg-slate-700 bg-slate-200" />
+          <div className="hidden sm:block w-px h-5 dark:bg-slate-700 bg-slate-200" />
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium dark:text-slate-400 text-slate-500">Trades</span>
-            <span className="text-sm font-bold dark:text-slate-300 text-slate-700">
+            <span className="text-[10px] sm:text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">Trades</span>
+            <span className="text-sm sm:text-base font-bold dark:text-slate-300 text-slate-700">
               {closed.length}
             </span>
           </div>
-          <div className="w-px h-5 dark:bg-slate-700 bg-slate-200" />
+          <div className="hidden sm:block w-px h-5 dark:bg-slate-700 bg-slate-200" />
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium dark:text-slate-400 text-slate-500">Win Rate</span>
+            <span className="text-[10px] sm:text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">Win Rate</span>
             {(() => {
               const wins = closed.filter(t => (t.pnl ?? 0) > 0).length;
               const wr = closed.length > 0 ? (wins / closed.length) * 100 : 0;
-              return <span className={`text-sm font-bold ${wr >= 50 ? "text-emerald-400" : "text-yellow-400"}`}>
+              return <span className={`text-sm sm:text-base font-bold ${wr >= 50 ? "text-emerald-400" : "text-yellow-400"}`}>
                 {hidden ? mask : `${wr.toFixed(1)}%`}
               </span>;
             })()}
@@ -985,7 +1051,7 @@ export default function DashboardShell() {
 
       {/* Daily Loss Limit Warning */}
       {dailyLossExceeded && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300 shadow-sm">
           <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
             <span className="text-lg">&#9888;</span>
           </div>
@@ -1006,7 +1072,7 @@ export default function DashboardShell() {
 
       {/* Widget Grid */}
       {closed.length === 0 ? (
-        <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-slate-50 p-8 text-center">
+        <div className="rounded-2xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-slate-50 p-8 text-center shadow-sm">
           <p className="dark:text-slate-500 text-slate-400 text-sm">
             No closed trades{timeFilter !== "all" ? ` in the last ${timeFilter} days` : ""}. Close a trade to see analytics.
           </p>
@@ -1033,12 +1099,12 @@ export default function DashboardShell() {
 
       {/* Hidden widgets panel (edit mode) */}
       {editMode && hiddenWidgets.length > 0 && (
-        <div className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/30 bg-slate-50 p-3">
+        <div className="rounded-2xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/30 bg-slate-50 p-3 shadow-sm">
           <p className="text-xs font-medium dark:text-slate-400 text-slate-500 mb-2">Hidden Widgets</p>
           <div className="flex flex-wrap gap-2">
             {hiddenWidgets.map(id => (
               <button key={id} onClick={() => showWidget(id)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg border dark:border-slate-600 border-slate-300 dark:bg-slate-700/50 bg-white text-xs dark:text-slate-300 text-slate-600 hover:dark:bg-slate-700 hover:bg-slate-100 transition-colors"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-xl border dark:border-slate-600 border-slate-300 dark:bg-slate-700/50 bg-white text-xs dark:text-slate-300 text-slate-600 hover:dark:bg-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
               >
                 <PlusIcon className="w-3 h-3" />
                 {WIDGET_MAP.get(id)?.title ?? id}
@@ -1055,7 +1121,7 @@ export default function DashboardShell() {
             <h2 className="font-semibold dark:text-white text-slate-900">Open Trades</h2>
             <a href="/trades" className="text-sm text-emerald-400 hover:underline">View all trades</a>
           </div>
-          <div className="rounded-xl dark:bg-slate-800/50 bg-white p-4">
+          <div className="rounded-2xl dark:bg-slate-800/50 bg-white p-4 shadow-sm border dark:border-slate-800/50 border-slate-100/50">
             <TradeTable
               trades={trades}
               onEdit={handleEdit}

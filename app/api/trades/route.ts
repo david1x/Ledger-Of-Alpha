@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       exit_price, shares, entry_date, exit_date,
       notes, tags, emotions, wyckoff_checklist, account_size, commission, risk_per_trade,
       rating, mistakes, market_context, lessons,
-      chart_tf, chart_saved_at, account_id,
+      chart_tf, chart_saved_at, account_id, strategy_id, checklist_items,
     } = body;
 
     // Validate account_id if provided
@@ -123,8 +123,8 @@ export async function POST(req: NextRequest) {
     const result = db.prepare(`
       INSERT INTO trades (symbol, direction, status, entry_price, stop_loss, take_profit,
         exit_price, shares, entry_date, exit_date, pnl, notes, tags, emotions, wyckoff_checklist, user_id, account_size, commission, risk_per_trade,
-        rating, mistakes, market_context, lessons, chart_tf, chart_saved_at, account_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        rating, mistakes, market_context, lessons, chart_tf, chart_saved_at, account_id, strategy_id, checklist_items)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       symbol?.toUpperCase(), direction, status,
       entry_price ?? null, stop_loss ?? null, take_profit ?? null,
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
       pnl, notes ?? null, tags ?? null, emotions ?? null, wyckoff_checklist ?? null, user.id,
       account_size ?? null, commission ?? null, risk_per_trade ?? null,
       rating ?? null, mistakes ?? null, market_context ?? null, lessons ?? null,
-      chart_tf ?? null, chart_saved_at ?? null, resolvedAccountId ?? null,
+      chart_tf ?? null, chart_saved_at ?? null, resolvedAccountId ?? null, strategy_id ?? null, checklist_items ?? null,
     );
 
     const trade = db.prepare("SELECT * FROM trades WHERE id = ?").get(result.lastInsertRowid);

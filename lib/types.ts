@@ -68,6 +68,8 @@ export interface Trade {
   chart_tf?: string | null;
   chart_saved_at?: string | null;
   account_id?: string | null;
+  strategy_id?: string | null;
+  checklist_items?: string | null;
   created_at: string;
   user_id: string | null;
 }
@@ -133,4 +135,6 @@ export interface Alert {
   triggered_at: string | null;
   created_at: string;
   note: string | null;
+  notify_email: number;    // 0 | 1
+  notify_discord: number;  // 0 | 1
 }

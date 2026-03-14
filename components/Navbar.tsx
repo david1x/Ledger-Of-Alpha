@@ -9,7 +9,7 @@ import AlertModal from "./AlertModal";
 import {
   BookOpen, LineChart, Settings as SettingsIcon, TrendingUp, Layout, ChevronDown,
   LogOut, User, ShieldCheck, Menu, X, ExternalLink, Bell, Trash2,
-  Power, Clock, Pencil, ChevronsLeft, ChevronsRight, Eye, EyeOff, Wallet,
+  Power, Clock, Pencil, ChevronsLeft, ChevronsRight, Eye, EyeOff, Wallet, BarChart3,
 } from "lucide-react";
 import clsx from "clsx";
 import type { Alert } from "@/lib/types";
@@ -50,10 +50,11 @@ function playAlertSound() {
 }
 
 const NAV_LINKS = [
-  { href: "/",        label: "Dashboard", icon: Layout },
-  { href: "/trades",  label: "Trades",    icon: TrendingUp },
-  { href: "/journal", label: "Journal",   icon: BookOpen },
-  { href: "/chart",   label: "Chart",     icon: LineChart },
+  { href: "/",          label: "Dashboard", icon: Layout },
+  { href: "/trades",    label: "Trades",    icon: TrendingUp },
+  { href: "/journal",   label: "Journal",   icon: BookOpen },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/chart",     label: "Chart",     icon: LineChart },
 ];
 
 const AUTH_PATHS = ["/login", "/register", "/verify-2fa"];
@@ -352,20 +353,22 @@ export default function Navbar() {
     <>
       <div className="sm:hidden fixed top-4 left-4 z-50">
         <button onClick={() => setMobileOpen(v => !v)}
-          className="p-2 rounded-lg bg-white dark:bg-slate-950 border dark:border-slate-800 border-slate-200 shadow-lg dark:text-slate-400 text-slate-600">
+          className="p-2 rounded-xl bg-white dark:bg-slate-950 border dark:border-slate-800 border-slate-200 shadow-xl dark:text-slate-400 text-slate-600"
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}>
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
       {mobileOpen && <div className="sm:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setMobileOpen(false)} />}
 
       <aside className={clsx(
-        "fixed top-0 left-0 bottom-0 z-40 flex flex-col border-r dark:border-slate-800 border-slate-200 dark:bg-slate-950 bg-white transition-all duration-200",
-        mobileOpen ? "max-sm:w-64" : "max-sm:w-0 max-sm:border-r-0",
+        "fixed top-0 left-0 bottom-0 z-40 flex flex-col border-r dark:border-slate-800 border-slate-200 dark:bg-slate-950 bg-white transition-all duration-300",
+        mobileOpen ? "max-sm:translate-x-0 w-64" : "max-sm:-translate-x-full w-64",
         expanded ? "sm:w-64" : "sm:w-16",
       )}>
         <button onClick={() => setExpanded(v => !v)}
           className="hidden sm:flex absolute top-6 -right-3 z-50 w-6 h-6 items-center justify-center rounded-full border dark:border-slate-800 border-slate-200 dark:bg-slate-900 bg-white dark:text-slate-400 text-slate-500 hover:dark:text-white hover:text-slate-900 shadow-md transition-colors"
-          title={expanded ? "Collapse sidebar" : "Expand sidebar"}>
+          title={expanded ? "Collapse sidebar" : "Expand sidebar"}
+          aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}>
           {expanded ? <ChevronsLeft className="w-3.5 h-3.5" /> : <ChevronsRight className="w-3.5 h-3.5" />}
         </button>
 
@@ -486,7 +489,7 @@ export default function Navbar() {
                     </div>
                     {me.guest && <div className="p-2 border-b dark:border-slate-800 border-slate-100"><Link href="/register" onClick={() => setMenuOpen(false)} className="flex items-center justify-center w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors">Create Account</Link></div>}
                     <div className="px-2 py-1.5 border-b dark:border-slate-800 border-slate-100">
-                      <div className="flex items-center justify-between px-2 py-1.5"><span className="text-xs dark:text-slate-400 text-slate-500 font-medium">Privacy Mode</span><button onClick={toggleHidden} className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors" title={hidden ? "Show numbers" : "Hide numbers"}>{hidden ? <EyeOff className="w-4 h-4 dark:text-slate-400 text-slate-500" /> : <Eye className="w-4 h-4 dark:text-slate-400 text-slate-500" />}</button></div>
+                      <div className="flex items-center justify-between px-2 py-1.5"><span className="text-xs dark:text-slate-400 text-slate-500 font-medium">Privacy Mode</span><button onClick={toggleHidden} className="p-1.5 rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors" title={hidden ? "Show numbers" : "Hide numbers"} aria-label={hidden ? "Show numbers" : "Hide numbers"}>{hidden ? <EyeOff className="w-4 h-4 dark:text-slate-400 text-slate-500" /> : <Eye className="w-4 h-4 dark:text-slate-400 text-slate-500" />}</button></div>
                       <div className="flex items-center justify-between px-2 py-1.5"><span className="text-xs dark:text-slate-400 text-slate-500 font-medium">Appearance</span><ThemeToggle /></div>
                     </div>
                     <div className="p-1">
@@ -508,7 +511,7 @@ export default function Navbar() {
   const toastPortal = mounted && toasts.length > 0 ? createPortal(
     <div className="fixed bottom-4 right-4 z-[200] flex flex-col gap-2 pointer-events-none" style={{ maxWidth: 360 }}>
       {toasts.map((t) => (
-        <div key={`${t.id}-${t.ts}`} className="pointer-events-auto rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white shadow-2xl p-4" style={{ animation: "slideInRight 0.3s ease-out" }}>
+        <div key={`${t.id}-${t.ts}`} className="pointer-events-auto rounded-2xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white shadow-2xl p-4" style={{ animation: "slideInRight 0.3s ease-out" }}>
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5"><Bell className="w-4 h-4 text-emerald-400" /></div>
             <div className="flex-1 min-w-0">

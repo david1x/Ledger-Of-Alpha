@@ -45,6 +45,14 @@ export async function PATCH(
       updates.push("triggered_at = ?");
       values.push(body.triggered_at);
     }
+    if (body.notify_email !== undefined) {
+      updates.push("notify_email = ?");
+      values.push(body.notify_email ? 1 : 0);
+    }
+    if (body.notify_discord !== undefined) {
+      updates.push("notify_discord = ?");
+      values.push(body.notify_discord ? 1 : 0);
+    }
 
     if (updates.length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });

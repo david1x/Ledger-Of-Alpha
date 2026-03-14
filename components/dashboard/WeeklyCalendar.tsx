@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { ChevronLeft, ChevronRight, FileText, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Trade } from "@/lib/types";
 
@@ -24,10 +24,28 @@ function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function fmt$(n: number): string {
+  return `$${Math.abs(n).toFixed(2)}`;
+}
+
 export default function WeeklyCalendar({ dailyPnl, dailyCounts, trades }: Props) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [popupDate, setPopupDate] = useState<string | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // ── Click Outside Logic ──
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setPopupDate(null);
+      }
+    }
+    if (popupDate) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [popupDate]);
 
   const weekDays = useMemo(() => {
     const monday = getMonday(new Date());
@@ -64,7 +82,7 @@ export default function WeeklyCalendar({ dailyPnl, dailyCounts, trades }: Props)
   const popupDayIndex = popupDate ? weekDays.findIndex(d => d.date === popupDate) : -1;
 
   return (
-    <div className="rounded-xl dark:bg-slate-900/80 bg-white px-4 py-3">
+    <div ref={containerRef} className="rounded-xl dark:bg-slate-900/80 bg-white px-4 py-3">
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-2">
           <button onClick={() => { setWeekOffset(v => v - 1); setPopupDate(null); }}
@@ -91,31 +109,33 @@ export default function WeeklyCalendar({ dailyPnl, dailyCounts, trades }: Props)
           return (
             <button key={d.date}
               onClick={() => hasTrades ? setPopupDate(popupDate === d.date ? null : d.date) : undefined}
-              className={`rounded-lg px-2.5 py-2 text-left transition-colors ${
+              className={`rounded-xl px-2 py-2.5 text-center transition-all flex flex-col items-center justify-between min-h-[90px] relative ${
                 popupDate === d.date
-                  ? "ring-1 ring-emerald-500 dark:bg-slate-700 bg-slate-200"
+                  ? "ring-2 ring-emerald-500/50 dark:bg-slate-800 bg-slate-100 shadow-lg scale-[1.02] z-10"
                   : d.isToday
-                    ? "ring-1 ring-emerald-500/50 dark:bg-slate-800 bg-slate-100"
-                    : "dark:bg-slate-800/50 bg-slate-50"
-              } ${hasTrades ? "cursor-pointer hover:dark:bg-slate-700/80 hover:bg-slate-100" : "cursor-default"}`}
+                    ? "ring-1 ring-emerald-500/30 dark:bg-slate-800/50 bg-slate-50 shadow-sm"
+                    : "dark:bg-slate-800/30 bg-slate-50/50 border dark:border-slate-800/50 border-slate-100"
+              } ${hasTrades ? "cursor-pointer hover:dark:bg-slate-800 hover:bg-slate-100 active:scale-95" : "cursor-default opacity-60"}`}
             >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-baseline gap-1">
-                  <span className={`text-base font-bold ${d.isToday ? "dark:text-white text-slate-900" : "dark:text-slate-200 text-slate-700"}`}>
-                    {d.dayNum}
-                  </span>
-                  <span className="text-[10px] font-medium dark:text-slate-500 text-slate-400">{d.dayName}</span>
+              {hasTrades && (
+                <div className="absolute top-1.5 right-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse" />
                 </div>
-                {hasTrades && (
-                  <FileText className="w-3.5 h-3.5 dark:text-slate-600 text-slate-300 shrink-0 mt-0.5" />
-                )}
+              )}
+              
+              <div className="flex flex-col items-center leading-none mb-2">
+                <span className={`text-lg font-black tracking-tighter ${d.isToday ? "text-emerald-400" : "dark:text-white text-slate-900"}`}>
+                  {d.dayNum}
+                </span>
+                <span className="text-[8px] font-black uppercase tracking-[0.2em] dark:text-slate-500 text-slate-400 mt-1">{d.dayName}</span>
               </div>
-              <div>
-                <p className={`text-xs font-bold ${hasTrades ? (pnl >= 0 ? "text-emerald-400" : "text-red-400") : "dark:text-slate-600 text-slate-300"}`}>
-                  {hasTrades ? `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(0)}` : "$0"}
+
+              <div className="flex flex-col items-center leading-tight">
+                <p className={`text-[11px] font-black tabular-nums ${hasTrades ? (pnl >= 0 ? "text-emerald-400" : "text-red-400") : "dark:text-slate-600 text-slate-400"}`}>
+                  {hasTrades ? (pnl >= 0 ? "+" : "-") + fmt$(pnl).replace("$", "") : "$0"}
                 </p>
-                <p className="text-[10px] font-medium dark:text-slate-500 text-slate-400">
-                  {count} trade{count !== 1 ? "s" : ""}
+                <p className="text-[7px] font-black uppercase tracking-widest dark:text-slate-600 text-slate-500 mt-0.5">
+                  {count} {count === 1 ? "Trade" : "Trades"}
                 </p>
               </div>
             </button>

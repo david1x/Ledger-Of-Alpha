@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser, isGuest } from "@/lib/auth";
 import { Alert } from "@/lib/types";
+import { sendAlertNotifications } from "@/lib/notifications";
 
 export async function POST(req: NextRequest) {
   if (isGuest(req)) {
@@ -21,20 +22,6 @@ export async function POST(req: NextRequest) {
     const now = new Date().toISOString();
     const updated: Alert[] = [];
 
-    // Get user's alert-specific webhook, falling back to general discord webhook
-    const getWebhook = (key: string) => {
-      const r = db.prepare(`
-        SELECT value FROM settings
-        WHERE user_id = ? AND key = ?
-        UNION ALL
-        SELECT value FROM settings
-        WHERE user_id = '_system' AND key = ?
-        LIMIT 1
-      `).get(user.id, key, key) as { value: string } | undefined;
-      return r?.value ?? "";
-    };
-    const webhook = getWebhook("alert_discord_webhook") || getWebhook("discord_webhook");
-
     for (const alertId of triggered) {
       const alert = db.prepare(
         "SELECT * FROM alerts WHERE id = ? AND user_id = ? AND active = 1"
@@ -52,35 +39,8 @@ export async function POST(req: NextRequest) {
       const updatedAlert = db.prepare("SELECT * FROM alerts WHERE id = ?").get(alert.id) as Alert;
       updated.push(updatedAlert);
 
-      // Post to Discord if webhook configured
-      if (webhook) {
-        let headline: string;
-        if (alert.condition === "percent_up") {
-          headline = `**Price Alert** — **${alert.symbol}** moved up ${alert.percent_value}% (from $${alert.anchor_price} to $${alert.target_price})`;
-        } else if (alert.condition === "percent_down") {
-          headline = `**Price Alert** — **${alert.symbol}** moved down ${alert.percent_value}% (from $${alert.anchor_price} to $${alert.target_price})`;
-        } else if (alert.condition === "percent_move") {
-          headline = `**Price Alert** — **${alert.symbol}** moved \u00B1${alert.percent_value}% from $${alert.anchor_price}`;
-        } else {
-          const condLabel = alert.condition === "above" ? "above" : alert.condition === "below" ? "below" : "crossed";
-          headline = `**Price Alert** — **${alert.symbol}** is ${condLabel} $${alert.target_price}`;
-        }
-        const content = [
-          headline,
-          alert.note ? `> ${alert.note}` : "",
-          alert.repeating ? "_Repeating alert_" : "_One-shot alert (now inactive)_",
-        ].filter(Boolean).join("\n");
-
-        try {
-          await fetch(webhook, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content }),
-          });
-        } catch {
-          // Discord post failure is non-fatal
-        }
-      }
+      // Centralized notification logic (Email + Discord)
+      await sendAlertNotifications(updatedAlert);
     }
 
     return NextResponse.json(updated);

@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { symbol, condition, target_price, percent_value, anchor_price, repeating, note } = body;
+    const { symbol, condition, target_price, percent_value, anchor_price, repeating, note, notify_email, notify_discord } = body;
 
     if (!symbol || typeof symbol !== "string") {
       return NextResponse.json({ error: "symbol is required" }, { status: 400 });
@@ -55,8 +55,8 @@ export async function POST(req: NextRequest) {
 
     const db = getDb();
     const result = db.prepare(`
-      INSERT INTO alerts (user_id, symbol, condition, target_price, percent_value, anchor_price, repeating, note)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO alerts (user_id, symbol, condition, target_price, percent_value, anchor_price, repeating, note, notify_email, notify_discord)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       user.id,
       symbol.toUpperCase(),
@@ -65,7 +65,9 @@ export async function POST(req: NextRequest) {
       isPercent ? percent_value : null,
       isPercent ? anchor_price : null,
       repeating ? 1 : 0,
-      note || null
+      note || null,
+      notify_email ? 1 : 0,
+      notify_discord !== false ? 1 : 0
     );
 
     const alert = db.prepare("SELECT * FROM alerts WHERE id = ?").get(result.lastInsertRowid);
