@@ -586,9 +586,9 @@ function SettingsContent() {
                 <label className={LABEL}>Daily Loss Limit</label>
                 <div className="flex gap-2">
                   <input type="number" step="0.01" value={settings.daily_loss_limit}
-                    onChange={e => setSettings(s => ({ ...s, daily_loss_limit: e.target.value }))} className={INPUT} placeholder="No limit" />
+                    onChange={e => setSettings(s => ({ ...s, daily_loss_limit: e.target.value }))} className={INPUT + " flex-1 min-w-0"} placeholder="No limit" />
                   <select value={settings.daily_loss_limit_type}
-                    onChange={e => setSettings(s => ({ ...s, daily_loss_limit_type: e.target.value }))} className={INPUT + " w-24 shrink-0"}>
+                    onChange={e => setSettings(s => ({ ...s, daily_loss_limit_type: e.target.value }))} className={INPUT + " w-20 shrink-0"}>
                     <option value="dollar">$</option>
                     <option value="percent">%</option>
                   </select>
