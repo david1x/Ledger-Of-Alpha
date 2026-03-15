@@ -76,7 +76,7 @@ function LoginForm() {
       <div className="w-full max-w-sm">
         {/* Brand */}
         <div className="flex flex-col items-center gap-3 mb-8">
-          <Logo className="w-14 h-14" />
+          <Logo className="w-20 h-20" />
           <div className="text-center">
             <span className="text-2xl font-bold text-emerald-400">Ledger</span>
             <span className="text-2xl font-bold dark:text-white text-slate-900"> Of Alpha</span>

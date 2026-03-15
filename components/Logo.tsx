@@ -11,23 +11,25 @@ export default function Logo({ className = "w-7 h-7" }: Props) {
       className={className}
       aria-hidden="true"
     >
-      {/* Candle 1 — short bullish */}
-      <line x1="7" y1="19.5" x2="7" y2="21.5" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" />
-      <rect x="4" y="21.5" width="6" height="5" rx="1" fill="#10b981" />
-      <line x1="7" y1="26.5" x2="7" y2="28.5" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Left page */}
+      <path d="M4 7 C4 7 8 6 15.5 6 L15.5 27 C8 27 4 26 4 26 Z" className="fill-slate-100 stroke-slate-400 dark:fill-slate-800 dark:stroke-slate-500" strokeWidth="0.8" />
+      {/* Right page */}
+      <path d="M28 7 C28 7 24 6 16.5 6 L16.5 27 C24 27 28 26 28 26 Z" className="fill-slate-100 stroke-slate-400 dark:fill-slate-800 dark:stroke-slate-500" strokeWidth="0.8" />
 
-      {/* Candle 2 — medium bullish */}
-      <line x1="16" y1="12.5" x2="16" y2="14.5" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" />
-      <rect x="13" y="14.5" width="6" height="8.5" rx="1" fill="#10b981" />
-      <line x1="16" y1="23" x2="16" y2="25" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Spine */}
+      <line x1="16" y1="5.5" x2="16" y2="27.5" stroke="#10b981" strokeWidth="1.2" strokeLinecap="round" />
 
-      {/* Candle 3 — tall bullish, brighter green */}
-      <line x1="25" y1="4.5" x2="25" y2="6.5" stroke="#34d399" strokeWidth="1.5" strokeLinecap="round" />
-      <rect x="22" y="6.5" width="6" height="13" rx="1" fill="#34d399" />
-      <line x1="25" y1="19.5" x2="25" y2="21.5" stroke="#34d399" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Left page: text lines (green tinted labels, red = loss) */}
+      <line x1="6" y1="10" x2="13" y2="10" stroke="#059669" strokeWidth="0.8" strokeLinecap="round" opacity="0.5" />
+      <line x1="6" y1="14" x2="12" y2="14" stroke="#059669" strokeWidth="0.8" strokeLinecap="round" opacity="0.5" />
+      <line x1="6" y1="18" x2="11" y2="18" stroke="#ef4444" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="6" y1="22" x2="14" y2="22" stroke="#059669" strokeWidth="0.8" strokeLinecap="round" opacity="0.5" />
 
-      {/* Trend line connecting candle tops */}
-      <line x1="4" y1="24" x2="28" y2="8" stroke="#6ee7b7" strokeWidth="1" strokeLinecap="round" strokeDasharray="2 2" opacity="0.5" />
+      {/* Right page: P&L values (green = profit, longest at top) */}
+      <line x1="19" y1="10" x2="26" y2="10" stroke="#6ee7b7" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="19" y1="14" x2="24" y2="14" stroke="#34d399" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="19" y1="18" x2="23" y2="18" stroke="#059669" strokeWidth="0.8" strokeLinecap="round" opacity="0.5" />
+      <line x1="19" y1="22" x2="22" y2="22" stroke="#10b981" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );
 }
