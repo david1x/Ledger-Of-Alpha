@@ -19,39 +19,39 @@
 ## Screenshots
 
 ### Dashboard
-![Dashboard](docs/screenshots/01-dashboard.png)
+![Dashboard](docs/screenshots/01-dashboard.png?v=2)
 *24 drag-reorderable widget cards: cumulative P&L, drawdown, win %, Fear & Greed Index, VIX, market overview, weekly calendar, heatmap, and more. Time filtering (30/60/90/All days), privacy mode, and layout persistence.*
 
 ### Trade Log
-![Trade Log](docs/screenshots/02-trades.png)
+![Trade Log](docs/screenshots/02-trades.png?v=2)
 *Full trade history with P&L coloring, status/direction filters, symbol search, column picker. Live unrealized P&L for open positions. Export/import as CSV or JSON.*
 
 ### Trade Modal
-![Trade Modal](docs/screenshots/07-trade-modal.png)
+![Trade Modal](docs/screenshots/07-trade-modal.png?v=2)
 *Tabbed trade editor (Setup & Strategy / Market Execution / Psychology & Reflection) with interactive setup chart, strategy checklists, R:R analysis, and position sizing.*
 
 ### Trade Journal
-![Journal](docs/screenshots/03-journal.png)
+![Journal](docs/screenshots/03-journal.png?v=2)
 *Cards, list, or review mode. Star ratings, key takeaway insights, full trade notes, strategy tags, and embedded mini candlestick charts with entry/stop/target levels.*
 
 ### Chart — TradingView + Watchlist
-![Chart](docs/screenshots/04-chart.png)
+![Chart](docs/screenshots/04-chart.png?v=2)
 *Full-screen TradingView chart with multi-tab support, resizable watchlist sidebar with sector grouping, and collapsible Add Trade panel with risk calculator.*
 
 ### Price Alerts
-![Alert Modal](docs/screenshots/13-alert-modal.png)
+![Alert Modal](docs/screenshots/13-alert-modal.png?v=2)
 *Set price alerts by level (above/below/crosses) or percentage move. Notification options: repeating, email, and Discord webhook.*
 
 ### Settings
-![Settings](docs/screenshots/05-settings.png)
+![Settings](docs/screenshots/05-settings.png?v=2)
 *Account settings, multi-account management, tags & common mistakes, trade templates, display options, chart config, strategy checklists, integrations, security, and data management.*
 
 ### Strategies & Checklists
-![Strategies](docs/screenshots/12-settings-strategies.png)
+![Strategies](docs/screenshots/12-settings-strategies.png?v=2)
 *Define multiple custom trading strategies (e.g., Wyckoff Buying/Selling Tests) with configurable checklist items. Strategies are selectable per trade in the trade modal.*
 
 ### Login
-![Login](docs/screenshots/06-login.png)
+![Login](docs/screenshots/06-login.png?v=2)
 *Clean auth page with guest mode, 2FA support, and email verification.*
 
 ---
@@ -60,10 +60,10 @@
 
 <table>
   <tr>
-    <td align="center"><b>Dashboard</b><br/><img src="docs/screenshots/08-mobile-dashboard.png" width="220"/></td>
-    <td align="center"><b>Trade Log</b><br/><img src="docs/screenshots/09-mobile-trades.png" width="220"/></td>
-    <td align="center"><b>Chart</b><br/><img src="docs/screenshots/10-mobile-chart.png" width="220"/></td>
-    <td align="center"><b>Settings</b><br/><img src="docs/screenshots/11-mobile-settings.png" width="220"/></td>
+    <td align="center"><b>Dashboard</b><br/><img src="docs/screenshots/08-mobile-dashboard.png?v=2" width="220"/></td>
+    <td align="center"><b>Trade Log</b><br/><img src="docs/screenshots/09-mobile-trades.png?v=2" width="220"/></td>
+    <td align="center"><b>Chart</b><br/><img src="docs/screenshots/10-mobile-chart.png?v=2" width="220"/></td>
+    <td align="center"><b>Settings</b><br/><img src="docs/screenshots/11-mobile-settings.png?v=2" width="220"/></td>
   </tr>
 </table>
 
