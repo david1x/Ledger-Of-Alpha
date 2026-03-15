@@ -1,6 +1,6 @@
 <div align="center">
 
-# 📈 Ledger Of Alpha
+# Ledger Of Alpha
 
 **A self-hosted trading journal, planner, and chart dashboard built for serious traders.**
 
@@ -16,11 +16,11 @@
 
 ---
 
-## 📸 Screenshots
+## Screenshots
 
 ### Dashboard
 ![Dashboard](docs/screenshots/01-dashboard.png)
-*24 drag-reorderable widget cards: cumulative P&L, drawdown, win %, daily volume, weekly calendar, heatmap, and more. Time filtering (30/60/90/All days), privacy mode, and layout persistence.*
+*24 drag-reorderable widget cards: cumulative P&L, drawdown, win %, Fear & Greed Index, VIX, market overview, weekly calendar, heatmap, and more. Time filtering (30/60/90/All days), privacy mode, and layout persistence.*
 
 ### Trade Log
 ![Trade Log](docs/screenshots/02-trades.png)
@@ -28,25 +28,25 @@
 
 ### Trade Modal
 ![Trade Modal](docs/screenshots/07-trade-modal.png)
-*Tabbed trade editor with setup chart, Wyckoff checklist, color-coded R:R, risk analysis, and position sizing. Edit any trade directly from the trade log.*
+*Tabbed trade editor (Setup & Strategy / Market Execution / Psychology & Reflection) with interactive setup chart, strategy checklists, R:R analysis, and position sizing.*
 
 ### Trade Journal
 ![Journal](docs/screenshots/03-journal.png)
-*Card-based review with notes, tags, expandable mini candlestick charts with entry/stop/target levels, and R:R ratio per trade.*
+*Cards, list, or review mode. Star ratings, key takeaway insights, full trade notes, strategy tags, and embedded mini candlestick charts with entry/stop/target levels.*
 
 ### Chart — TradingView + Watchlist
 ![Chart](docs/screenshots/04-chart.png)
 *Full-screen TradingView chart with multi-tab support, resizable watchlist sidebar with sector grouping, and collapsible Add Trade panel with risk calculator.*
 
-### Price Alert Modal
+### Price Alerts
 ![Alert Modal](docs/screenshots/13-alert-modal.png)
-*Set price alerts with above/below/crosses conditions, optional notes, and repeating alert support.*
+*Set price alerts by level (above/below/crosses) or percentage move. Notification options: repeating, email, and Discord webhook.*
 
 ### Settings
 ![Settings](docs/screenshots/05-settings.png)
-*Account size, risk %, commission per trade, FMP API key, Discord webhook, and data management.*
+*Account settings, multi-account management, tags & common mistakes, trade templates, display options, chart config, strategy checklists, integrations, security, and data management.*
 
-### Trade Strategies & Checklists
+### Strategies & Checklists
 ![Strategies](docs/screenshots/12-settings-strategies.png)
 *Define multiple custom trading strategies (e.g., Wyckoff Buying/Selling Tests) with configurable checklist items. Strategies are selectable per trade in the trade modal.*
 
@@ -56,7 +56,7 @@
 
 ---
 
-### 📱 Mobile — Fully Responsive
+### Mobile — Fully Responsive
 
 <table>
   <tr>
@@ -69,7 +69,7 @@
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 Detailed documentation is available in the `docs/` directory:
 
@@ -79,95 +79,100 @@ Detailed documentation is available in the `docs/` directory:
 
 ---
 
-## ✨ Features
+## Features
 
-### 📊 Dashboard
-- At-a-glance stats: total P&L, win rate, avg win/loss, expectancy, open/planned count
-- Interactive cumulative P&L equity curve (Recharts)
-- Paginated recent-trades table with inline edit/delete
-- Add-trade modal directly from the dashboard
+### Dashboard
+- At-a-glance stats: balance, total P&L (with % return), today's P&L, trade count, win rate
+- 24 customizable widget cards with drag-reorder and 3 size modes (large/medium/compact)
+- Cumulative P&L equity curve, cumulative drawdown, profit factor, total return %
+- **Market widgets**: Fear & Greed Index gauge, VIX Index gauge, Market Overview (S&P 500, NASDAQ, DOW)
+- Weekly calendar strip and monthly heatmap with daily P&L breakdown
+- Winning vs losing trades, average win vs average loss comparisons
+- Trading activity calendar, performance by symbol (horizontal bar chart)
+- Time filter: 30/60/90/All days across all widgets
+- Privacy mode to mask sensitive numbers
 
-### 🏦 Multi-Account Management
-- Create separate accounts for Live, Paper, Futures, or different strategies.
-- Each account maintains its own starting balance, risk parameters, and commission model.
-- View aggregate stats or filter the entire app by a specific account.
+### Multi-Account Management
+- Create separate accounts for Live, Paper, Futures, or different strategies
+- Each account has its own starting balance, risk parameters, and commission model
+- View aggregate stats across all accounts or filter by a specific account
 
-### 📋 Trade Log
-- Full trade history with live filters: symbol search, status (planned / open / closed), direction (long / short)
-- P&L coloring, live unrealized P&L for open positions (refreshes every 60s via Yahoo Finance)
-- **Dynamic Trade Strategies** — define and manage multiple custom checklists (e.g., Wyckoff, SMC, Trend Following) in settings and select them per trade
-- Edit and delete any trade without leaving the page
+### Trade Log
+- Full trade history with live filters: symbol search, status (planned/open/closed), direction (long/short)
+- P&L coloring, live unrealized P&L for open positions (via Yahoo Finance)
 - Hover any symbol to preview a mini candlestick chart with trade levels
 - **Export** trades as CSV or JSON for backup and analysis
-- **Import** trades from CSV or JSON files with validation and error reporting
-- **Multi-Broker Import** — import your history directly from **ThinkOrSwim (TOS)**, **Interactive Brokers (IBKR)**, or **Robinhood**.
+- **Import** trades from CSV/JSON or directly from **ThinkOrSwim (TOS)**, **Interactive Brokers (IBKR)**, or **Robinhood**
 
-### 📓 Trade Journal
-- Card-based view of every trade with full notes, tags, symbol, and P&L
-- Filter between "all trades" and "trades with notes"
-- Expandable mini candlestick chart per card with entry/stop/target price lines
-- Potential P&L and R:R ratio displayed per card
-- Global chart toggle to show/hide all mini charts at once
+### Trade Journal
+- Three view modes: **Cards**, **List**, and **Review**
+- Star ratings (1-5) and key takeaway insights per trade
+- Full trade notes, strategy tags, and R:R display
+- Embedded mini candlestick charts with entry/stop/target price lines
+- Bulk select for batch operations
+- Filter by symbol, status, and direction
 
-### 🔬 Analytics & Simulation
-- **Risk Simulator (Monte Carlo)** — run 5,000 simulations of your future performance based on your historical win rate and returns.
-- Visualize ruin probability, median final balance, and potential drawdowns.
-- **Equity Comparison** — compare your actual performance against a benchmark or target growth curve.
+### Trade Modal
+- Tabbed interface: **Setup & Strategy** / **Market Execution** / **Psychology & Reflection**
+- Interactive setup chart (click to set entry/stop/target, drag to reposition)
+- Live risk analysis with stop distance, target distance, risk/reward calculation
+- Strategy checklists with completion score
+- Account & status management (trade lifecycle: planned/open/closed)
+- Position sizer based on account balance and risk percentage
 
-### 📈 Chart Page
-- Full-screen **TradingView Advanced Chart** embed (dark/light theme sync)
+### Chart Page
+- Full-screen **TradingView Advanced Chart** embed with dark/light theme sync
 - Multi-tab support — open multiple charts, rename tabs, persist across sessions
-- Interval switcher: 1m · 5m · 15m · 1h · 4h · 1D · 1W
-- **Watchlist sidebar** — resizable, with sector grouping, drag-to-reorder, filter, import/export, and collapsible sections
-- **Add Trade panel** — collapsible sidebar with:
-  - Interactive mini-chart (click to set entry / stop / target, drag to reposition)
-  - Live RiskCalculator and PositionSizer as you type
-  - **Dynamic Checklist** — select your strategy and verify your entry criteria before saving
-  - Per-trade account size, risk %, and commission fields
-  - Save as Planned or **Save + Share to Discord** in one click
-- **Price Alerts** — set alerts by price level (above/below/crosses) or **percentage move** (up/down/either direction) with live target price calculation
-- **Discord snapshot** — screen capture with 3-second countdown, or paste a TradingView snapshot link
+- Interval switcher: 1m, 5m, 15m, 1h, 4h, 1D, 1W
+- **Watchlist sidebar** — resizable, with sector grouping, drag-to-reorder, filter, and collapsible sections
+- **Add Trade panel** — collapsible sidebar with interactive chart, risk calculator, strategy checklist
+- **Price Alerts** — by price level (above/below/crosses) or percentage move, with email and Discord notifications
+- **Discord snapshot** — screen capture with countdown, or paste a TradingView snapshot link
 
-### ⚙️ Settings
-- Account size, risk-per-trade percentage, and commission per trade
-- **Strategy Manager** — add, rename, and edit multiple trading strategies with collapsible checklists
-- Financial Modeling Prep (FMP) API key + on-demand symbol list refresh
-- Discord webhook URL for chart snapshot delivery
-- **Data Management** — export/import trades directly from settings
+### Settings
+- **Account**: Starting balance, risk per trade %, commission model (flat/percentage), daily loss limit
+- **Accounts**: Manage multiple trading accounts
+- **Tags & Mistakes**: Define reusable tags and common mistake categories
+- **Templates**: Save trade templates for quick entry
+- **Display**: UI customization options
+- **Chart**: Chart-specific settings
+- **Strategies**: Add, rename, and edit multiple trading strategies with checklist items
+- **Integrations**: FMP API key for symbol search, Discord webhook for chart snapshots
+- **Security**: 2FA setup, password management
+- **Data**: Export/import trades, database management
 
-### 🔐 Auth & Security
+### Auth & Security
 - JWT sessions with email/password login
 - **2FA** — TOTP (authenticator app) with backup codes
 - Email verification on signup
 - **Guest mode** — explore the app with realistic demo data, no account required
-- **Admin panel** — manage users, toggle admin rights, configure SMTP (now located in the user dropdown)
-- **Privacy Mode** — toggle "eye" icon to mask sensitive P&L and balance numbers across the entire app
+- **Admin panel** — manage users, toggle admin rights, configure SMTP
+- **Privacy Mode** — toggle to mask sensitive P&L and balance numbers across the app
 - **Rate limiting** — per-IP throttling on auth and API endpoints
 - **Security headers** — CSP, HSTS, X-Frame-Options via middleware
-- **Input validation** — server-side trade data sanitization and type checking
-- **Error sanitization** — internal details never leaked to clients
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 14 (App Router) |
+| Framework | Next.js 15 (App Router) |
 | Language | TypeScript |
 | Styling | Tailwind CSS v3 + dark/light theme via `next-themes` |
-| Database | SQLite via `better-sqlite3` |
-| Charts | Recharts (P&L curve) · TradingView Advanced Chart · lightweight-charts (setup mini-chart) |
+| Database | SQLite via `better-sqlite3` (WAL mode) |
+| Charts | Recharts (dashboard charts) · TradingView Advanced Chart · lightweight-charts (setup mini-chart) |
 | Icons | Lucide React |
+| Drag & Drop | @dnd-kit |
 | External APIs | Yahoo Finance (live quotes + OHLCV) · Financial Modeling Prep (symbol search) · Discord Webhooks |
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ```bash
-git clone https://github.com/david1x/ledger-of-alpha.git
-cd ledger-of-alpha
+git clone https://github.com/david1x/Ledger-Of-Alpha.git
+cd Ledger-Of-Alpha
 npm install
 npm run dev
 ```
@@ -175,9 +180,6 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). The SQLite database is created automatically — no setup required.
 
 > **Try it instantly** — click **Continue as Guest** on the login page to explore with pre-loaded demo trades. No account needed.
-
-### Initial Admin Setup
-To access the admin panel, set your email in the `ADMIN_EMAIL` environment variable before starting the app.
 
 ### Docker
 
@@ -187,127 +189,56 @@ cp docker-compose.example.yml docker-compose.yml
 docker compose up -d --build
 ```
 
-The SQLite database is persisted in `./data/`.
+The app runs on port **5555** by default. The SQLite database is persisted in a Docker volume.
+
+### First-Time Setup
+
+1. Register your account
+2. Go to **Settings** and claim admin access (first user only)
+3. Configure your starting balance, risk per trade, and commission
+4. Start logging trades
 
 For detailed setup instructions (environment variables, SMTP configuration, admin setup, troubleshooting), see **[GETTING-STARTED.md](GETTING-STARTED.md)**.
 
 ---
 
-## 📁 Project Structure
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `JWT_SECRET` | Yes | Session signing key (min 32 chars). Generate with `openssl rand -base64 32` |
+| `NEXT_PUBLIC_APP_URL` | No | Public URL for email links (default: `http://localhost:3000`) |
+| `SMTP_HOST` | No | SMTP server for sending emails |
+| `SMTP_PORT` | No | SMTP port (default: `587`) |
+| `SMTP_SECURE` | No | Use SSL (`true` for port 465, `false` for STARTTLS) |
+| `SMTP_USER` | No | SMTP username |
+| `SMTP_PASS` | No | SMTP password |
+| `SMTP_FROM` | No | From address for emails |
+| `DB_PATH` | No | Override SQLite database location |
+
+Without SMTP configured, emails print to the console (useful for development).
+
+---
+
+## Project Structure
 
 ```
-ledger-of-alpha/
-├── app/
-│   ├── page.tsx              # Dashboard
-│   ├── trades/page.tsx       # Full trade log
-│   ├── journal/page.tsx      # Journal card view
-│   ├── chart/page.tsx        # TradingView chart + Add Trade panel
-│   ├── settings/page.tsx     # App settings
-│   ├── admin/                # Admin panel (users + SMTP)
-│   ├── layout.tsx            # Root layout (Navbar, ThemeProvider)
-│   └── api/
-│       ├── trades/           # GET + POST trades
-│       ├── trades/[id]/      # GET + PUT + DELETE single trade
-│       ├── trades/import/    # POST bulk import
-│       ├── settings/         # GET + PUT settings
-│       ├── symbols/          # GET symbols (FMP cache)
-│       ├── quotes/           # Live prices (Yahoo Finance)
-│       ├── ohlcv/            # OHLCV bars for setup chart
-│       ├── discord/          # POST chart snapshot to webhook
-│       └── auth/             # Login, register, 2FA, guest
-├── components/
-│   ├── Navbar.tsx
-│   ├── Logo.tsx
-│   ├── PersistentChart.tsx   # Chart page shell (tabs, toolbar, panel)
-│   ├── SetupChart.tsx        # Interactive mini-chart (click/drag price levels)
-│   ├── MiniChart.tsx         # Read-only mini chart (journal cards, hover popover)
-│   ├── TradeTable.tsx        # Trade log table + mobile card view
-│   ├── TradeModal.tsx        # Edit/view trade modal
-│   ├── RiskCalculator.tsx    # Live risk metrics
-│   ├── PositionSizer.tsx     # Optimal share count calculator
-│   └── SymbolSearch.tsx      # Debounced symbol autocomplete
-├── lib/
-│   ├── db.ts                 # SQLite init + schema migrations
-│   ├── auth.ts               # JWT, bcrypt, admin guard
-│   ├── rate-limit.ts         # Per-IP rate limiting
-│   ├── validate-trade.ts     # Server-side trade input validation
-│   ├── csv.ts                # CSV export/import utilities
-│   └── demo-data.ts          # Realistic fake trades for guest mode
-└── data/
-    └── ledger-of-alpha.db    # Auto-created, gitignored
+app/              Next.js pages + API routes
+  api/            REST API (trades, accounts, settings, auth, etc.)
+components/       React components (client-side)
+  dashboard/      Dashboard widgets (charts, stats, heatmap, etc.)
+lib/              Server utilities (db, auth, validation, etc.)
+data/             SQLite database (auto-created, gitignored)
+public/           Static assets
+docs/             Documentation + screenshots
 ```
 
 ---
 
-## 🗄 Database Schema
-
-```sql
-CREATE TABLE trades (
-  id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id        TEXT,              -- FK to users.id (enforced at app layer)
-  symbol         TEXT NOT NULL,
-  direction      TEXT NOT NULL,     -- 'long' | 'short'
-  status         TEXT NOT NULL,     -- 'planned' | 'open' | 'closed'
-  entry_price    REAL,
-  stop_loss      REAL,
-  take_profit    REAL,
-  exit_price     REAL,
-  shares         REAL,
-  entry_date     TEXT,
-  exit_date      TEXT,
-  pnl            REAL,
-  notes          TEXT,
-  tags           TEXT,
-  emotions       TEXT,
-  wyckoff_checklist TEXT,          -- JSON: strategy ID + checked items
-  account_size   REAL,             -- snapshot at time of trade
-  commission     REAL,
-  risk_per_trade REAL,
-  created_at     TEXT DEFAULT (datetime('now'))
-);
-
-CREATE TABLE settings (
-  user_id TEXT NOT NULL,            -- '_system' for global settings
-  key     TEXT NOT NULL,
-  value   TEXT NOT NULL DEFAULT '',
-  PRIMARY KEY (user_id, key)
-);
-
-CREATE TABLE users (
-  id                     TEXT PRIMARY KEY,
-  email                  TEXT UNIQUE NOT NULL,
-  name                   TEXT NOT NULL,
-  password_hash          TEXT NOT NULL,
-  email_verified         INTEGER NOT NULL DEFAULT 0,
-  two_factor_secret      TEXT,
-  two_factor_enabled     INTEGER NOT NULL DEFAULT 0,
-  two_factor_backup_codes TEXT,
-  is_admin               INTEGER NOT NULL DEFAULT 0,
-  created_at             TEXT DEFAULT (datetime('now'))
-);
-```
-
----
-
-## 📸 Discord Snapshot Flow
-
-1. Open the **Chart** page and load any symbol/timeframe
-2. Optionally type a note in the toolbar
-3. Click **Capture → Discord**
-4. Browser prompts for screen-share permission — click **Share this tab**
-5. A **3-second countdown** appears — move your mouse off the chart
-6. The chart is automatically cropped and posted to your Discord channel
-
-Alternatively, publish a TradingView snapshot (camera icon → **Publish**), paste the link into the toolbar, and click **Send Link → Discord** — no screen capture required.
-
----
-
-## 🌙 Dark / Light Mode
-
-Defaults to dark mode. Toggle with the sun/moon button in the navbar. The TradingView chart syncs its theme automatically.
-
----
-
-## 📄 License
+## License
 
 MIT — use it, fork it, trade with it.
+
+---
+
+Built by [David Amar](https://github.com/david1x)
