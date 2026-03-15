@@ -86,33 +86,33 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AI-01 | — | Pending |
-| AI-02 | — | Pending |
-| AI-03 | — | Pending |
-| AI-04 | — | Pending |
-| AI-05 | — | Pending |
-| IBKR-01 | — | Pending |
-| IBKR-02 | — | Pending |
-| IBKR-03 | — | Pending |
-| IBKR-04 | — | Pending |
-| IBKR-05 | — | Pending |
-| MC-01 | — | Pending |
-| MC-02 | — | Pending |
-| MC-03 | — | Pending |
-| MC-04 | — | Pending |
-| TOOLS-01 | — | Pending |
-| TOOLS-02 | — | Pending |
-| TOOLS-03 | — | Pending |
-| TOOLS-04 | — | Pending |
-| TOOLS-05 | — | Pending |
-| TOOLS-06 | — | Pending |
-| TOOLS-07 | — | Pending |
+| AI-01 | Phase 10 | Pending |
+| AI-02 | Phase 10 | Pending |
+| AI-03 | Phase 10 | Pending |
+| AI-04 | Phase 10 | Pending |
+| AI-05 | Phase 10 | Pending |
+| IBKR-01 | Phase 11 | Pending |
+| IBKR-02 | Phase 11 | Pending |
+| IBKR-03 | Phase 11 | Pending |
+| IBKR-04 | Phase 11 | Pending |
+| IBKR-05 | Phase 11 | Pending |
+| MC-01 | Phase 9 | Pending |
+| MC-02 | Phase 9 | Pending |
+| MC-03 | Phase 9 | Pending |
+| MC-04 | Phase 9 | Pending |
+| TOOLS-01 | Phase 8 | Pending |
+| TOOLS-02 | Phase 8 | Pending |
+| TOOLS-03 | Phase 8 | Pending |
+| TOOLS-04 | Phase 8 | Pending |
+| TOOLS-05 | Phase 8 | Pending |
+| TOOLS-06 | Phase 8 | Pending |
+| TOOLS-07 | Phase 8 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 21 total
-- Mapped to phases: 0
-- Unmapped: 21 ⚠️
+- Mapped to phases: 21
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 after initial definition*
+*Last updated: 2026-03-15 — traceability filled after roadmap creation*
