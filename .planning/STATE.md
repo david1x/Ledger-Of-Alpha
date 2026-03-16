@@ -3,33 +3,33 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Intelligence & Automation
 status: in-progress
-last_updated: "2026-03-16T15:34:30Z"
-last_activity: 2026-03-16 — 08-01 completed: Tools Hub foundation (math library, page shell, 3 calculators)
+last_updated: "2026-03-16T15:40:34Z"
+last_activity: 2026-03-16 — 08-03 completed (CorrelationMatrix component, simple-statistics, Phase 8 complete)
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State: Ledger Of Alpha
 
 ## Current Position
 
-Phase: 8 — Trading Tools Hub
-Plan: 01 complete (02 next)
-Status: In progress — Plan 01 shipped (foundation + 3 calculators)
-Last activity: 2026-03-16 — 08-01 completed (lib/calculators.ts, /tools page, DrawdownCalculator, KellyCalculator, FibCalculator, navbar link)
+Phase: 8 — Trading Tools Hub (COMPLETE)
+Plan: 03 complete — all 3 plans done
+Status: Phase 8 complete — all 6 calculators shipped
+Last activity: 2026-03-16 — 08-03 completed (CorrelationMatrix, simple-statistics, TOOLS-07 done)
 
-Progress: [███░░░░░░░] 33%
+Progress: [██████████] 100% (Phase 8)
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Traders can track, analyze, and improve their trading through structured journaling and actionable analytics.
-**Current focus:** v2.0 Intelligence & Automation — Phase 8: Trading Tools Hub
+**Current focus:** v2.0 Intelligence & Automation — Phase 9: Monte Carlo Entry Integration
 
 ## Milestone Summary
 
@@ -37,7 +37,7 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| 8. Trading Tools Hub | Six calculators at /tools | In progress (1/3 plans done) |
+| 8. Trading Tools Hub | Six calculators at /tools | Complete (3/3 plans done) |
 | 9. Monte Carlo Entry Integration | Inline risk simulation in TradeModal | Not started |
 | 10. AI Chart Pattern Recognition | GPT-4o screenshot analysis + similar trade finder | Not started |
 | 11. IBKR Broker Sync | Client Portal REST integration, live positions | Not started |
@@ -57,7 +57,7 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 - AI vision: GPT-4o via `openai` npm package, server-side only, structured JSON output enforced from day one
 - Monte Carlo: Web Worker + 500ms debounce + 1K iterations for in-modal preview (not 5K like standalone page)
 - Correlation Matrix: Sequential OHLCV fetches (not Promise.all) to avoid Yahoo Finance throttling
-- New packages: `openai` (Phase 10), `fast-xml-parser` (Phase 11, maybe skippable), `simple-statistics` (Phase 8)
+- New packages: `openai` (Phase 10), `fast-xml-parser` (Phase 11, maybe skippable), `simple-statistics` (Phase 8, installed)
 - DB migrations: 019 (AI fields on trades), 020 (ibkr_exec_id on trades), 021 (IBKR settings keys)
 - Settings namespace: `ibkr_*`, `ai_*`, `tools_*`, `montecarlo_*`
 - Account scope: Always use `selectedAccountId` (trade's account), never `activeAccountId`, for Monte Carlo balance
@@ -68,15 +68,15 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 - `lib/types.ts` — new trade fields (ai_patterns, screenshot_analyzed_at, ibkr_exec_id)
 - `components/TradeModal.tsx` — AI upload tab + Monte Carlo preview panel
 - `components/dashboard/DashboardShell.tsx` — IBKR live positions widget
-- `components/Navbar.tsx` — /tools link
+- `components/Navbar.tsx` — /tools link (done in Phase 8)
 
 ### New files to create in v2.0
 
-- `lib/calculators.ts` — pure math functions for all 6 calculators
+- `lib/calculators.ts` — pure math functions for all 6 calculators (DONE - Phase 8)
 - `lib/ai-vision.ts` — OpenAI client wrapper (server-side only)
 - `lib/ibkr-client.ts` — IBKR Client Portal REST proxy
-- `app/tools/page.tsx` — Tools Hub page
-- `components/tools/` — calculator components
+- `app/tools/page.tsx` — Tools Hub page (DONE - Phase 8)
+- `components/tools/` — calculator components (DONE - Phase 8)
 - `components/MonteCarloPreview.tsx` — compact simulation panel for TradeModal
 - `components/dashboard/IBKRWidget.tsx` — live positions panel
 - `app/api/ai/analyze/route.ts` — AI screenshot analysis endpoint
@@ -95,15 +95,17 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 - Tools tab default is "rr" (Risk/Reward); stub components allow Plans 02/03 to work independently without touching page.tsx
 - Fibonacci retracements styled sky-400, extensions violet-400 for visual distinction
 - FibCalculator uses per-row copiedLabel string key to support individual row copy feedback
+- Correlation Matrix uses sequential OHLCV fetches (for loop + await) with client-side series alignment by common timestamps before computing sampleCorrelation
 
 ## Performance Metrics (v2.0)
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 08-trading-tools-hub | 01 | 227s | 2/2 | 9 |
+| 08-trading-tools-hub | 03 | 3min | 1/1 | 3 |
 
 ## Session Continuity
 
 To resume: read this file + .planning/ROADMAP.md + current phase plan.
-Last session: 2026-03-16 — Completed 08-01-PLAN.md
-Next action: Run `/gsd:execute-phase 8` to continue with Plan 02 (RR + Growth calculators).
+Last session: 2026-03-16 — Completed 08-03-PLAN.md
+Next action: Run `/gsd:execute-phase 9` to start Phase 9 (Monte Carlo Entry Integration).
