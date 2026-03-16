@@ -29,7 +29,12 @@
   5. User can enter a win rate, average win, and average loss and receive an optimal position size percentage via Kelly Criterion
   6. User can enter a high and low price and see all Fibonacci retracement and extension levels
   7. User can select traded symbols and see a color-coded correlation matrix computed from historical OHLCV data
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Math library, page shell, navbar link, Drawdown/Kelly/Fibonacci calculators
+- [ ] 08-02-PLAN.md — R:R Calculator with price ladder and Compound Growth with Recharts chart
+- [ ] 08-03-PLAN.md — Correlation Matrix with symbol picker and sequential OHLCV fetching
 
 ### Phase 9: Monte Carlo Entry Integration
 **Goal**: Traders see live risk simulation results and position size suggestions directly inside the trade entry modal before submitting a trade
@@ -69,11 +74,11 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 8. Trading Tools Hub | 0/? | Not started | — |
+| 8. Trading Tools Hub | 0/3 | Planning complete | — |
 | 9. Monte Carlo Entry Integration | 0/? | Not started | — |
 | 10. AI Chart Pattern Recognition | 0/? | Not started | — |
 | 11. IBKR Broker Sync | 0/? | Not started | — |
 
 ---
 *Roadmap created: 2026-03-15 for v2.0 Intelligence & Automation*
-*Phase numbering continues from v1.0.0 (phases 1–7)*
+*Phase numbering continues from v1.0.0 (phases 1-7)*
