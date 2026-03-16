@@ -32,12 +32,12 @@ Requirements for v2.0 Intelligence & Automation. Each maps to roadmap phases.
 
 ### Trading Tools Hub
 
-- [ ] **TOOLS-01**: User can access a Trading Tools page from the navigation
+- [x] **TOOLS-01**: User can access a Trading Tools page from the navigation
 - [ ] **TOOLS-02**: User can calculate risk/reward ratio with visual entry/stop/target display
 - [ ] **TOOLS-03**: User can project account growth with compound growth calculator
-- [ ] **TOOLS-04**: User can determine recovery requirements from drawdown percentage
-- [ ] **TOOLS-05**: User can calculate optimal position size via Kelly Criterion
-- [ ] **TOOLS-06**: User can compute Fibonacci retracement and extension levels
+- [x] **TOOLS-04**: User can determine recovery requirements from drawdown percentage
+- [x] **TOOLS-05**: User can calculate optimal position size via Kelly Criterion
+- [x] **TOOLS-06**: User can compute Fibonacci retracement and extension levels
 - [ ] **TOOLS-07**: User can view correlation matrix for traded symbols using historical data
 
 ## Future Requirements
@@ -100,12 +100,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MC-02 | Phase 9 | Pending |
 | MC-03 | Phase 9 | Pending |
 | MC-04 | Phase 9 | Pending |
-| TOOLS-01 | Phase 8 | Pending |
+| TOOLS-01 | Phase 8 | Complete |
 | TOOLS-02 | Phase 8 | Pending |
 | TOOLS-03 | Phase 8 | Pending |
-| TOOLS-04 | Phase 8 | Pending |
-| TOOLS-05 | Phase 8 | Pending |
-| TOOLS-06 | Phase 8 | Pending |
+| TOOLS-04 | Phase 8 | Complete |
+| TOOLS-05 | Phase 8 | Complete |
+| TOOLS-06 | Phase 8 | Complete |
 | TOOLS-07 | Phase 8 | Pending |
 
 **Coverage:**

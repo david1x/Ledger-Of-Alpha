@@ -1,13 +1,28 @@
+---
+gsd_state_version: 1.0
+milestone: v2.0
+milestone_name: — Intelligence & Automation
+status: in-progress
+last_updated: "2026-03-16T15:34:30Z"
+last_activity: 2026-03-16 — 08-01 completed: Tools Hub foundation (math library, page shell, 3 calculators)
+progress:
+  total_phases: 4
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 1
+  percent: 33
+---
+
 # Project State: Ledger Of Alpha
 
 ## Current Position
 
 Phase: 8 — Trading Tools Hub
-Plan: —
-Status: Roadmap created, ready to plan Phase 8
-Last activity: 2026-03-15 — v2.0 roadmap created (4 phases, 21 requirements)
+Plan: 01 complete (02 next)
+Status: In progress — Plan 01 shipped (foundation + 3 calculators)
+Last activity: 2026-03-16 — 08-01 completed (lib/calculators.ts, /tools page, DrawdownCalculator, KellyCalculator, FibCalculator, navbar link)
 
-Progress: [----------] 0% (Phase 8 of 11)
+Progress: [███░░░░░░░] 33%
 
 ## Project Reference
 
@@ -22,7 +37,7 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 
 | Phase | Goal | Status |
 |-------|------|--------|
-| 8. Trading Tools Hub | Six calculators at /tools | Not started |
+| 8. Trading Tools Hub | Six calculators at /tools | In progress (1/3 plans done) |
 | 9. Monte Carlo Entry Integration | Inline risk simulation in TradeModal | Not started |
 | 10. AI Chart Pattern Recognition | GPT-4o screenshot analysis + similar trade finder | Not started |
 | 11. IBKR Broker Sync | Client Portal REST integration, live positions | Not started |
@@ -75,7 +90,20 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 4. IBKR deduplication: ibkr_exec_id + ON CONFLICT DO NOTHING — blind inserts create duplicates
 5. Monte Carlo balance: use selectedAccountId (trade's account), not activeAccountId (UI selection)
 
+## Decisions (v2.0)
+
+- Tools tab default is "rr" (Risk/Reward); stub components allow Plans 02/03 to work independently without touching page.tsx
+- Fibonacci retracements styled sky-400, extensions violet-400 for visual distinction
+- FibCalculator uses per-row copiedLabel string key to support individual row copy feedback
+
+## Performance Metrics (v2.0)
+
+| Phase | Plan | Duration | Tasks | Files |
+|-------|------|----------|-------|-------|
+| 08-trading-tools-hub | 01 | 227s | 2/2 | 9 |
+
 ## Session Continuity
 
-To resume: read this file + .planning/ROADMAP.md + current phase plan (when created).
-Next action: Run `/gsd:plan-phase 8` to create the Trading Tools Hub execution plan.
+To resume: read this file + .planning/ROADMAP.md + current phase plan.
+Last session: 2026-03-16 — Completed 08-01-PLAN.md
+Next action: Run `/gsd:execute-phase 8` to continue with Plan 02 (RR + Growth calculators).
