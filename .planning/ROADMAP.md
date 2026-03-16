@@ -10,7 +10,7 @@
 
 ## Phases
 
-- [ ] **Phase 8: Trading Tools Hub** - Six calculators at a dedicated /tools page; zero external dependencies
+- [x] **Phase 8: Trading Tools Hub** - Six calculators at a dedicated /tools page; zero external dependencies (completed 2026-03-16)
 - [ ] **Phase 9: Monte Carlo Entry Integration** - Inline risk simulation and position sizing inside the trade entry modal
 - [ ] **Phase 10: AI Chart Pattern Recognition** - GPT-4o screenshot analysis with similar trade finder and pattern performance stats
 - [ ] **Phase 11: IBKR Broker Sync** - Client Portal REST integration with live positions, manual sync, and deduplication
@@ -29,7 +29,7 @@
   5. User can enter a win rate, average win, and average loss and receive an optimal position size percentage via Kelly Criterion
   6. User can enter a high and low price and see all Fibonacci retracement and extension levels
   7. User can select traded symbols and see a color-coded correlation matrix computed from historical OHLCV data
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 08-01-PLAN.md — Math library, page shell, navbar link, Drawdown/Kelly/Fibonacci calculators
@@ -74,7 +74,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 8. Trading Tools Hub | 2/3 | In Progress|  |
+| 8. Trading Tools Hub | 3/3 | Complete   | 2026-03-16 |
 | 9. Monte Carlo Entry Integration | 0/? | Not started | — |
 | 10. AI Chart Pattern Recognition | 0/? | Not started | — |
 | 11. IBKR Broker Sync | 0/? | Not started | — |
