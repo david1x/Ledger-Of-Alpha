@@ -9,7 +9,7 @@ import AlertModal from "./AlertModal";
 import {
   BookOpen, LineChart, Settings as SettingsIcon, TrendingUp, Layout, ChevronDown,
   LogOut, User, ShieldCheck, Menu, X, ExternalLink, Bell, Trash2,
-  Power, Clock, Pencil, ChevronsLeft, ChevronsRight, Eye, EyeOff, Wallet, BarChart3,
+  Power, Clock, Pencil, ChevronsLeft, ChevronsRight, Eye, EyeOff, Wallet, BarChart3, Wrench,
 } from "lucide-react";
 import clsx from "clsx";
 import type { Alert } from "@/lib/types";
@@ -55,6 +55,7 @@ const NAV_LINKS = [
   { href: "/journal",   label: "Journal",   icon: BookOpen },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/chart",     label: "Chart",     icon: LineChart },
+  { href: "/tools",     label: "Tools",     icon: Wrench },
 ];
 
 const AUTH_PATHS = ["/login", "/register", "/verify-2fa"];
