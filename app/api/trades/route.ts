@@ -12,10 +12,12 @@ export async function GET(req: NextRequest) {
     const direction = searchParams.get("direction");
     const symbol = searchParams.get("symbol");
     const guestAccountId = searchParams.get("account_id");
+    const guestAiPattern = searchParams.get("ai_pattern");
     if (guestAccountId) trades = trades.filter(t => t.account_id === guestAccountId);
     if (status)    trades = trades.filter(t => t.status === status);
     if (direction) trades = trades.filter(t => t.direction === direction);
     if (symbol)    trades = trades.filter(t => t.symbol.includes(symbol.toUpperCase()));
+    if (guestAiPattern) trades = trades.filter(t => t.ai_primary_pattern === guestAiPattern);
     return NextResponse.json(trades);
   }
 
@@ -28,6 +30,7 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status");
     const direction = searchParams.get("direction");
     const symbol = searchParams.get("symbol");
+    const aiPattern = searchParams.get("ai_pattern");
 
     let query = "SELECT * FROM trades WHERE user_id = ?";
     const params: unknown[] = [user.id];
@@ -38,6 +41,7 @@ export async function GET(req: NextRequest) {
     if (status)    { query += " AND status = ?";   params.push(status); }
     if (direction) { query += " AND direction = ?"; params.push(direction); }
     if (symbol)    { query += " AND symbol LIKE ?"; params.push(`%${symbol.toUpperCase()}%`); }
+    if (aiPattern) { query += " AND ai_primary_pattern = ?"; params.push(aiPattern); }
 
     query += " ORDER BY created_at DESC";
 
