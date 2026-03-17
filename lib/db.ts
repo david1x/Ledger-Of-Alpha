@@ -405,6 +405,25 @@ function runMigrations(db: Database.Database) {
     }
     markMigration(db, "018_alert_notifications");
   }
+
+  // ── 019: AI analysis fields on trades ────────────────────────────────
+  if (!hasMigration(db, "019_ai_analysis")) {
+    const tradeCols = (db.pragma("table_info(trades)") as { name: string }[]).map(c => c.name);
+    if (!tradeCols.includes("ai_patterns")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN ai_patterns TEXT;`);
+    }
+    if (!tradeCols.includes("ai_screenshots")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN ai_screenshots TEXT;`);
+    }
+    if (!tradeCols.includes("ai_qa_history")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN ai_qa_history TEXT;`);
+    }
+    if (!tradeCols.includes("ai_primary_pattern")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN ai_primary_pattern TEXT;`);
+    }
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_trades_ai_pattern ON trades(ai_primary_pattern);`);
+    markMigration(db, "019_ai_analysis");
+  }
 }
 
 // ── Auto-promote admin from env var ─────────────────────────────────────

@@ -70,6 +70,10 @@ export interface Trade {
   account_id?: string | null;
   strategy_id?: string | null;
   checklist_items?: string | null;
+  ai_patterns?: string | null;        // JSON: AnalysisResult
+  ai_screenshots?: string | null;     // JSON: string[] filenames
+  ai_qa_history?: string | null;      // JSON: QAEntry[]
+  ai_primary_pattern?: string | null; // denormalized pattern name
   created_at: string;
   user_id: string | null;
 }
