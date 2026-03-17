@@ -3,10 +3,25 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Intelligence & Automation
 status: in-progress
+last_updated: "2026-03-17T23:34:12.025Z"
+last_activity: 2026-03-18 — 11-02 completed (settings Broker tab, IBKR badge in TradeTable)
+progress:
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 12
+  completed_plans: 12
+  percent: 100
+---
+
+---
+gsd_state_version: 1.0
+milestone: v2.0
+milestone_name: — Intelligence & Automation
+status: in-progress
 last_updated: "2026-03-17T23:32:08.858Z"
 last_activity: 2026-03-18 — 11-01 completed (ibkr-client.ts, migrations 020/021, status/accounts/sync/positions routes)
 progress:
-  total_phases: 4
+  [██████████] 100%
   completed_phases: 3
   total_plans: 12
   completed_plans: 11
@@ -75,12 +90,12 @@ progress:
 
 ## Current Position
 
-Phase: 11 — IBKR Broker Sync (In Progress)
-Plan: 02 complete — 2/3 plans done
-Status: 11-02 complete — Broker settings tab: gateway config, account mapping, sync UI, [IBKR] badge on trades table
-Last activity: 2026-03-18 — 11-02 completed (settings Broker tab, IBKR badge in TradeTable)
+Phase: 11 — IBKR Broker Sync (Complete)
+Plan: 03 complete — 3/3 plans done
+Status: 11-03 complete — IBKR Live Positions dashboard widget (IBKRPositionsWidget, DashboardShell widget #37)
+Last activity: 2026-03-17 — 11-03 completed (IBKRPositionsWidget, DashboardShell integration)
 
-Progress: [█████████░] 92%
+Progress: [██████████] 100%
 
 ## Project Reference
 
@@ -98,7 +113,7 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 | 8. Trading Tools Hub | Six calculators at /tools | Complete (3/3 plans done) |
 | 9. Monte Carlo Entry Integration | Inline risk simulation in TradeModal | Complete (1/1 plans done) |
 | 10. AI Chart Pattern Recognition | GPT-4o screenshot analysis + similar trade finder | Complete (3/3 plans done) |
-| 11. IBKR Broker Sync | Client Portal REST integration, live positions | In Progress (2/3) |
+| 11. IBKR Broker Sync | Client Portal REST integration, live positions | Complete (3/3 plans done) |
 
 ## Performance Metrics
 
@@ -160,6 +175,7 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 - Pattern history hint is best-effort (try/catch, non-blocking) so analysis results show even if hint fetch fails
 - PatternPerformance aggregates client-side from analytics page trades state — no extra API call
 - Expandable rows used in PatternPerformance instead of navigation — keeps users in Analytics context
+- IBKRPositionsWidget hidden by default (requires gateway), on-demand fetch only; renderWidget accepts size param to forward layout size into widget
 
 ## Performance Metrics (v2.0)
 
@@ -175,9 +191,10 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 | Phase 10-ai-chart-pattern-recognition P03 | 180 | 2 tasks | 3 files |
 | Phase 11-ibkr-broker-sync P01 | 389 | 2 tasks | 9 files |
 | Phase 11-ibkr-broker-sync P02 | 18min | 2 tasks | 2 files |
+| Phase 11-ibkr-broker-sync P03 | 801 | 2 tasks | 2 files |
 
 ## Session Continuity
 
 To resume: read this file + .planning/ROADMAP.md + current phase plan.
-Last session: 2026-03-17T23:32:08.856Z
-Next action: Run `/gsd:execute-phase 11` to continue Phase 11 (IBKR Broker Sync — Plan 02: Settings UI).
+Last session: 2026-03-17T23:34:12.022Z
+Next action: Phase 11 complete. v2.0 milestone complete — all 4 phases done.
