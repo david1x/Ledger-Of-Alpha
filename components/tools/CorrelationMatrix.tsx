@@ -260,6 +260,7 @@ export default function CorrelationMatrix() {
               value={searchValue}
               onChange={setSearchValue}
               onSelectFull={({ symbol }) => addSymbol(symbol)}
+              onEnter={addSymbol}
               placeholder="Add symbol..."
             />
           </div>
