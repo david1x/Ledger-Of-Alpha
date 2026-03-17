@@ -52,6 +52,7 @@ interface Settings {
   default_tags: string;
   default_mistakes: string;
   trade_templates: string;
+  montecarlo_ruin_threshold: string;
 }
 
 interface TwoFactorSetup {
@@ -201,6 +202,7 @@ function SettingsContent() {
     daily_loss_limit: "", daily_loss_limit_type: "dollar",
     default_tags: "[]", default_mistakes: JSON.stringify(["Entered too early", "Exited too early", "Exited too late", "Moved stop loss", "Oversized position", "No stop loss", "Chased the trade", "Revenge trade", "Ignored plan", "FOMO entry"]),
     trade_templates: "[]",
+    montecarlo_ruin_threshold: "5",
     strategies: JSON.stringify([
       { id: "wyckoff_buy", name: "Wyckoff Buying Tests", checklist: ["Downside objective accomplished", "Activity bullish (Vol increase on rallies)", "Preliminary support / Selling climax", "Relative strength (Bullish vs Market)", "Downward trendline broken", "Higher lows", "Higher highs", "Base forming (Cause)", "RR Potential 3:1 or better"] },
       { id: "wyckoff_sell", name: "Wyckoff Selling Tests", checklist: ["Upside objective accomplished", "Activity bearish (Vol increase on drops)", "Preliminary supply / Buying climax", "Relative weakness (Bearish vs Market)", "Upward trendline broken", "Lower highs", "Lower lows", "Top forming (Cause)", "RR Potential 3:1 or better"] }
@@ -724,6 +726,57 @@ function SettingsContent() {
                   </select>
                 </div>
                 <p className={HINT}>Max daily loss before warning ({settings.daily_loss_limit_type === "percent" ? "% of account" : "dollar amount"})</p>
+              </div>
+            </div>
+
+            {/* Monte Carlo Simulation */}
+            <div className="pt-4 border-t dark:border-slate-800 border-slate-200 space-y-3">
+              <div>
+                <h3 className="font-medium dark:text-white text-slate-900 flex items-center gap-2 text-sm">
+                  <LineChart className="w-4 h-4 text-emerald-400" /> Monte Carlo Simulation
+                </h3>
+                <p className="text-xs dark:text-slate-400 text-slate-500 mt-0.5">
+                  Configure risk analysis shown in the trade entry modal
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={LABEL}>Ruin Probability Threshold (%)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    step={1}
+                    value={settings.montecarlo_ruin_threshold}
+                    onChange={e => setSettings(s => ({ ...s, montecarlo_ruin_threshold: e.target.value }))}
+                    className={INPUT}
+                  />
+                  <p className={HINT}>
+                    Trades with ruin probability above this threshold will show a warning. Default: 5%
+                  </p>
+                </div>
+                <div>
+                  <label className={LABEL}>Severity Preview</label>
+                  {(() => {
+                    const threshold = parseFloat(settings.montecarlo_ruin_threshold || "5") || 5;
+                    return (
+                      <div className="space-y-1.5 mt-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" />
+                          <span className="text-xs dark:text-slate-400 text-slate-500">Below {threshold}% — Low risk</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-yellow-400 shrink-0" />
+                          <span className="text-xs dark:text-slate-400 text-slate-500">{threshold}% – {threshold * 2}% — Moderate risk</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-red-400 shrink-0" />
+                          <span className="text-xs dark:text-slate-400 text-slate-500">Above {threshold * 2}% — High risk</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
             </div>
 
