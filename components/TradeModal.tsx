@@ -4,6 +4,7 @@ import { Trade, TradeStrategy, TradeTemplate } from "@/lib/types";
 import SymbolSearch from "./SymbolSearch";
 import RiskCalculator from "./RiskCalculator";
 import PositionSizer from "./PositionSizer";
+import MonteCarloPreview from "./MonteCarloPreview";
 import SetupChart from "./SetupChart";
 import { X, ChevronDown, RefreshCw, Star, Wallet, Sparkles, Layout, Target, BookOpen, Tag, Smile, Plus } from "lucide-react";
 import clsx from "clsx";
@@ -68,6 +69,11 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
   const [templateName, setTemplateName] = useState("");
   const [chartInterval, setChartInterval] = useState(trade?.chart_tf ?? "1D");
 
+  // Monte Carlo state
+  const [mcTrades, setMcTrades] = useState<{ pnl_percent: number; strategy_id?: string | null }[]>([]);
+  const [mcCollapsed, setMcCollapsed] = useState(true);
+  const [mcRuinThreshold, setMcRuinThreshold] = useState(5);
+
   const modalRef = useRef<HTMLDivElement>(null);
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
@@ -100,6 +106,15 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
         if (!riskPercentProp && s.risk_per_trade) setRiskPercent(parseFloat(s.risk_per_trade));
         if (s.commission_per_trade) setDefaultCommission(parseFloat(s.commission_per_trade));
 
+        // Monte Carlo settings
+        if (s.montecarlo_panel_collapsed !== undefined) {
+          setMcCollapsed(s.montecarlo_panel_collapsed === "true");
+        }
+        if (s.montecarlo_ruin_threshold) {
+          const threshold = parseFloat(s.montecarlo_ruin_threshold);
+          if (!isNaN(threshold) && threshold > 0) setMcRuinThreshold(threshold);
+        }
+
         const selAcct = accounts.find(a => a.id === selectedAccountId);
         if (selAcct) {
           if (!riskPercentProp) setRiskPercent(selAcct.risk_per_trade);
@@ -109,6 +124,48 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
   }, [selectedAccountId, accounts, accountSizeProp, riskPercentProp]);
 
   useEffect(() => { setForm(trade ?? EMPTY); }, [trade]);
+
+  // Fetch historical closed trades for Monte Carlo simulation
+  useEffect(() => {
+    if (!selectedAccountId) {
+      setMcTrades([]);
+      return;
+    }
+    fetch(`/api/trades?account_id=${selectedAccountId}&status=closed`)
+      .then(r => r.json())
+      .then(data => {
+        if (!Array.isArray(data)) return;
+        const mapped = data
+          .filter((t: Record<string, unknown>) => t.status === "closed")
+          .map((t: Record<string, unknown>) => {
+            let pnl_percent = 0;
+            if (typeof t.pnl_percent === "number") {
+              pnl_percent = t.pnl_percent;
+            } else if (
+              typeof t.entry_price === "number" &&
+              typeof t.exit_price === "number" &&
+              t.entry_price !== 0
+            ) {
+              const sign = t.direction === "short" ? -1 : 1;
+              pnl_percent = sign * ((t.exit_price as number) - (t.entry_price as number)) / (t.entry_price as number) * 100;
+            }
+            return {
+              pnl_percent,
+              strategy_id: (t.strategy_id as string | null) ?? null,
+            };
+          });
+        setMcTrades(mapped);
+      })
+      .catch(() => setMcTrades([]));
+  }, [selectedAccountId]);
+
+  const saveSetting = (key: string, value: unknown) => {
+    fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [key]: String(value) }),
+    }).catch(() => {});
+  };
 
   const set = (key: keyof Trade, val: unknown) => setForm((f) => ({ ...f, [key]: val }));
 
@@ -403,6 +460,23 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
                   accountSize={form.account_size ?? accountSize} riskPercent={form.risk_per_trade ?? riskPercent}
                   entry={form.entry_price ?? null} stopLoss={form.stop_loss ?? null} direction={form.direction ?? "long"}
                   manualShares={form.shares ?? null} onApplyShares={(s) => set("shares", s)} commission={form.commission ?? defaultCommission}
+                />
+                <MonteCarloPreview
+                  historicalTrades={mcTrades}
+                  strategies={strategies.map(s => ({ id: s.id, name: s.name }))}
+                  startingBalance={form.account_size ?? accountSize}
+                  entry={form.entry_price ?? null}
+                  stopLoss={form.stop_loss ?? null}
+                  direction={form.direction ?? "long"}
+                  currentShares={form.shares ?? null}
+                  ruinThreshold={mcRuinThreshold}
+                  commission={form.commission ?? defaultCommission}
+                  onApplyShares={(s) => set("shares", s)}
+                  onCollapsedChange={(c) => {
+                    setMcCollapsed(c);
+                    saveSetting("montecarlo_panel_collapsed", c);
+                  }}
+                  defaultCollapsed={mcCollapsed}
                 />
               </div>
             </div>
