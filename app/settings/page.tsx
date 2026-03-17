@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database, Send, Grid3X3, Users, Settings, Trash2, UserCheck, UserX, LineChart, ListChecks, Plus, GripVertical, ChevronDown, ChevronRight, ChevronUp, Wallet } from "lucide-react";
+import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database, Send, Grid3X3, Users, Settings, Trash2, UserCheck, UserX, LineChart, ListChecks, Plus, GripVertical, ChevronDown, ChevronRight, ChevronUp, Wallet, BrainCircuit } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback } from "react";
 import { tradesToCsv, csvToTrades } from "@/lib/csv";
@@ -32,6 +32,7 @@ interface Settings {
   discord_webhook: string;
   alert_discord_webhook: string;
   fmp_api_key: string;
+  openai_api_key: string;
   account_size: string;
   risk_per_trade: string;
   commission_per_trade: string;
@@ -195,7 +196,7 @@ function SettingsContent() {
   const searchParams = useSearchParams();
   const initialCategory = (searchParams.get("tab") ?? "account") as Category;
   const [settings, setSettings] = useState<Settings>({
-    discord_webhook: "", alert_discord_webhook: "", fmp_api_key: "", account_size: "10000", risk_per_trade: "1", commission_per_trade: "0",
+    discord_webhook: "", alert_discord_webhook: "", fmp_api_key: "", openai_api_key: "", account_size: "10000", risk_per_trade: "1", commission_per_trade: "0",
     commission_model: "flat", commission_value: "0",
     heatmap_ranges: JSON.stringify({ high: 500, mid: 200, low: 1 }), charts_collapsed: "false", privacy_mode: "revealed",
     tv_hide_side_toolbar: "false", tv_withdateranges: "true", tv_details: "false", tv_hotlist: "false", tv_calendar: "false", tv_studies: JSON.stringify(["Moving Average Simple@tv-basicstudies"]),
@@ -205,7 +206,10 @@ function SettingsContent() {
     montecarlo_ruin_threshold: "5",
     strategies: JSON.stringify([
       { id: "wyckoff_buy", name: "Wyckoff Buying Tests", checklist: ["Downside objective accomplished", "Activity bullish (Vol increase on rallies)", "Preliminary support / Selling climax", "Relative strength (Bullish vs Market)", "Downward trendline broken", "Higher lows", "Higher highs", "Base forming (Cause)", "RR Potential 3:1 or better"] },
-      { id: "wyckoff_sell", name: "Wyckoff Selling Tests", checklist: ["Upside objective accomplished", "Activity bearish (Vol increase on drops)", "Preliminary supply / Buying climax", "Relative weakness (Bearish vs Market)", "Upward trendline broken", "Lower highs", "Lower lows", "Top forming (Cause)", "RR Potential 3:1 or better"] }
+      { id: "wyckoff_sell", name: "Wyckoff Selling Tests", checklist: ["Upside objective accomplished", "Activity bearish (Vol increase on drops)", "Preliminary supply / Buying climax", "Relative weakness (Bearish vs Market)", "Upward trendline broken", "Lower highs", "Lower lows", "Top forming (Cause)", "RR Potential 3:1 or better"] },
+      { id: "momentum_breakout", name: "Momentum Breakout", checklist: ["Price above key resistance level", "Volume 1.5x+ average on breakout", "Relative strength vs index", "No major overhead supply within 1R", "Trend aligned on higher timeframe"] },
+      { id: "mean_reversion", name: "Mean Reversion", checklist: ["Extended from 20 EMA (2+ ATR)", "RSI divergence present", "Volume climax / exhaustion", "Key support/resistance nearby", "Catalyst or event risk clear"] },
+      { id: "ema_pullback", name: "EMA Pullback", checklist: ["Established uptrend (higher highs/lows)", "Pullback to 21 EMA on daily", "Hold above prior swing low", "Volume declining on pullback", "Bullish candle pattern at EMA"] }
     ])
   });
 
@@ -1269,6 +1273,23 @@ function SettingsContent() {
                 {symbolCount !== null && <span className="text-sm dark:text-slate-400 text-slate-500">{symbolCount} symbols cached</span>}
               </div>
               {refreshMsg && <p className="text-sm dark:text-slate-400 text-slate-500">{refreshMsg}</p>}
+            </section>
+
+            {/* AI Chart Analysis */}
+            <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
+              <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+                <BrainCircuit className="w-4 h-4 text-violet-400" /> AI Chart Analysis
+              </h2>
+              <div>
+                <label className={LABEL}>OpenAI API Key</label>
+                <input type="password" value={settings.openai_api_key}
+                  onChange={e => setSettings(s => ({ ...s, openai_api_key: e.target.value }))}
+                  placeholder="Enter your OpenAI API key..." className={INPUT} />
+                <p className={HINT}>
+                  Get a key at <a href="https://platform.openai.com" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">platform.openai.com</a>.
+                  Powers AI chart pattern recognition. Charges apply per analysis.
+                </p>
+              </div>
             </section>
 
             {/* Discord */}
