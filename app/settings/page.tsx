@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database, Send, Grid3X3, Users, Settings, Trash2, UserCheck, UserX, LineChart, ListChecks, Plus, GripVertical, ChevronDown, ChevronRight, ChevronUp, Wallet, BrainCircuit } from "lucide-react";
+import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database, Send, Grid3X3, Users, Settings, Trash2, UserCheck, UserX, LineChart, ListChecks, Plus, GripVertical, ChevronDown, ChevronRight, ChevronUp, Wallet, BrainCircuit, Cable, SkipForward, AlertTriangle, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback } from "react";
 import { tradesToCsv, csvToTrades } from "@/lib/csv";
@@ -61,7 +61,7 @@ interface TwoFactorSetup {
   qrDataUrl: string;
 }
 
-type Category = "account" | "accounts" | "tags" | "templates" | "display" | "chart" | "strategies" | "integrations" | "security" | "data" | "admin-users" | "admin-settings";
+type Category = "account" | "accounts" | "tags" | "templates" | "display" | "chart" | "strategies" | "integrations" | "broker" | "security" | "data" | "admin-users" | "admin-settings";
 
 const CATEGORIES: { id: Category; label: string; icon: typeof DollarSign; adminOnly?: boolean }[] = [
   { id: "account",        label: "Account",        icon: DollarSign },
@@ -72,6 +72,7 @@ const CATEGORIES: { id: Category; label: string; icon: typeof DollarSign; adminO
   { id: "chart",          label: "Chart",           icon: LineChart },
   { id: "strategies",     label: "Strategies",      icon: ListChecks },
   { id: "integrations",   label: "Integrations",    icon: Key },
+  { id: "broker",         label: "Broker",          icon: Cable },
   { id: "security",       label: "Security",        icon: ShieldCheck },
   { id: "data",           label: "Data",             icon: Database },
   { id: "admin-users",    label: "Users",            icon: Users, adminOnly: true },
@@ -315,6 +316,24 @@ function SettingsContent() {
   const [sysSaved, setSysSaved] = useState(false);
   const [showSmtpPass, setShowSmtpPass] = useState(false);
 
+  // Broker / IBKR state
+  const [ibkrGatewayUrl, setIbkrGatewayUrl] = useState("");
+  const [ibkrSslVerify, setIbkrSslVerify] = useState(false);
+  const [ibkrConnectionStatus, setIbkrConnectionStatus] = useState<"unknown" | "connected" | "disconnected">("unknown");
+  const [ibkrConnectionError, setIbkrConnectionError] = useState<string | null>(null);
+  const [ibkrDiscoveredAccounts, setIbkrDiscoveredAccounts] = useState<Array<{ id: string; type: string }>>([]);
+  const [ibkrAccountMappings, setIbkrAccountMappings] = useState<Array<{ ibkrAccountId: string; ledgerAccountId: string }>>([]);
+  const [ibkrLastSync, setIbkrLastSync] = useState<string | null>(null);
+  const [ibkrLastSyncStatus, setIbkrLastSyncStatus] = useState<string | null>(null);
+  const [ibkrSyncing, setIbkrSyncing] = useState(false);
+  const [ibkrSyncResults, setIbkrSyncResults] = useState<Array<{ ibkrAccountId: string; ledgerAccountId: string; newCount: number; dupCount: number; errCount: number; error?: string }> | null>(null);
+  const [ibkrSyncDateRange, setIbkrSyncDateRange] = useState<"7d" | "30d" | "custom">("7d");
+  const [ibkrSyncCustomStart, setIbkrSyncCustomStart] = useState("");
+  const [ibkrSyncCustomEnd, setIbkrSyncCustomEnd] = useState("");
+  const [ibkrTesting, setIbkrTesting] = useState(false);
+  const [ibkrMappingsSaving, setIbkrMappingsSaving] = useState(false);
+  const [ibkrMappingsSaved, setIbkrMappingsSaved] = useState(false);
+
   // Accounts management state
   const { accounts, refreshAccounts } = useAccounts();
   const [acctEdits, setAcctEdits] = useState<Record<string, Partial<Account>>>({});
@@ -346,6 +365,14 @@ function SettingsContent() {
   useEffect(() => {
     fetch("/api/settings").then(r => r.json()).then(data => {
       setSettings(s => ({ ...s, ...data }));
+      // Load IBKR broker settings
+      if (data.ibkr_gateway_url) setIbkrGatewayUrl(data.ibkr_gateway_url);
+      if (data.ibkr_ssl_verify !== undefined) setIbkrSslVerify(data.ibkr_ssl_verify === "true");
+      if (data.ibkr_account_mappings) {
+        try { setIbkrAccountMappings(JSON.parse(data.ibkr_account_mappings)); } catch { /* ignore */ }
+      }
+      if (data.ibkr_last_sync) setIbkrLastSync(data.ibkr_last_sync);
+      if (data.ibkr_last_sync_status) setIbkrLastSyncStatus(data.ibkr_last_sync_status);
       fetch("/api/trades").then(r => r.json()).then(trades => {
         if (Array.isArray(trades)) {
           const totalPnl = trades.filter((t: { status: string; pnl?: number }) => t.status === "closed")
@@ -1281,13 +1308,13 @@ function SettingsContent() {
                 <BrainCircuit className="w-4 h-4 text-violet-400" /> AI Chart Analysis
               </h2>
               <div>
-                <label className={LABEL}>OpenAI API Key</label>
+                <label className={LABEL}>Gemini API Key</label>
                 <input type="password" value={settings.openai_api_key}
                   onChange={e => setSettings(s => ({ ...s, openai_api_key: e.target.value }))}
-                  placeholder="Enter your OpenAI API key..." className={INPUT} />
+                  placeholder="Enter your Gemini API key..." className={INPUT} />
                 <p className={HINT}>
-                  Get a key at <a href="https://platform.openai.com" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">platform.openai.com</a>.
-                  Powers AI chart pattern recognition. Charges apply per analysis.
+                  Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">aistudio.google.com</a>.
+                  Powers AI chart pattern recognition with Gemini.
                 </p>
               </div>
             </section>
@@ -1335,6 +1362,363 @@ function SettingsContent() {
                 </div>
                 <p className={HINT}>Separate webhook for price alerts. Leave empty to use chart webhook.</p>
               </div>
+            </section>
+          </>
+        )}
+
+        {/* ── Broker ── */}
+        {activeCategory === "broker" && (
+          <>
+            {/* Sync Results Modal */}
+            {ibkrSyncResults && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <div className="rounded-2xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-6 w-full max-w-lg shadow-2xl space-y-4 max-h-[80vh] overflow-y-auto">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-semibold dark:text-white text-slate-900 text-lg">Sync Results</h2>
+                    <button onClick={() => setIbkrSyncResults(null)} className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-100 transition-colors">
+                      <X className="w-4 h-4 dark:text-slate-400 text-slate-500" />
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {ibkrSyncResults.map((r, i) => {
+                      const acct = accounts.find(a => a.id === r.ledgerAccountId);
+                      const acctName = acct?.name ?? r.ibkrAccountId;
+                      return (
+                        <div key={i} className="rounded-xl border dark:border-slate-700 border-slate-200 p-4 space-y-2">
+                          <div className="font-medium dark:text-white text-slate-900 text-sm">{acctName}</div>
+                          {r.error ? (
+                            <p className="text-xs text-red-400">{r.error}</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-2 text-xs text-emerald-400">
+                                <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                                <span>{r.newCount} new trade{r.newCount !== 1 ? "s" : ""} imported</span>
+                              </div>
+                              {r.dupCount > 0 && (
+                                <div className="flex items-center gap-2 text-xs dark:text-slate-400 text-slate-500">
+                                  <SkipForward className="w-3.5 h-3.5 shrink-0" />
+                                  <span>{r.dupCount} duplicate{r.dupCount !== 1 ? "s" : ""} skipped</span>
+                                </div>
+                              )}
+                              {r.errCount > 0 && (
+                                <div className="flex items-center gap-2 text-xs text-amber-400">
+                                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                  <span>{r.errCount} error{r.errCount !== 1 ? "s" : ""}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="pt-3 border-t dark:border-slate-700 border-slate-200 text-xs dark:text-slate-400 text-slate-500">
+                    Total: {ibkrSyncResults.reduce((s, r) => s + r.newCount, 0)} new trades imported,{" "}
+                    {ibkrSyncResults.reduce((s, r) => s + r.dupCount, 0)} duplicates skipped
+                  </div>
+                  <button onClick={() => setIbkrSyncResults(null)}
+                    className="w-full px-4 py-2 rounded-lg dark:bg-slate-800 bg-slate-100 dark:text-slate-200 text-slate-700 text-sm font-medium hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors">
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Section A: Gateway Connection */}
+            <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
+              <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+                <Cable className="w-4 h-4 text-blue-400" /> IBKR Gateway Connection
+              </h2>
+              <p className="text-xs dark:text-slate-400 text-slate-500">
+                Connect to the IBKR Client Portal Web API gateway running on your machine or server.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <label className={LABEL}>Gateway URL</label>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={ibkrGatewayUrl}
+                        onChange={e => setIbkrGatewayUrl(e.target.value)}
+                        placeholder="https://localhost:5000"
+                        className={INPUT}
+                      />
+                    </div>
+                    {ibkrConnectionStatus === "connected" && (
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-400 shrink-0">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" /> Connected
+                      </span>
+                    )}
+                    {ibkrConnectionStatus === "disconnected" && (
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-red-400 shrink-0">
+                        <span className="w-2 h-2 rounded-full bg-red-400" /> Disconnected
+                      </span>
+                    )}
+                  </div>
+                  {ibkrConnectionError && (
+                    <p className="text-xs text-red-400 mt-1">{ibkrConnectionError}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="ibkr-ssl-verify"
+                    checked={ibkrSslVerify}
+                    onChange={e => setIbkrSslVerify(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-600 text-blue-500 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <label htmlFor="ibkr-ssl-verify" className="text-sm dark:text-slate-300 text-slate-700 cursor-pointer">
+                    Require valid SSL certificate
+                  </label>
+                </div>
+                <p className={HINT}>Uncheck to allow self-signed certificates (typical for local gateway installations).</p>
+                <button
+                  onClick={async () => {
+                    setIbkrTesting(true);
+                    setIbkrConnectionStatus("unknown");
+                    setIbkrConnectionError(null);
+                    // Save settings first
+                    await fetch("/api/settings", {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        ibkr_gateway_url: ibkrGatewayUrl,
+                        ibkr_ssl_verify: String(ibkrSslVerify),
+                      }),
+                    });
+                    // Test connection
+                    const res = await fetch("/api/broker/ibkr/status").catch(() => null);
+                    if (!res || !res.ok) {
+                      setIbkrConnectionStatus("disconnected");
+                      setIbkrConnectionError("Could not reach gateway. Check the URL and ensure the gateway is running.");
+                      setIbkrTesting(false);
+                      return;
+                    }
+                    const data = await res.json();
+                    if (data.connected) {
+                      setIbkrConnectionStatus("connected");
+                      // Discover sub-accounts
+                      const accRes = await fetch("/api/broker/ibkr/accounts").catch(() => null);
+                      if (accRes?.ok) {
+                        const accData = await accRes.json();
+                        if (accData.accounts) {
+                          setIbkrDiscoveredAccounts(accData.accounts);
+                          // Initialize mappings for newly discovered accounts
+                          setIbkrAccountMappings(prev => {
+                            const existing = new Set(prev.map(m => m.ibkrAccountId));
+                            const news = accData.accounts
+                              .filter((a: { id: string }) => !existing.has(a.id))
+                              .map((a: { id: string }) => ({ ibkrAccountId: a.id, ledgerAccountId: "" }));
+                            return [...prev, ...news];
+                          });
+                        }
+                      }
+                    } else {
+                      setIbkrConnectionStatus("disconnected");
+                      setIbkrConnectionError(data.error ?? "Gateway returned an error response.");
+                    }
+                    setIbkrTesting(false);
+                  }}
+                  disabled={ibkrTesting || !ibkrGatewayUrl}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${ibkrTesting ? "animate-spin" : ""}`} />
+                  {ibkrTesting ? "Testing..." : "Test Connection"}
+                </button>
+              </div>
+            </section>
+
+            {/* Section B: Account Mapping */}
+            {ibkrDiscoveredAccounts.length > 0 && (
+              <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
+                <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+                  <Wallet className="w-4 h-4 text-blue-400" /> Account Mapping
+                </h2>
+                <p className="text-xs dark:text-slate-400 text-slate-500">
+                  Link each IBKR sub-account to a Ledger of Alpha account. Only mapped accounts will sync trades.
+                </p>
+                <div className="border dark:border-slate-700 border-slate-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b dark:border-slate-700 border-slate-200">
+                        <th className="text-left px-4 py-2.5 text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wide">IBKR Account</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wide">Type</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wide">Ledger Account</th>
+                        <th className="px-4 py-2.5" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y dark:divide-slate-700/50 divide-slate-100">
+                      {ibkrDiscoveredAccounts.map(ibkrAcct => {
+                        const mapping = ibkrAccountMappings.find(m => m.ibkrAccountId === ibkrAcct.id);
+                        return (
+                          <tr key={ibkrAcct.id}>
+                            <td className="px-4 py-3 font-mono text-xs dark:text-slate-300 text-slate-700">{ibkrAcct.id}</td>
+                            <td className="px-4 py-3 text-xs dark:text-slate-400 text-slate-500 capitalize">{ibkrAcct.type}</td>
+                            <td className="px-4 py-3">
+                              <select
+                                value={mapping?.ledgerAccountId ?? ""}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setIbkrAccountMappings(prev => {
+                                    const filtered = prev.filter(m => m.ibkrAccountId !== ibkrAcct.id);
+                                    if (val) return [...filtered, { ibkrAccountId: ibkrAcct.id, ledgerAccountId: val }];
+                                    return filtered;
+                                  });
+                                }}
+                                className="w-full px-2.5 py-1.5 rounded-lg border dark:border-slate-600 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">— Not mapped —</option>
+                                {accounts.map(a => (
+                                  <option key={a.id} value={a.id}>{a.name}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-4 py-3">
+                              {mapping?.ledgerAccountId && (
+                                <button
+                                  onClick={() => setIbkrAccountMappings(prev => prev.filter(m => m.ibkrAccountId !== ibkrAcct.id))}
+                                  className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                                  title="Unlink"
+                                >
+                                  Unlink
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={async () => {
+                      setIbkrMappingsSaving(true);
+                      await fetch("/api/settings", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ ibkr_account_mappings: JSON.stringify(ibkrAccountMappings) }),
+                      });
+                      setIbkrMappingsSaving(false);
+                      setIbkrMappingsSaved(true);
+                      setTimeout(() => setIbkrMappingsSaved(false), 2500);
+                    }}
+                    disabled={ibkrMappingsSaving}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {ibkrMappingsSaved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                    {ibkrMappingsSaved ? "Saved!" : ibkrMappingsSaving ? "Saving..." : "Save Mappings"}
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {/* Section C: Trade Sync */}
+            {ibkrAccountMappings.some(m => m.ledgerAccountId) && (
+              <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
+                <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 text-blue-400" /> Trade Sync
+                </h2>
+                <div className="space-y-3">
+                  <div>
+                    <label className={LABEL}>Date Range</label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {(["7d", "30d", "custom"] as const).map(range => (
+                        <button
+                          key={range}
+                          onClick={() => setIbkrSyncDateRange(range)}
+                          className={clsx(
+                            "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                            ibkrSyncDateRange === range
+                              ? "bg-blue-600 text-white"
+                              : "border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 hover:dark:bg-slate-800 hover:bg-slate-50"
+                          )}
+                        >
+                          {range === "7d" ? "Last 7 Days" : range === "30d" ? "Last 30 Days" : "Custom"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {ibkrSyncDateRange === "custom" && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={LABEL}>Start Date</label>
+                        <input
+                          type="date"
+                          value={ibkrSyncCustomStart}
+                          onChange={e => setIbkrSyncCustomStart(e.target.value)}
+                          className={INPUT}
+                        />
+                      </div>
+                      <div>
+                        <label className={LABEL}>End Date</label>
+                        <input
+                          type="date"
+                          value={ibkrSyncCustomEnd}
+                          onChange={e => setIbkrSyncCustomEnd(e.target.value)}
+                          className={INPUT}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    onClick={async () => {
+                      setIbkrSyncing(true);
+                      const body: Record<string, string> = { dateRange: ibkrSyncDateRange };
+                      if (ibkrSyncDateRange === "custom") {
+                        if (ibkrSyncCustomStart) body.startDate = ibkrSyncCustomStart;
+                        if (ibkrSyncCustomEnd) body.endDate = ibkrSyncCustomEnd;
+                      }
+                      const res = await fetch("/api/broker/ibkr/sync", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(body),
+                      }).catch(() => null);
+                      setIbkrSyncing(false);
+                      if (!res || !res.ok) {
+                        const errData = res ? await res.json().catch(() => ({})) : {};
+                        setIbkrLastSyncStatus("error: " + (errData.error ?? "Sync failed"));
+                        setIbkrLastSync(new Date().toISOString());
+                        return;
+                      }
+                      const data = await res.json();
+                      setIbkrSyncResults(data.results ?? []);
+                      setIbkrLastSync(data.syncedAt ?? new Date().toISOString());
+                      setIbkrLastSyncStatus("success");
+                    }}
+                    disabled={ibkrSyncing}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${ibkrSyncing ? "animate-spin" : ""}`} />
+                    {ibkrSyncing ? "Syncing..." : "Sync Now"}
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {/* Section D: Sync Status */}
+            <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-3">
+              <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-blue-400" /> Sync Status
+              </h2>
+              {ibkrLastSync ? (
+                <div className="space-y-2">
+                  <p className="text-sm dark:text-slate-300 text-slate-700">
+                    Last synced:{" "}
+                    <span className="font-medium">
+                      {new Date(ibkrLastSync).toLocaleString()}
+                    </span>
+                  </p>
+                  {ibkrLastSyncStatus && (
+                    <p className={clsx("text-xs font-medium", ibkrLastSyncStatus === "success" ? "text-emerald-400" : "text-red-400")}>
+                      {ibkrLastSyncStatus === "success" ? "Success" : ibkrLastSyncStatus}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm dark:text-slate-400 text-slate-500">No sync performed yet.</p>
+              )}
             </section>
           </>
         )}
