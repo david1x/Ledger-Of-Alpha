@@ -57,7 +57,7 @@ Plans:
   3. The analysis result is stored and remains visible when the user reopens the trade later
   4. User can search or filter trades by AI-detected pattern type and see only trades matching that pattern
   5. User can view a summary table showing win rate and average P&L grouped by pattern type across all analyzed trades
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 10-01-PLAN.md — Foundation: openai install, DB migration 019, Trade types, AI vision lib, screenshot APIs, Settings API key
@@ -81,7 +81,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 8. Trading Tools Hub | 4/4 | Complete   | 2026-03-17 |
 | 9. Monte Carlo Entry Integration | 1/2 | In Progress|  |
-| 10. AI Chart Pattern Recognition | 1/3 | In Progress|  |
+| 10. AI Chart Pattern Recognition | 2/3 | In Progress|  |
 | 11. IBKR Broker Sync | 0/? | Not started | — |
 
 ---
