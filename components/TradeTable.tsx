@@ -77,6 +77,7 @@ function calcPotentialPnl(t: Trade) {
   if (t.status === "closed") return null;
   if (t.entry_price == null || t.shares == null) return null;
   const comm = (t.commission ?? 0) * 2;
+  const cost = t.entry_price * t.shares;
   const profit =
     t.take_profit != null
       ? Math.abs(t.take_profit - t.entry_price) * t.shares - comm
@@ -86,7 +87,9 @@ function calcPotentialPnl(t: Trade) {
       ? -(Math.abs(t.stop_loss - t.entry_price) * t.shares + comm)
       : null;
   if (profit == null && loss == null) return null;
-  return { profit, loss };
+  const profitPct = profit != null && cost > 0 ? (profit / cost) * 100 : null;
+  const lossPct = loss != null && cost > 0 ? (loss / cost) * 100 : null;
+  return { profit, loss, profitPct, lossPct };
 }
 
 function getSortValue(t: Trade, key: ColumnKey, quotes: QuoteMap, defaultRiskPercent?: number, accountSize?: number): string | number {
@@ -301,7 +304,14 @@ export default function TradeTable({
                         aria-label={`Select trade ${t.symbol}`}
                       />
                     )}
-                    {show("symbol") && <span className="font-bold text-emerald-400 cursor-pointer hover:underline" onClick={() => onEdit(t)}>{t.symbol}</span>}
+                    {show("symbol") && (
+                      <span className="flex items-center gap-1 font-bold text-emerald-400 cursor-pointer hover:underline" onClick={() => onEdit(t)}>
+                        {t.symbol}
+                        {t.source === "ibkr" && (
+                          <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-500/15 text-blue-400">IBKR</span>
+                        )}
+                      </span>
+                    )}
                     {show("direction") && (
                       t.direction === "long"
                         ? <span className="flex items-center gap-0.5 text-xs text-emerald-400"><ArrowUpRight className="w-3 h-3" />Long</span>
@@ -368,9 +378,9 @@ export default function TradeTable({
                     )}
                     {show("potential") && pot && (
                       <span className="font-medium">
-                        {pot.profit != null && <span className="text-emerald-400">+${pot.profit.toFixed(2)}</span>}
+                        {pot.profit != null && <span className="text-emerald-400">+${pot.profit.toFixed(2)} <span className="opacity-60">({pot.profitPct!.toFixed(1)}%)</span></span>}
                         {pot.profit != null && pot.loss != null && <span className="dark:text-slate-500 text-slate-400"> / </span>}
-                        {pot.loss != null && <span className="text-red-400">-${Math.abs(pot.loss).toFixed(2)}</span>}
+                        {pot.loss != null && <span className="text-red-400">-${Math.abs(pot.loss).toFixed(2)} <span className="opacity-60">({Math.abs(pot.lossPct!).toFixed(1)}%)</span></span>}
                       </span>
                     )}
                     {show("unrealized") && livePnl !== null && (
@@ -473,7 +483,12 @@ export default function TradeTable({
                         className="px-4 py-3 font-bold text-emerald-400 cursor-pointer hover:underline"
                         onClick={() => onEdit(t)}
                       >
-                        {t.symbol}
+                        <span className="flex items-center gap-1">
+                          {t.symbol}
+                          {t.source === "ibkr" && (
+                            <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-500/15 text-blue-400">IBKR</span>
+                          )}
+                        </span>
                       </td>
                     )}
                     {show("direction") && (
@@ -536,8 +551,8 @@ export default function TradeTable({
                       <td className="px-4 py-3">
                         {pot ? (
                           <div className="flex flex-col text-[10px] font-bold leading-tight uppercase tracking-tighter">
-                            {pot.profit != null && <span className="text-emerald-400">+${pot.profit.toFixed(2)}</span>}
-                            {pot.loss != null && <span className="text-red-400">-${Math.abs(pot.loss).toFixed(2)}</span>}
+                            {pot.profit != null && <span className="text-emerald-400">+${pot.profit.toFixed(2)} <span className="opacity-60">({pot.profitPct!.toFixed(1)}%)</span></span>}
+                            {pot.loss != null && <span className="text-red-400">-${Math.abs(pot.loss).toFixed(2)} <span className="opacity-60">({Math.abs(pot.lossPct!).toFixed(1)}%)</span></span>}
                           </div>
                         ) : "—"}
                       </td>
