@@ -3,10 +3,25 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Intelligence & Automation
 status: in-progress
+last_updated: "2026-03-17T23:32:08.858Z"
+last_activity: 2026-03-18 — 11-01 completed (ibkr-client.ts, migrations 020/021, status/accounts/sync/positions routes)
+progress:
+  total_phases: 4
+  completed_phases: 3
+  total_plans: 12
+  completed_plans: 11
+  percent: 92
+---
+
+---
+gsd_state_version: 1.0
+milestone: v2.0
+milestone_name: — Intelligence & Automation
+status: in-progress
 last_updated: "2026-03-17T23:18:00.499Z"
 last_activity: 2026-03-17 — 10-03 completed (PatternPerformance, ai_pattern filter, Analytics page AI section)
 progress:
-  total_phases: 4
+  [█████████░] 92%
   completed_phases: 3
   total_plans: 12
   completed_plans: 10
@@ -61,11 +76,11 @@ progress:
 ## Current Position
 
 Phase: 11 — IBKR Broker Sync (In Progress)
-Plan: 01 complete — 1/3 plans done
-Status: 11-01 complete — IBKR backend foundation: gateway client, DB migrations, 4 API routes
-Last activity: 2026-03-18 — 11-01 completed (ibkr-client.ts, migrations 020/021, status/accounts/sync/positions routes)
+Plan: 02 complete — 2/3 plans done
+Status: 11-02 complete — Broker settings tab: gateway config, account mapping, sync UI, [IBKR] badge on trades table
+Last activity: 2026-03-18 — 11-02 completed (settings Broker tab, IBKR badge in TradeTable)
 
-Progress: [████████░░] 83%
+Progress: [█████████░] 92%
 
 ## Project Reference
 
@@ -83,7 +98,7 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 | 8. Trading Tools Hub | Six calculators at /tools | Complete (3/3 plans done) |
 | 9. Monte Carlo Entry Integration | Inline risk simulation in TradeModal | Complete (1/1 plans done) |
 | 10. AI Chart Pattern Recognition | GPT-4o screenshot analysis + similar trade finder | Complete (3/3 plans done) |
-| 11. IBKR Broker Sync | Client Portal REST integration, live positions | In Progress (1/3) |
+| 11. IBKR Broker Sync | Client Portal REST integration, live positions | In Progress (2/3) |
 
 ## Performance Metrics
 
@@ -159,9 +174,10 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 | Phase 10-ai-chart-pattern-recognition P02 | 233 | 2 tasks | 4 files |
 | Phase 10-ai-chart-pattern-recognition P03 | 180 | 2 tasks | 3 files |
 | Phase 11-ibkr-broker-sync P01 | 389 | 2 tasks | 9 files |
+| Phase 11-ibkr-broker-sync P02 | 18min | 2 tasks | 2 files |
 
 ## Session Continuity
 
 To resume: read this file + .planning/ROADMAP.md + current phase plan.
-Last session: 2026-03-17T23:18:00.496Z
+Last session: 2026-03-17T23:32:08.856Z
 Next action: Run `/gsd:execute-phase 11` to continue Phase 11 (IBKR Broker Sync — Plan 02: Settings UI).
