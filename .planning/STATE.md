@@ -3,6 +3,20 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Intelligence & Automation
 status: in-progress
+last_updated: "2026-03-17T23:38:27.269Z"
+last_activity: 2026-03-17 — 11-03 completed (IBKRPositionsWidget, DashboardShell integration)
+progress:
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 12
+  completed_plans: 12
+---
+
+---
+gsd_state_version: 1.0
+milestone: v2.0
+milestone_name: — Intelligence & Automation
+status: in-progress
 last_updated: "2026-03-17T23:34:12.025Z"
 last_activity: 2026-03-18 — 11-02 completed (settings Broker tab, IBKR badge in TradeTable)
 progress:
