@@ -12,7 +12,7 @@
 
 - [x] **Phase 8: Trading Tools Hub** - Six calculators at a dedicated /tools page; zero external dependencies (completed 2026-03-16)
 - [ ] **Phase 9: Monte Carlo Entry Integration** - Inline risk simulation and position sizing inside the trade entry modal
-- [x] **Phase 10: AI Chart Pattern Recognition** - GPT-4o screenshot analysis with similar trade finder and pattern performance stats (completed 2026-03-17)
+- [x] **Phase 10: AI Chart Pattern Recognition** - GPT-4o screenshot analysis with similar trade finder and pattern performance stats (completed 2026-03-17)
 - [ ] **Phase 11: IBKR Broker Sync** - Client Portal REST integration with live positions, manual sync, and deduplication
 
 ## Phase Details
@@ -73,7 +73,12 @@ Plans:
   2. User can click "Sync Now" and see new IBKR-executed trades appear in the trades list without duplicates, even when synced multiple times on the same day
   3. User can view a live open positions panel showing each open position from IBKR with its current unrealized P&L
   4. User can see the timestamp of the last successful sync and a clear error message when the gateway is unreachable
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — DB migrations, Trade types, IBKR client library, API proxy routes (status, accounts, sync, positions)
+- [ ] 11-02-PLAN.md — Broker settings tab (gateway config, account mapping, sync controls, results modal), [IBKR] badge on trades
+- [ ] 11-03-PLAN.md — IBKR Live Positions dashboard widget (#25) with manual refresh and offline states
 
 ## Progress
 
@@ -82,7 +87,7 @@ Plans:
 | 8. Trading Tools Hub | 4/4 | Complete   | 2026-03-17 |
 | 9. Monte Carlo Entry Integration | 1/2 | In Progress|  |
 | 10. AI Chart Pattern Recognition | 3/3 | Complete    | 2026-03-17 |
-| 11. IBKR Broker Sync | 0/? | Not started | — |
+| 11. IBKR Broker Sync | 0/3 | Not started | — |
 
 ---
 *Roadmap created: 2026-03-15 for v2.0 Intelligence & Automation*
