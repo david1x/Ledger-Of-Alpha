@@ -7,6 +7,8 @@ import RiskSimulator from "@/components/dashboard/RiskSimulator";
 import AIInsightsWidget from "@/components/dashboard/AIInsightsWidget";
 import DistributionChart from "@/components/dashboard/DistributionChart";
 import ComparisonWidget from "@/components/dashboard/ComparisonWidget";
+import PatternPerformance from "@/components/ai/PatternPerformance";
+import ScreenshotUploader from "@/components/ai/ScreenshotUploader";
 import { TrendingUp, Shield, BarChart3, BrainCircuit, RefreshCw } from "lucide-react";
 import clsx from "clsx";
 
@@ -102,6 +104,27 @@ export default function AnalyticsPage() {
           <ComparisonWidget trades={closed} strategies={strategies} />
         </div>
       </section>
+
+      {/* AI Pattern Analysis */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 md:gap-8 animate-in fade-in slide-in-from-top-2 duration-700 delay-1000 fill-mode-both">
+        {/* Pattern Performance */}
+        <section className="dark:bg-slate-900/50 bg-white border dark:border-slate-800 border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm">
+          <SectionHeader title="Pattern Performance" icon={BrainCircuit} />
+          <p className="text-xs dark:text-slate-400 text-slate-500 -mt-4 mb-5">
+            Win rate and P&L stats grouped by AI-detected chart patterns
+          </p>
+          <PatternPerformance trades={trades} />
+        </section>
+
+        {/* Screenshot Upload */}
+        <section className="dark:bg-slate-900/50 bg-white border dark:border-slate-800 border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm">
+          <SectionHeader title="Analyze Chart Screenshot" icon={BrainCircuit} />
+          <p className="text-xs dark:text-slate-400 text-slate-500 -mt-4 mb-5">
+            Upload a chart screenshot to detect patterns and link to an existing trade
+          </p>
+          <ScreenshotUploader trades={trades} onTradeLinked={() => load()} />
+        </section>
+      </div>
     </div>
   );
 }
