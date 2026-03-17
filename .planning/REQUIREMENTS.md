@@ -17,9 +17,9 @@ Requirements for v2.0 Intelligence & Automation. Each maps to roadmap phases.
 
 ### IBKR Broker Sync
 
-- [ ] **IBKR-01**: User can configure IBKR Client Portal gateway connection in settings
+- [x] **IBKR-01**: User can configure IBKR Client Portal gateway connection in settings
 - [ ] **IBKR-02**: User can trigger manual trade sync via "Sync Now" button
-- [ ] **IBKR-03**: Imported trades are deduplicated by IBKR execution ID
+- [x] **IBKR-03**: Imported trades are deduplicated by IBKR execution ID
 - [ ] **IBKR-04**: User can view live open positions from IBKR with unrealized P&L
 - [ ] **IBKR-05**: User can see last sync timestamp and success/error status
 
@@ -91,9 +91,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AI-03 | Phase 10 | Complete |
 | AI-04 | Phase 10 | Complete |
 | AI-05 | Phase 10 | Complete |
-| IBKR-01 | Phase 11 | Pending |
+| IBKR-01 | Phase 11 | Complete |
 | IBKR-02 | Phase 11 | Pending |
-| IBKR-03 | Phase 11 | Pending |
+| IBKR-03 | Phase 11 | Complete |
 | IBKR-04 | Phase 11 | Pending |
 | IBKR-05 | Phase 11 | Pending |
 | MC-01 | Phase 9 | Complete |
