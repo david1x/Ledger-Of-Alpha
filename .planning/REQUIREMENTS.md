@@ -25,10 +25,10 @@ Requirements for v2.0 Intelligence & Automation. Each maps to roadmap phases.
 
 ### Monte Carlo Entry Integration
 
-- [ ] **MC-01**: User sees ruin probability warning when proposed trade risk is too high
-- [ ] **MC-02**: User sees inline simulation preview (median outcome, probability of profit) in trade modal
-- [ ] **MC-03**: System suggests optimal position size based on historical performance
-- [ ] **MC-04**: User can filter simulation by strategy/setup type for targeted risk analysis
+- [x] **MC-01**: User sees ruin probability warning when proposed trade risk is too high
+- [x] **MC-02**: User sees inline simulation preview (median outcome, probability of profit) in trade modal
+- [x] **MC-03**: System suggests optimal position size based on historical performance
+- [x] **MC-04**: User can filter simulation by strategy/setup type for targeted risk analysis
 
 ### Trading Tools Hub
 
@@ -96,10 +96,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IBKR-03 | Phase 11 | Pending |
 | IBKR-04 | Phase 11 | Pending |
 | IBKR-05 | Phase 11 | Pending |
-| MC-01 | Phase 9 | Pending |
-| MC-02 | Phase 9 | Pending |
-| MC-03 | Phase 9 | Pending |
-| MC-04 | Phase 9 | Pending |
+| MC-01 | Phase 9 | Complete |
+| MC-02 | Phase 9 | Complete |
+| MC-03 | Phase 9 | Complete |
+| MC-04 | Phase 9 | Complete |
 | TOOLS-01 | Phase 8 | Complete |
 | TOOLS-02 | Phase 8 | Complete |
 | TOOLS-03 | Phase 8 | Complete |

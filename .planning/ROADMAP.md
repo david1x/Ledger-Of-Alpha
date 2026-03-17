@@ -75,7 +75,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 8. Trading Tools Hub | 4/4 | Complete   | 2026-03-17 |
-| 9. Monte Carlo Entry Integration | 0/? | Not started | — |
+| 9. Monte Carlo Entry Integration | 1/2 | In Progress|  |
 | 10. AI Chart Pattern Recognition | 0/? | Not started | — |
 | 11. IBKR Broker Sync | 0/? | Not started | — |
 
