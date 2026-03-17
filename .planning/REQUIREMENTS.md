@@ -12,8 +12,8 @@ Requirements for v2.0 Intelligence & Automation. Each maps to roadmap phases.
 - [x] **AI-01**: User can upload a chart screenshot from the trade view
 - [x] **AI-02**: AI identifies chart patterns (H&S, flags, wedges, triangles) with confidence scores
 - [x] **AI-03**: Analysis results are stored and linked to the trade record
-- [ ] **AI-04**: User can find similar past trades by AI-detected pattern type
-- [ ] **AI-05**: User can view aggregate performance stats per pattern type (win rate, avg P&L)
+- [x] **AI-04**: User can find similar past trades by AI-detected pattern type
+- [x] **AI-05**: User can view aggregate performance stats per pattern type (win rate, avg P&L)
 
 ### IBKR Broker Sync
 
@@ -89,8 +89,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AI-01 | Phase 10 | Complete |
 | AI-02 | Phase 10 | Complete |
 | AI-03 | Phase 10 | Complete |
-| AI-04 | Phase 10 | Pending |
-| AI-05 | Phase 10 | Pending |
+| AI-04 | Phase 10 | Complete |
+| AI-05 | Phase 10 | Complete |
 | IBKR-01 | Phase 11 | Pending |
 | IBKR-02 | Phase 11 | Pending |
 | IBKR-03 | Phase 11 | Pending |
