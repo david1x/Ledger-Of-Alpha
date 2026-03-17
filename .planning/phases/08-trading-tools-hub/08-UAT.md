@@ -1,9 +1,9 @@
 ---
-status: complete
+status: resolved
 phase: 08-trading-tools-hub
-source: [08-01-SUMMARY.md, 08-02-SUMMARY.md, 08-03-SUMMARY.md]
+source: [08-01-SUMMARY.md, 08-02-SUMMARY.md, 08-03-SUMMARY.md, 08-04-SUMMARY.md]
 started: 2026-03-17T00:00:00Z
-updated: 2026-03-17T00:20:00Z
+updated: 2026-03-17T00:30:00Z
 ---
 
 ## Current Test
@@ -64,11 +64,16 @@ skipped: 0
 ## Gaps
 
 - truth: "User can add any symbol to the correlation matrix, including those not in autocomplete results"
-  status: failed
+  status: resolved
   reason: "User reported: fail to enter symbols that doesnt in the auto complete"
   severity: major
   test: 9
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "SymbolSearch component only fires onSelectFull when user clicks an autocomplete dropdown item. No onKeyDown/Enter handler exists to submit a manually typed symbol. CorrelationMatrix.tsx relies solely on onSelectFull to call addSymbol()."
+  artifacts:
+    - path: "components/tools/CorrelationMatrix.tsx"
+      issue: "Uses SymbolSearch with onSelectFull only — no fallback for manual entry"
+    - path: "components/SymbolSearch.tsx"
+      issue: "No onKeyDown/Enter handler to submit typed value when no autocomplete match"
+  missing:
+    - "Add onKeyDown handler to SymbolSearch (or in CorrelationMatrix wrapper) that calls addSymbol on Enter press with current input value"
   debug_session: ""
