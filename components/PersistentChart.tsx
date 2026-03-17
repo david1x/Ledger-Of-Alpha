@@ -2,7 +2,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
-import { X, Camera, Send, CheckCircle, AlertCircle, Plus, ExternalLink, Link, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Pencil, List, Download, Upload, MoreHorizontal, GripVertical, FolderPlus, Bell, RefreshCw, Copy, Save } from "lucide-react";
+import { X, Camera, Send, CheckCircle, AlertCircle, Plus, ExternalLink, Link, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Pencil, List, Download, Upload, MoreHorizontal, GripVertical, FolderPlus, Bell, RefreshCw, Copy, Save, BrainCircuit } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -22,7 +22,9 @@ import clsx from "clsx";
 import AlertModal from "@/components/AlertModal";
 import TradeModal from "@/components/TradeModal";
 import SymbolSearch from "@/components/SymbolSearch";
+import ScreenshotUploader from "@/components/ai/ScreenshotUploader";
 import { Trade } from "@/lib/types";
+import { AnalysisResult, QAEntry } from "@/lib/ai-vision";
 
 interface Tab { id: string; label: string; interval: string; symbol?: string; }
 interface WatchlistSymbol { symbol: string; name: string; }
@@ -168,6 +170,13 @@ export default function PersistentChart() {
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [tradeDefaults, setTradeDefaults] = useState<Partial<Trade> | null>(null);
 
+  // Trades list (for AI trade linking)
+  const [trades, setTrades] = useState<Trade[]>([]);
+
+  // AI panel
+  const [showAiPanel, setShowAiPanel] = useState(true);
+  const [aiExpanded, setAiExpanded] = useState(true);
+
   // Discord
   const [discordMode, setDiscordMode] = useState<"capture" | "link">("capture");
   const [message, setMessage] = useState("");
@@ -258,6 +267,23 @@ export default function PersistentChart() {
     .finally(() => setLoaded(true));
   }, []);
 
+
+  // ── Fetch trades for AI linking ───────────────────────────────────────────
+  const fetchTrades = useCallback(() => {
+    fetch("/api/trades")
+      .then(r => r.json())
+      .then(data => {
+        const list: Trade[] = Array.isArray(data) ? data : (data.trades ?? []);
+        setTrades(list);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => { fetchTrades(); }, [fetchTrades]);
+
+  const handleTradeLinked = useCallback((_tradeId: number, _analysis: AnalysisResult, _screenshots: string[], _qaHistory: QAEntry[]) => {
+    fetchTrades();
+  }, [fetchTrades]);
 
   // ── Tab save ─────────────────────────────────────────────────────────────
   const saveTabs = useCallback((newTabs: Tab[]) => {
@@ -631,6 +657,46 @@ export default function PersistentChart() {
             </div>
           ))}
         </div>
+
+        {/* AI Chart Analysis panel */}
+        <button
+          onClick={() => setShowAiPanel(v => !v)}
+          title={showAiPanel ? "Collapse AI panel" : "AI Chart Analysis"}
+          className="hidden sm:flex relative flex-col items-center justify-center w-5 shrink-0 border-l dark:border-slate-800 border-slate-200 dark:bg-slate-900/60 bg-slate-50 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors z-10 gap-2"
+        >
+          {!showAiPanel && (
+            <span className="[writing-mode:vertical-rl] text-[9px] font-bold tracking-widest text-emerald-400 select-none">AI ANALYSIS</span>
+          )}
+          {showAiPanel ? <ChevronRight className="w-3 h-3 dark:text-slate-500 text-slate-400 shrink-0" /> : <ChevronLeft className="w-3 h-3 text-emerald-400 shrink-0" />}
+        </button>
+
+        {showAiPanel && (
+          <div className="hidden sm:flex flex-col shrink-0 dark:bg-slate-900 bg-white border-l dark:border-slate-800 border-slate-200 overflow-hidden" style={{ width: 280 }}>
+            {/* AI panel header */}
+            <div className="flex items-center justify-between px-3 py-2.5 border-b dark:border-slate-800 border-slate-200 shrink-0">
+              <button
+                onClick={() => setAiExpanded(v => !v)}
+                className="flex items-center gap-2 flex-1 min-w-0"
+              >
+                <BrainCircuit className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span className="text-xs font-semibold dark:text-white text-slate-900 uppercase tracking-wider">
+                  AI Chart Analysis
+                </span>
+                {aiExpanded
+                  ? <ChevronUp className="w-3.5 h-3.5 dark:text-slate-500 text-slate-400 ml-auto shrink-0" />
+                  : <ChevronDown className="w-3.5 h-3.5 dark:text-slate-500 text-slate-400 ml-auto shrink-0" />
+                }
+              </button>
+            </div>
+
+            {/* AI panel content */}
+            {aiExpanded && (
+              <div className="flex-1 overflow-y-auto p-3">
+                <ScreenshotUploader trades={trades} onTradeLinked={handleTradeLinked} />
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="sm:hidden fixed bottom-6 right-4 z-40 flex flex-col items-end gap-3 pointer-events-none">{!showWatchlist && ( <button onClick={() => setShowWatchlist(true)} className="pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-full dark:bg-slate-700 bg-slate-800 hover:bg-slate-600 text-white text-sm font-medium shadow-lg transition-colors"><List className="w-4 h-4" />Watchlist</button> )} <button onClick={() => { setTradeDefaults({ symbol: activeTab.symbol }); setShowTradeModal(true); }} className="pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-medium shadow-lg shadow-emerald-500/20 transition-colors"><Plus className="w-4 h-4" />Add Trade</button></div>
