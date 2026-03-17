@@ -18,6 +18,7 @@ import MarketOverviewWidget from "./MarketOverviewWidget";
 import DistributionChart from "./DistributionChart";
 import RiskSimulator from "./RiskSimulator";
 import AIInsightsWidget from "./AIInsightsWidget";
+import IBKRPositionsWidget from "./IBKRPositionsWidget";
 import {
   Plus, RefreshCw, Pencil, Check, GripVertical, EyeOff, Eye, Plus as PlusIcon, Minimize2, Maximize2,
   RotateCcw, Download, ChevronDown as ChevronDownIcon
@@ -74,6 +75,7 @@ const ALL_WIDGETS = [
   { id: "strategy-perf", title: "Strategy Performance" },
   { id: "risk-simulator", title: "Monte Carlo Risk Simulator" },
   { id: "ai-insights", title: "AI Edge Discovery Engine" },
+  { id: "ibkr-positions", title: "IBKR Live Positions" },
 ] as const;
 
 const WIDGET_MAP = new Map<string, { id: string; title: string }>(ALL_WIDGETS.map(w => [w.id, w]));
@@ -96,9 +98,9 @@ const DEFAULT_ORDER = [
   // Row 8 (2+2+2=6): Performance tables continued
   "perf-duration", "perf-price", "tag-breakdown",
   // Hidden by default
-  "dist-weekday", "dist-hour", "dist-month", "strategy-perf", "risk-simulator", "ai-insights", "perf-hour",
+  "dist-weekday", "dist-hour", "dist-month", "strategy-perf", "risk-simulator", "ai-insights", "perf-hour", "ibkr-positions",
 ];
-const DEFAULT_HIDDEN = ["dist-weekday", "dist-hour", "dist-month", "strategy-perf", "risk-simulator", "ai-insights", "perf-hour"] as string[];
+const DEFAULT_HIDDEN = ["dist-weekday", "dist-hour", "dist-month", "strategy-perf", "risk-simulator", "ai-insights", "perf-hour", "ibkr-positions"] as string[];
 
 const DEFAULT_SIZES: Record<string, WidgetSize> = {
   // Large (3 cols)
@@ -108,6 +110,7 @@ const DEFAULT_SIZES: Record<string, WidgetSize> = {
   "top-mistakes": "large",
   "risk-simulator": "large",
   "ai-insights": "large",
+  "ibkr-positions": "large",
   // Medium (2 cols)
   "win-pct": "medium",
   "avg-trade-pnl": "medium",
@@ -753,7 +756,7 @@ export default function DashboardShell() {
   const mask = "------";
 
   // ── Render widget by ID ───────────────────────────────────────────
-  function renderWidget(id: string) {
+  function renderWidget(id: string, size: WidgetSize = "large") {
     const isProfit = cumulativeData.length > 0 && cumulativeData[cumulativeData.length - 1].value >= 0;
     const maxDd = drawdownData.length > 0 ? Math.min(...drawdownData.map(d => d.value), 0) : 0;
 
@@ -899,6 +902,8 @@ export default function DashboardShell() {
         return <RiskSimulator trades={trades} startingBalance={accountSize} />;
       case "ai-insights":
         return <AIInsightsWidget trades={trades} />;
+      case "ibkr-positions":
+        return <IBKRPositionsWidget size={size} />;
       default:
         return null;
     }
@@ -950,6 +955,14 @@ export default function DashboardShell() {
                 title="Edit layout">
                 {editMode ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
               </button>
+
+              {editMode && (
+                <button onClick={resetLayout}
+                  className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:bg-red-500/20 text-red-400 transition-colors"
+                  title="Reset layout">
+                  <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </button>
+              )}
 
               <button onClick={load}
                 className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:dark:bg-slate-800 hover:bg-white text-slate-500 transition-colors"
@@ -1089,7 +1102,7 @@ export default function DashboardShell() {
                   onHide={() => hideWidget(id)}
                   onToggleSize={() => toggleSize(id)}
                 >
-                  {renderWidget(id)}
+                  {renderWidget(id, layout.sizes[id] ?? "large")}
                 </WidgetCard>
               ))}
             </div>
