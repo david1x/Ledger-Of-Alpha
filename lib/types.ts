@@ -74,6 +74,8 @@ export interface Trade {
   ai_screenshots?: string | null;     // JSON: string[] filenames
   ai_qa_history?: string | null;      // JSON: QAEntry[]
   ai_primary_pattern?: string | null; // denormalized pattern name
+  ibkr_exec_id?: string | null;       // IBKR execution ID for deduplication
+  source?: string | null;             // 'manual' | 'ibkr'
   created_at: string;
   user_id: string | null;
 }

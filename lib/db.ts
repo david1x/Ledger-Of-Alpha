@@ -424,6 +424,28 @@ function runMigrations(db: Database.Database) {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_trades_ai_pattern ON trades(ai_primary_pattern);`);
     markMigration(db, "019_ai_analysis");
   }
+
+  // ── 020: IBKR exec_id and source fields ──────────────────────────────
+  if (!hasMigration(db, "020_ibkr_exec_id")) {
+    const tradeCols = (db.pragma("table_info(trades)") as { name: string }[]).map(c => c.name);
+    if (!tradeCols.includes("ibkr_exec_id")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN ibkr_exec_id TEXT;`);
+    }
+    if (!tradeCols.includes("source")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN source TEXT;`);
+    }
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_trades_ibkr_exec_id
+        ON trades(ibkr_exec_id) WHERE ibkr_exec_id IS NOT NULL;
+    `);
+    markMigration(db, "020_ibkr_exec_id");
+  }
+
+  // ── 021: IBKR settings placeholder ───────────────────────────────────
+  // ibkr_* settings are per-user; no system defaults needed
+  if (!hasMigration(db, "021_ibkr_settings")) {
+    markMigration(db, "021_ibkr_settings");
+  }
 }
 
 // ── Auto-promote admin from env var ─────────────────────────────────────
