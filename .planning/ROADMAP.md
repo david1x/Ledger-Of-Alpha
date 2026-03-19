@@ -46,11 +46,11 @@ Plans:
   3. Navigating away from a tab with unsaved changes shows a visible indicator before leaving
   4. Visiting `/settings?tab=accounts` (or any existing tab value) still navigates to the correct section
   5. Tab names in the sidebar are descriptive and unambiguous (no "Display" catch-all)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 13-01: Extract shared types (`lib/settings-types.ts`) and split settings into per-tab components
-- [ ] 13-02: Apply full-width layout and reorganize tab names; add unsaved-change indicator
+- [ ] 13-01-PLAN.md — Extract shared types and split 2380-line monolith into 13 per-tab components + thin shell
+- [ ] 13-02-PLAN.md — Apply full-width layout, rename Display to Appearance, add unsaved-change indicator
 
 ### Phase 14: Admin Configuration Expansion
 **Goal**: The admin panel is the single source of truth for runtime configuration — operators can set API keys, SMTP, and App URL without touching environment variables
