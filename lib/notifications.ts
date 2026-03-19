@@ -2,17 +2,17 @@ import { getDb } from "./db";
 import { Alert, User } from "./types";
 import { sendAlertEmail } from "./email";
 
-export async function sendAlertNotifications(alert: Alert) {
+export async function sendAlertNotifications(alert: Alert, baseUrl?: string) {
   const db = getDb();
   const user = db.prepare("SELECT * FROM users WHERE id = ?").get(alert.user_id) as User | undefined;
   if (!user) return;
 
   const headline = getAlertHeadline(alert);
-  
+
   // 1. Email Notification
   if (alert.notify_email && user.email) {
     try {
-      await sendAlertEmail(user.email, user.name, headline, alert.note);
+      await sendAlertEmail(user.email, user.name, headline, alert.note, baseUrl);
     } catch (err) {
       console.error("Failed to send alert email:", err);
     }
