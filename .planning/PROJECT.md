@@ -31,9 +31,14 @@ Traders can track, analyze, and improve their trading through structured journal
 
 ### Active
 
-<!-- Next milestone scope -->
+<!-- Current milestone: v2.1 Settings & Polish -->
 
-(None yet — run /gsd:new-milestone to define next milestone)
+- [ ] Email URL auto-detection (request headers, works across npm/Docker/Cloudflare tunnel)
+- [ ] Fibonacci calculator cleanup (remove orphaned code)
+- [ ] Settings page overhaul (component split, full-width layout, tab reorganization)
+- [ ] Admin panel as single source of truth for env config (APP_URL, API keys, SMTP, etc.)
+- [ ] Dashboard layout templates (saveable presets)
+- [ ] Strategy enhancements (built-in defaults, per-trade checklist editing, ad-hoc checklists)
 
 ### Out of Scope
 
@@ -44,6 +49,8 @@ Traders can track, analyze, and improve their trading through structured journal
 - Two-way broker sync (send orders to IBKR) — regulatory complexity
 - On-device AI model — cloud API is sufficient
 - Offline mode — real-time data is core value
+- Fibonacci calculator — user decision: not wanted
+- Dashboard widget height adjustment — deferred to later milestone
 
 ## Context
 
@@ -75,5 +82,17 @@ Traders can track, analyze, and improve their trading through structured journal
 | IBKR dedup via UNIQUE index | Blind inserts create duplicates | ✓ Good — INSERT OR IGNORE pattern |
 | Structured JSON AI output | Cannot retrofit without re-analyzing | ✓ Good — json_schema strict mode |
 
+## Current Milestone: v2.1 Settings & Polish
+
+**Goal:** Overhaul the settings experience, fix deployment pain points, and enhance strategy workflows
+
+**Target features:**
+- Email URL auto-detection across all deployment modes
+- Settings page restructure with full-width desktop layout
+- Admin panel as single config source (eliminate .env dependency)
+- Dashboard layout templates
+- Strategy/checklist flexibility in trade modal
+- Fibonacci cleanup
+
 ---
-*Last updated: 2026-03-19 after v2.0 milestone*
+*Last updated: 2026-03-19 after v2.1 milestone started*
