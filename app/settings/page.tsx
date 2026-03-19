@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database, Send, Grid3X3, Users, Settings, Trash2, UserCheck, UserX, LineChart, ListChecks, Plus, GripVertical, ChevronDown, ChevronRight, ChevronUp, Wallet, BrainCircuit, Cable, SkipForward, AlertTriangle, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback } from "react";
-import { tradesToCsv, csvToTrades } from "@/lib/csv";
+import { tradesToCsv, csvToTrades, isIbkrCsv, ibkrCsvToTrades } from "@/lib/csv";
 import { TRADE_FIELDS } from "@/lib/validate-trade";
 import clsx from "clsx";
 import { useAccounts } from "@/lib/account-context";
@@ -68,7 +68,7 @@ const CATEGORIES: { id: Category; label: string; icon: typeof DollarSign; adminO
   { id: "accounts",       label: "Accounts",       icon: Wallet },
   { id: "tags",           label: "Tags & Mistakes", icon: ListChecks },
   { id: "templates",      label: "Templates",       icon: Copy },
-  { id: "display",        label: "Display",         icon: Grid3X3 },
+  { id: "display",        label: "Appearance",      icon: Grid3X3 },
   { id: "chart",          label: "Chart",           icon: LineChart },
   { id: "strategies",     label: "Strategies",      icon: ListChecks },
   { id: "integrations",   label: "Integrations",    icon: Key },
@@ -299,6 +299,7 @@ function SettingsContent() {
   const [claimMsg, setClaimMsg] = useState<{ text: string; type: "ok" | "err" } | null>(null);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
   const [importing, setImporting] = useState(false);
+  const [importMenuOpen, setImportMenuOpen] = useState(false);
   const [testingChart, setTestingChart] = useState(false);
   const [expandedStrategies, setExpandedStrategies] = useState<Set<string>>(new Set());
   const [testingAlert, setTestingAlert] = useState(false);
@@ -317,8 +318,9 @@ function SettingsContent() {
   const [showSmtpPass, setShowSmtpPass] = useState(false);
 
   // Broker / IBKR state
-  const [ibkrGatewayUrl, setIbkrGatewayUrl] = useState("");
-  const [ibkrSslVerify, setIbkrSslVerify] = useState(false);
+  const [ibkrHost, setIbkrHost] = useState("127.0.0.1");
+  const [ibkrPort, setIbkrPort] = useState("4001");
+  const [ibkrClientId, setIbkrClientId] = useState("0");
   const [ibkrConnectionStatus, setIbkrConnectionStatus] = useState<"unknown" | "connected" | "disconnected">("unknown");
   const [ibkrConnectionError, setIbkrConnectionError] = useState<string | null>(null);
   const [ibkrDiscoveredAccounts, setIbkrDiscoveredAccounts] = useState<Array<{ id: string; type: string }>>([]);
@@ -366,8 +368,9 @@ function SettingsContent() {
     fetch("/api/settings").then(r => r.json()).then(data => {
       setSettings(s => ({ ...s, ...data }));
       // Load IBKR broker settings
-      if (data.ibkr_gateway_url) setIbkrGatewayUrl(data.ibkr_gateway_url);
-      if (data.ibkr_ssl_verify !== undefined) setIbkrSslVerify(data.ibkr_ssl_verify === "true");
+      if (data.ibkr_host) setIbkrHost(data.ibkr_host);
+      if (data.ibkr_port) setIbkrPort(data.ibkr_port);
+      if (data.ibkr_client_id) setIbkrClientId(data.ibkr_client_id);
       if (data.ibkr_account_mappings) {
         try { setIbkrAccountMappings(JSON.parse(data.ibkr_account_mappings)); } catch { /* ignore */ }
       }
@@ -542,6 +545,7 @@ function SettingsContent() {
 
     setImporting(true);
     setImportResult(null);
+    setImportMenuOpen(false);
     try {
       const text = await file.text();
       let parsedTrades: Record<string, unknown>[];
@@ -570,6 +574,47 @@ function SettingsContent() {
       else { setImportResult({ imported: 0, skipped: 0, errors: [result.error] }); }
     } catch {
       setImportResult({ imported: 0, skipped: 0, errors: ["Failed to parse file."] });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleImportIbkr = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    setImporting(true);
+    setImportResult(null);
+    setImportMenuOpen(false);
+    try {
+      const text = await file.text();
+
+      if (!isIbkrCsv(text)) {
+        setImportResult({ imported: 0, skipped: 0, errors: ["This does not look like an IBKR Transaction History CSV. Make sure you export from Account Management → Reports → Activity / Transaction History."] });
+        setImporting(false);
+        return;
+      }
+
+      const parsedTrades = ibkrCsvToTrades(text);
+
+      if (parsedTrades.length === 0) {
+        setImportResult({ imported: 0, skipped: 0, errors: ["No trades found in the IBKR file. Only Buy/Sell transactions with valid symbols are imported (adjustments, dividends, and FX translations are skipped)."] });
+        setImporting(false);
+        return;
+      }
+
+      const res = await fetch("/api/trades/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trades: parsedTrades }),
+      });
+      const result = await res.json();
+
+      if (res.ok) { setImportResult(result); }
+      else { setImportResult({ imported: 0, skipped: 0, errors: [result.error] }); }
+    } catch {
+      setImportResult({ imported: 0, skipped: 0, errors: ["Failed to parse IBKR file."] });
     } finally {
       setImporting(false);
     }
@@ -689,7 +734,7 @@ function SettingsContent() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0 space-y-6 sm:max-w-2xl min-h-[80vh]">
+      <div className="flex-1 min-w-0 space-y-6 min-h-[80vh]">
         <div>
           <h1 className="text-2xl font-bold dark:text-white text-slate-900">Settings</h1>
           <p className="text-sm dark:text-slate-400 text-slate-500 mt-0.5">Configure your account preferences and integrations</p>
@@ -1424,55 +1469,110 @@ function SettingsContent() {
               </div>
             )}
 
-            {/* Section A: Gateway Connection */}
+            {/* Section A: TWS / IB Gateway Connection */}
             <section className="rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4">
               <h2 className="font-semibold dark:text-white text-slate-900 flex items-center gap-2">
-                <Cable className="w-4 h-4 text-blue-400" /> IBKR Gateway Connection
+                <Cable className="w-4 h-4 text-blue-400" /> TWS / IB Gateway Connection
               </h2>
               <p className="text-xs dark:text-slate-400 text-slate-500">
-                Connect to the IBKR Client Portal Web API gateway running on your machine or server.
+                Connect to TWS or IB Gateway running on your machine via the socket API.
               </p>
-              <div className="space-y-3">
-                <div>
-                  <label className={LABEL}>Gateway URL</label>
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        type="text"
-                        value={ibkrGatewayUrl}
-                        onChange={e => setIbkrGatewayUrl(e.target.value)}
-                        placeholder="https://localhost:5000"
-                        className={INPUT}
-                      />
-                    </div>
-                    {ibkrConnectionStatus === "connected" && (
-                      <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-400 shrink-0">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400" /> Connected
-                      </span>
-                    )}
-                    {ibkrConnectionStatus === "disconnected" && (
-                      <span className="flex items-center gap-1.5 text-xs font-medium text-red-400 shrink-0">
-                        <span className="w-2 h-2 rounded-full bg-red-400" /> Disconnected
-                      </span>
-                    )}
+
+              {/* Setup Guide - collapsible */}
+              <details className="rounded-lg border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-slate-50">
+                <summary className="px-4 py-2.5 text-sm font-medium dark:text-slate-300 text-slate-700 cursor-pointer hover:dark:text-white hover:text-slate-900 transition-colors select-none">
+                  How to enable the API in TWS / IB Gateway
+                </summary>
+                <div className="px-4 pb-4 pt-1 space-y-3 text-xs dark:text-slate-400 text-slate-500 leading-relaxed">
+                  <p className="font-medium dark:text-slate-300 text-slate-600">In TWS (Trader Workstation):</p>
+                  <ol className="list-decimal list-inside space-y-2">
+                    <li>
+                      Open <span className="font-medium dark:text-slate-300 text-slate-700">Edit &rarr; Global Configuration</span> (or <span className="font-medium dark:text-slate-300 text-slate-700">File &rarr; Global Configuration</span> on some versions).
+                    </li>
+                    <li>
+                      Navigate to <span className="font-medium dark:text-slate-300 text-slate-700">API &rarr; Settings</span> in the left sidebar.
+                    </li>
+                    <li>
+                      Check <span className="font-medium dark:text-slate-300 text-slate-700">&quot;Enable ActiveX and Socket Clients&quot;</span> (if not already checked).
+                    </li>
+                    <li>
+                      Note the <span className="font-medium dark:text-slate-300 text-slate-700">Socket port</span> number (default: <code className="px-1.5 py-0.5 rounded dark:bg-slate-700 bg-slate-200 dark:text-slate-300 text-slate-600 font-mono text-[11px]">7496</code> for TWS live, <code className="px-1.5 py-0.5 rounded dark:bg-slate-700 bg-slate-200 dark:text-slate-300 text-slate-600 font-mono text-[11px]">7497</code> for TWS paper).
+                    </li>
+                    <li>
+                      Click <span className="font-medium dark:text-slate-300 text-slate-700">Apply</span> and <span className="font-medium dark:text-slate-300 text-slate-700">OK</span>.
+                    </li>
+                  </ol>
+                  <p className="font-medium dark:text-slate-300 text-slate-600 mt-2">In IB Gateway (headless):</p>
+                  <ol className="list-decimal list-inside space-y-2">
+                    <li>
+                      Open <span className="font-medium dark:text-slate-300 text-slate-700">Configure &rarr; Settings &rarr; API &rarr; Settings</span>.
+                    </li>
+                    <li>
+                      The default port is <code className="px-1.5 py-0.5 rounded dark:bg-slate-700 bg-slate-200 dark:text-slate-300 text-slate-600 font-mono text-[11px]">4001</code> (live) or <code className="px-1.5 py-0.5 rounded dark:bg-slate-700 bg-slate-200 dark:text-slate-300 text-slate-600 font-mono text-[11px]">4002</code> (paper).
+                    </li>
+                  </ol>
+                  <div className="rounded-md dark:bg-slate-700/50 bg-slate-200/50 px-3 py-2 mt-1">
+                    <p className="font-medium dark:text-slate-300 text-slate-600 mb-1">Good to know:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>TWS or IB Gateway must be running for the connection to work.</li>
+                      <li>The <span className="font-medium dark:text-slate-300 text-slate-700">Master API client ID</span> field in TWS can be left at default &mdash; use Client ID <code className="px-1 py-0.5 rounded dark:bg-slate-700 bg-slate-200 font-mono text-[11px]">0</code> below to receive all order updates.</li>
+                      <li>If <span className="font-medium dark:text-slate-300 text-slate-700">&quot;Read-Only API&quot;</span> is checked, the connection will work but order placement will be blocked (fine for syncing trades and viewing positions).</li>
+                      <li>Execution history via the socket API is limited to the current day (up to 7 days with TWS settings). For older trades, import via CSV.</li>
+                    </ul>
                   </div>
-                  {ibkrConnectionError && (
-                    <p className="text-xs text-red-400 mt-1">{ibkrConnectionError}</p>
+                </div>
+              </details>
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-1">
+                    <label className={LABEL}>Host</label>
+                    <input
+                      type="text"
+                      value={ibkrHost}
+                      onChange={e => setIbkrHost(e.target.value)}
+                      placeholder="127.0.0.1"
+                      className={INPUT}
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    <label className={LABEL}>Port</label>
+                    <input
+                      type="number"
+                      value={ibkrPort}
+                      onChange={e => setIbkrPort(e.target.value)}
+                      placeholder="4001"
+                      className={INPUT}
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    <label className={LABEL}>Client ID</label>
+                    <input
+                      type="number"
+                      value={ibkrClientId}
+                      onChange={e => setIbkrClientId(e.target.value)}
+                      placeholder="0"
+                      className={INPUT}
+                    />
+                  </div>
+                </div>
+                <p className={HINT}>
+                  Default ports: IB Gateway live <strong>4001</strong> / paper <strong>4002</strong> &bull; TWS live <strong>7496</strong> / paper <strong>7497</strong>
+                </p>
+                <div className="flex items-center gap-3">
+                  {ibkrConnectionStatus === "connected" && (
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-400 shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400" /> Connected
+                    </span>
+                  )}
+                  {ibkrConnectionStatus === "disconnected" && (
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-red-400 shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-red-400" /> Disconnected
+                    </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="ibkr-ssl-verify"
-                    checked={ibkrSslVerify}
-                    onChange={e => setIbkrSslVerify(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-600 text-blue-500 focus:ring-blue-500 cursor-pointer"
-                  />
-                  <label htmlFor="ibkr-ssl-verify" className="text-sm dark:text-slate-300 text-slate-700 cursor-pointer">
-                    Require valid SSL certificate
-                  </label>
-                </div>
-                <p className={HINT}>Uncheck to allow self-signed certificates (typical for local gateway installations).</p>
+                {ibkrConnectionError && (
+                  <p className="text-xs text-red-400">{ibkrConnectionError}</p>
+                )}
                 <button
                   onClick={async () => {
                     setIbkrTesting(true);
@@ -1483,44 +1583,41 @@ function SettingsContent() {
                       method: "PUT",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        ibkr_gateway_url: ibkrGatewayUrl,
-                        ibkr_ssl_verify: String(ibkrSslVerify),
+                        ibkr_host: ibkrHost,
+                        ibkr_port: ibkrPort,
+                        ibkr_client_id: ibkrClientId,
                       }),
                     });
                     // Test connection
                     const res = await fetch("/api/broker/ibkr/status").catch(() => null);
                     if (!res || !res.ok) {
                       setIbkrConnectionStatus("disconnected");
-                      setIbkrConnectionError("Could not reach gateway. Check the URL and ensure the gateway is running.");
+                      setIbkrConnectionError("Could not connect. Check that TWS or IB Gateway is running and API connections are enabled.");
                       setIbkrTesting(false);
                       return;
                     }
                     const data = await res.json();
                     if (data.connected) {
                       setIbkrConnectionStatus("connected");
-                      // Discover sub-accounts
-                      const accRes = await fetch("/api/broker/ibkr/accounts").catch(() => null);
-                      if (accRes?.ok) {
-                        const accData = await accRes.json();
-                        if (accData.accounts) {
-                          setIbkrDiscoveredAccounts(accData.accounts);
-                          // Initialize mappings for newly discovered accounts
-                          setIbkrAccountMappings(prev => {
-                            const existing = new Set(prev.map(m => m.ibkrAccountId));
-                            const news = accData.accounts
-                              .filter((a: { id: string }) => !existing.has(a.id))
-                              .map((a: { id: string }) => ({ ibkrAccountId: a.id, ledgerAccountId: "" }));
-                            return [...prev, ...news];
-                          });
-                        }
+                      // Accounts come back from status endpoint
+                      if (data.accounts) {
+                        const discovered = data.accounts.map((id: string) => ({ id, type: "account" }));
+                        setIbkrDiscoveredAccounts(discovered);
+                        setIbkrAccountMappings(prev => {
+                          const existing = new Set(prev.map(m => m.ibkrAccountId));
+                          const news = discovered
+                            .filter((a: { id: string }) => !existing.has(a.id))
+                            .map((a: { id: string }) => ({ ibkrAccountId: a.id, ledgerAccountId: "" }));
+                          return [...prev, ...news];
+                        });
                       }
                     } else {
                       setIbkrConnectionStatus("disconnected");
-                      setIbkrConnectionError(data.error ?? "Gateway returned an error response.");
+                      setIbkrConnectionError(data.error ?? "Connection failed.");
                     }
                     setIbkrTesting(false);
                   }}
-                  disabled={ibkrTesting || !ibkrGatewayUrl}
+                  disabled={ibkrTesting || !ibkrHost || !ibkrPort}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors disabled:opacity-50"
                 >
                   <RefreshCw className={`w-4 h-4 ${ibkrTesting ? "animate-spin" : ""}`} />
@@ -1854,11 +1951,40 @@ function SettingsContent() {
                 className="flex items-center gap-2 px-4 py-2 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors">
                 <Download className="w-4 h-4" /> Export as JSON
               </button>
-              <label className="flex items-center gap-2 px-4 py-2 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors cursor-pointer">
-                <Upload className="w-4 h-4" />
-                {importing ? "Importing..." : "Import Trades"}
-                <input type="file" accept=".csv,.json" onChange={handleImportFile} disabled={importing} className="hidden" />
-              </label>
+              <div className="relative">
+                <button
+                  onClick={() => setImportMenuOpen(v => !v)}
+                  disabled={importing}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                >
+                  <Upload className="w-4 h-4" />
+                  {importing ? "Importing..." : "Import Trades"}
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${importMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+                {importMenuOpen && !importing && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setImportMenuOpen(false)} />
+                    <div className="absolute left-0 top-full mt-1 z-50 w-56 rounded-lg border dark:border-slate-700 border-slate-200 dark:bg-slate-800 bg-white shadow-xl overflow-hidden">
+                      <label className="flex items-center gap-3 px-4 py-3 text-sm dark:text-slate-300 text-slate-700 hover:dark:bg-slate-700 hover:bg-slate-50 cursor-pointer transition-colors border-b dark:border-slate-700 border-slate-100">
+                        <Upload className="w-4 h-4 shrink-0" />
+                        <div>
+                          <div className="font-medium">From Backup</div>
+                          <div className="text-xs dark:text-slate-500 text-slate-400">CSV or JSON file</div>
+                        </div>
+                        <input type="file" accept=".csv,.json" onChange={handleImportFile} className="hidden" />
+                      </label>
+                      <label className="flex items-center gap-3 px-4 py-3 text-sm dark:text-slate-300 text-slate-700 hover:dark:bg-slate-700 hover:bg-slate-50 cursor-pointer transition-colors">
+                        <Cable className="w-4 h-4 shrink-0 text-blue-400" />
+                        <div>
+                          <div className="font-medium">From IBKR</div>
+                          <div className="text-xs dark:text-slate-500 text-slate-400">Transaction History CSV</div>
+                        </div>
+                        <input type="file" accept=".csv" onChange={handleImportIbkr} className="hidden" />
+                      </label>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
             {importResult && (
               <div className={`rounded-lg px-4 py-3 text-sm ${importResult.imported > 0 ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-red-500/10 border border-red-500/20"}`}>
