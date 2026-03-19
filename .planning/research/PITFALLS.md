@@ -1,170 +1,127 @@
 # Domain Pitfalls
 
-**Domain:** AI Chart Analysis, IBKR Broker Sync, Monte Carlo Entry Integration, Trading Calculators — added to existing Next.js 15 + SQLite trading journal
-**Researched:** 2026-03-15
-**Confidence:** MEDIUM (training data + direct codebase analysis; web search unavailable)
+**Domain:** Settings page restructuring, email URL auto-detection, dashboard layout templates, strategy/checklist enhancements, admin panel as config source — added to existing Next.js 15 + SQLite trading journal
+**Researched:** 2026-03-19
+**Confidence:** HIGH (direct codebase analysis of the exact files being modified)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, data corruption, or complete feature failure.
+Mistakes that cause rewrites, data corruption, or feature failure.
 
 ---
 
-### Pitfall 1: IBKR TWS API — Treating It Like a Normal REST API
+### Pitfall 1: Deleting SMTP/Email Settings During the Admin Panel Refactor
 
-**What goes wrong:** The IBKR TWS API (ibapi) is a socket-based client library that runs a persistent event-driven message loop. It is NOT a REST API you can call and await. Developers who model it as `await ibkr.getPositions()` will spend days fighting race conditions, dropped connections, and ghost callbacks.
+**What goes wrong:** The `admin-settings` tab in the existing settings page renders fields for `smtp_host`, `smtp_port`, `smtp_secure`, `smtp_user`, `smtp_pass`, `smtp_from`, and `app_url`. These are stored in the `_system` user_id row of the settings table (migration 005). When the settings page is split into sub-components or tabs are reorganised, a developer who doesn't realise these fields already exist may omit them from the new structure, leaving admin email config permanently missing from the UI. The DB rows remain intact but there is no way for the admin to edit them.
 
-**Why it happens:** The TWS Python/Java SDK uses asynchronous callbacks (EWrapper methods). The Node.js community ports (`@stoqey/ib`, `ib-tws-api`, `@stoqey/ibkr`) expose promise-like wrappers but the underlying socket is still stateful — one EClient shared across all calls. Reconnecting after a dropout is non-trivial.
+**Why it happens:** The settings page is 2380+ lines of interleaved state, rendering, and event handlers. During component extraction it is easy to assume "I'll wire up the admin section later" and then forget which fields live in `SystemSettings` vs `Settings` interface, or drop the `loadSysSettings` / `saveSysSettings` calls when the file is split.
 
 **Consequences:**
-- Silent failures: trade data never arrives because the callback fired before the subscriber registered
-- Deadlock if you call synchronous Node code inside async TWS callbacks
-- Two concurrent Next.js API route invocations share state on the EClient socket — causes interleaved, corrupt responses
+- Email verification, password reset, and 2FA OTP emails continue to work (lib/email.ts reads from DB) but the admin can no longer update the configuration.
+- SMTP config must be changed via raw SQLite query or by re-seeding migration 005.
+- If `app_url` disappears from the UI, email links silently fall back to `process.env.NEXT_PUBLIC_APP_URL` (line 59 of lib/email.ts) which may be wrong or unset in Docker deployments.
 
 **Prevention:**
-- Run IBKR sync as a **separate long-lived singleton process** (a standalone Node daemon, `lib/ibkr-daemon.ts`), not inside Next.js API route handlers. Next.js routes are stateless — they cannot hold a persistent socket.
-- The daemon writes positions/trades to SQLite and Next.js reads from SQLite. Never call the TWS SDK from an API route directly.
-- Use a `connection_status` table row (or settings key) as the health signal the UI polls.
-- Implement exponential backoff reconnection: TWS drops connections on market close, idle timeout, and TWS restarts.
+- Identify the `SystemSettings` interface (lines 92-102 of settings/page.tsx) and `loadSysSettings` / `saveSysSettings` functions before the refactor begins. These must survive the split intact.
+- The `admin-settings` tab content and the `SYSTEM_KEYS` allowlist in `app/api/admin/settings/route.ts` must match exactly — any key present in the UI form must be in `SYSTEM_KEYS` or the POST silently ignores it.
+- Write a checklist before refactor: every field in `SYS_DEFAULTS` (account_size, risk_per_trade, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from, app_url) must appear in the extracted admin settings component.
 
-**Detection:** If you find yourself calling `connect()` inside an API route handler, stop — redesign as a daemon.
+**Detection:** After refactor, open Settings > System tab and verify all SMTP fields and the APP URL field are present and saveable. Test round-trip: save a value, reload the page, confirm the value is still shown.
 
-**Phase:** IBKR Sync phase (whichever phase introduces broker sync).
+**Phase:** Settings overhaul phase (highest risk).
 
 ---
 
-### Pitfall 2: IBKR TWS API — Localhost-Only Architecture Assumption
+### Pitfall 2: dashboard_layout Backwards Compatibility — Templates Must Not Overwrite User Order
 
-**What goes wrong:** TWS must run on the trader's local machine. IBKR's firewall blocks cross-machine socket connections to TWS by default (you can whitelist IPs but this is fragile). If the app is deployed server-side (Docker/VPS), the server cannot reach the trader's local TWS instance.
+**What goes wrong:** The `dashboard_layout` setting stores JSON with three keys: `order` (string[]), `hidden` (string[]), and `sizes` (Record<string, WidgetSize>). The DashboardShell already has migration logic for this format (lines 360-380 of DashboardShell.tsx). Dashboard layout templates are a new feature that saves and loads named presets of this same JSON. The pitfall: if applying a template overwrites the `dashboard_layout` settings key directly, the user's current layout is gone with no undo.
 
-**Why it happens:** Developers assume "backend connects to IBKR" the same way they connect to any broker API with an HTTP key. IBKR's TWS/Gateway is a thick desktop client, not a hosted service.
+**Why it happens:** The simplest implementation of "apply template" is `PUT /api/settings { dashboard_layout: templateJson }`, which is exactly what the current save mechanism does. The template feature reuses the same key — and the same save path — so applying a template is indistinguishable from a user manually reordering widgets. After a page refresh, the user's prior layout is permanently replaced.
 
 **Consequences:**
-- The entire feature is non-functional in any hosted/cloud deployment.
-- Forces a fundamental architecture rethink mid-phase.
+- No recovery path. SQLite has no row versioning. The previous layout JSON was in the settings row that was just overwritten.
+- Users who spent time customising their 24+ widget layout will lose it entirely if they accidentally apply the wrong template.
 
 **Prevention:**
-- Design for the **IBKR Client Portal Web API** as the primary cloud-compatible path: it's a REST API running on a locally-hosted gateway the trader starts, but it uses HTTP not raw sockets, making it more tractable from a Next.js API route (still requires the gateway running locally).
-- Alternative: IBKR CSV auto-export + file watcher daemon (simpler, proven). The existing multi-broker CSV import in `app/api/trades/import/` can be extended.
-- Document clearly in the UI: "IBKR sync requires the IBKR Gateway running on your machine."
-- For self-hosted deployments, provide a companion script the trader runs locally that POSTs to their Ledger Of Alpha instance.
+- Templates are stored under a **separate settings key** (`dashboard_templates`), never in `dashboard_layout`. Format: `{ templates: Array<{ id: string; name: string; layout: DashboardLayout }> }`.
+- Applying a template calls the existing `saveLayout()` path (which writes to `dashboard_layout`) — this is correct. The user is choosing to replace their layout. Add a confirmation dialog: "Apply template '[name]'? Your current layout will be replaced."
+- Offer a "Save current as template" action that reads the current layout state and appends it to `dashboard_templates` — never the reverse.
+- The DashboardShell's merge logic (lines 362-379) that handles new widgets added since the last save must also run when a template is applied, so newly added widget IDs are not lost.
 
-**Detection:** Any design that assumes the Next.js server makes outbound TCP connections to TWS will break in non-localhost deployments.
+**Detection:** Apply a template, then verify (a) the dashboard reflects the template layout and (b) the user's previous layout could have been preserved as a named template if desired.
 
-**Phase:** Must be addressed in architecture phase before IBKR implementation begins.
+**Phase:** Dashboard layout templates phase.
 
 ---
 
-### Pitfall 3: AI Vision — Sending Raw Screenshots to LLM Without Structure Enforcement
+### Pitfall 3: Email URL Auto-Detection Using request.headers Host — Docker Networking Mismatch
 
-**What goes wrong:** Sending a chart screenshot to a vision LLM (GPT-4o, Claude) and asking "what pattern is this?" returns free-form prose. The response cannot be reliably parsed, compared against historical trades, or stored. Subsequent "similar trade matching" becomes impossible.
+**What goes wrong:** The natural implementation of email URL auto-detection reads the `host` or `x-forwarded-host` header from the incoming request: `const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host')`. In a Docker Compose setup where the Next.js container is addressed as `app:3000` internally, the `host` header received by the Node process may be the Docker service name, not the externally accessible hostname. Emails sent using this detected URL contain links like `http://app:3000/verify-email?token=X` that are unreachable from the user's browser.
 
-**Why it happens:** Teams reach for the simplest prompt ("describe this chart") and defer structured output to "later." Later never comes cleanly — you now have thousands of unstructured analysis strings in the database.
+**Why it happens:** During local development, `req.headers.get('host')` returns `localhost:3000`, which is correct. In Docker, it depends on how the reverse proxy (Nginx, Traefik, Cloudflare tunnel) sets headers. Cloudflare tunnel always provides `x-forwarded-host` with the public hostname, but only if the tunnel is configured to pass headers — a non-default behaviour.
 
 **Consequences:**
-- The "similar trade finder" feature requires a vector embedding or structured feature set. Free-form text produces unreliable similarity scores.
-- The analysis is not actionable in the dashboard (can't filter by pattern type, can't aggregate win rates per pattern).
+- Email verification links are broken in Docker deployments without extra config.
+- Cloudflare tunnel URLs work only if the tunnel is configured to forward the `Host` header, which requires an explicit rule.
+- The fallback chain in `lib/email.ts` line 59 (`process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'`) is the safety net but is ENV-based and defeats the purpose of auto-detection.
 
 **Prevention:**
-- Define a strict JSON schema for analysis output **before writing the first API call**. Example structure: `{ pattern: string, timeframe: string, trend: string, keyLevels: number[], confidence: 'high'|'medium'|'low', notes: string }`.
-- Use OpenAI's **structured outputs / response_format: json_schema** or Anthropic's tool-use pattern to enforce the schema at the API level. Never rely on prompt-only JSON instruction — models hallucinate extra fields or omit required ones under load.
-- Store the structured JSON in a `chart_analyses` table column (TEXT, parsed on read), not embedded in a free-text field.
-- Add a migration for a new `chart_analyses` table: `(id, trade_id, user_id, account_id, schema_version, analysis_json, embedding, created_at)`. Include `schema_version` so you can re-analyze old screenshots if the schema evolves.
+- Implement a priority chain for URL resolution, evaluated in order:
+  1. `app_url` setting in `_system` settings (admin-configured, explicit, highest priority)
+  2. `x-forwarded-host` header with scheme from `x-forwarded-proto`
+  3. `host` header with scheme inferred from TLS state
+  4. `NEXT_PUBLIC_APP_URL` env var
+  5. `http://localhost:3000` (last resort fallback)
+- Expose the detected URL in the admin settings UI so the admin can see what the system resolved and override it with the `app_url` setting key if wrong. Show: "Auto-detected: http://app:3000 — Override below if incorrect."
+- Document in the admin UI that `app_url` should always be set in Docker and Cloudflare tunnel deployments — auto-detection from headers is unreliable in those modes.
+- The `getAppUrl()` function in lib/email.ts (line 52) already implements the DB-then-env fallback. The auto-detection from request headers requires a separate helper that accepts a `NextRequest` parameter and is called from API routes (not from lib/email.ts directly, which has no request context).
 
-**Detection:** If your initial prompt is "analyze this chart," you are building technical debt. Require structured output from day one.
+**Detection:** Deploy behind a Docker Compose setup (or Cloudflare tunnel) with `app_url` unset in admin settings. Register a new user and click the verification link — it must load correctly.
 
-**Phase:** AI Analysis phase.
+**Phase:** Email URL auto-detection phase.
 
 ---
 
-### Pitfall 4: AI Vision — Image Upload Hitting Next.js 4.5MB Body Limit
+### Pitfall 4: Per-Trade Checklist Editing — Storing Completed State vs Template State
 
-**What goes wrong:** Next.js 15 App Router API routes have a default request body size limit of 4.5MB. A retina screenshot (1440x900, lossless PNG) can easily be 3-8MB. The upload silently fails with a 413 or a parse error that the frontend receives as a generic network error.
+**What goes wrong:** The existing strategy system stores checklist items as `string[]` per strategy (e.g. `["Downside objective accomplished", "Activity bullish"]`). Per-trade checklists add a checked/unchecked state per item. The pitfall is storing the completion state in the same `strategies` settings key, mixed with the template definition. If a trade's checklist responses are saved back to the global strategies setting, every trade using that strategy shows the same completed items — the last trade's responses.
 
-**Why it happens:** Developers test with small JPEG screenshots (< 1MB) during development and only discover the limit when users upload actual screen captures.
+**Why it happens:** The quickest approach is to add a `completed: boolean[]` parallel array to the strategy object in settings JSON. This conflates two separate concerns: the template definition (what items exist) and the per-trade state (which items were checked for a specific trade).
 
 **Consequences:**
-- Feature silently fails for common screenshot sizes with no clear user error message.
-- Attempting to raise the limit via `export const config = { api: { bodyParser: { sizeLimit: '10mb' }}}` works in Pages Router but uses different syntax in App Router.
+- Opening any trade using "Wyckoff Buying Tests" shows whatever checkboxes the last completed trade checked. Prior trades look like they're checked differently depending on which trade was opened last.
+- If the user updates a checklist template (adds/removes an item), all saved per-trade states become misaligned — indices shift.
 
 **Prevention:**
-- In App Router, disable the default body parser and stream the file: add `export const config = { api: { bodyParser: false } }` is Pages Router syntax. In App Router, use `req.formData()` instead of `req.json()` and receive the image as a `File` object.
-- Compress screenshots client-side before upload: use the Canvas API to re-encode to JPEG at 0.85 quality. Most chart screenshots compress from 4MB PNG to under 700KB JPEG with no perceptible quality loss for vision analysis.
-- Set `next.config.ts` `experimental.serverActions.bodySizeLimit` if using Server Actions, or configure route segment config `export const maxDuration` for Vercel deployments.
-- Add explicit file size validation on the client (reject before upload if > 5MB) with a clear error message.
+- Per-trade checklist state is stored on the **trade record itself** (a new `checklist_state` TEXT column on the `trades` table, storing JSON). Format: `{ strategyId: string; items: Array<{ text: string; checked: boolean }> }`. The `text` field is a snapshot of the item text at the time the trade was created — this makes it immutable even if the template is later edited.
+- The global `strategies` setting remains a pure template: `{ id, name, checklist: string[] }`. No completion state ever touches it.
+- When opening the trade modal with an existing trade, load `checklist_state` from the trade record. When creating a new trade with a selected strategy, initialise `checklist_state` from the current template (snapshot the item texts at that moment).
+- Migration required: `ALTER TABLE trades ADD COLUMN checklist_state TEXT` (migration 022 or next available number).
 
-**Detection:** Test with an actual macOS/Windows screenshot (not a resized test image) before shipping.
+**Detection:** Create two trades using the same strategy, check different boxes on each. Reopen both trades and verify each shows its own checklist state.
 
-**Phase:** AI Analysis phase.
+**Phase:** Strategy/checklist enhancements phase.
 
 ---
 
-### Pitfall 5: Monte Carlo in TradeModal — Running 5,000 Iterations Synchronously on the Main Thread
+### Pitfall 5: Settings Page Split — One Giant State Object Shared Across All Tabs
 
-**What goes wrong:** The existing `runMonteCarlo()` in `lib/simulation.ts` runs 5,000 iterations × 100 trades in a synchronous loop. This is fine in a standalone page where the user explicitly triggers it. Embedded in `TradeModal.tsx`, it will be triggered on every keystroke change to entry price, stop loss, or position size — freezing the modal UI for 200-400ms on every input.
+**What goes wrong:** The entire settings page operates from a single `settings` state object of type `Settings` (the interface at lines 31-57). The `save()` function sends the entire object with `PUT /api/settings`. When the page is split into sub-components, each sub-component needs to read from and write to this shared state. Developers who pass the full `settings` object and `setSettings` setter down as props create tightly coupled components that cannot be loaded or tested independently. Developers who duplicate state per-component produce silent divergence — the "Account" tab's local copy of `account_size` drifts from the "Integrations" tab's copy, and whichever tab saves last wins.
 
-**Why it happens:** The simulation works fine in isolation. Developers add it to the modal's `useMemo` or `useEffect` without recognizing the compute cost at interactive update frequency.
-
-**Consequences:**
-- The trade entry modal becomes sluggish. Traders entering prices will see frozen inputs — a major UX regression on the most-used feature.
-- On lower-end hardware (many traders use older machines), the freeze extends to 500-800ms.
+**Why it happens:** The monolith works because everything is in one closure. Splitting it without a strategy produces the N-props antipattern or duplicated state.
 
 **Prevention:**
-- Run Monte Carlo in a **Web Worker**. The simulation has zero DOM dependencies and is trivially movable to a worker: `const worker = new Worker(new URL('../workers/monteCarlo.worker.ts', import.meta.url))`.
-- Debounce the trigger: wait 600ms after the last input change before starting a new simulation run. Never run on every keystroke.
-- Reduce iterations for the in-modal "preview" mode: 1,000 iterations is sufficient for directional guidance (ruin probability, median outcome). Reserve 5,000 for the full simulator page.
-- Show a loading spinner during calculation; never block input.
-- The TradeModal already has a `useMemo` for R:R calculation (lines 166-178) — the Monte Carlo must NOT follow the same pattern due to its cost difference.
+- Before splitting, audit which settings keys belong to which tab and ensure each key appears in exactly one tab's UI. Use the existing `CATEGORIES` array as the canonical grouping.
+- Each extracted sub-component receives only the slice of settings it needs: e.g., `IntegrationsTab` receives `{ discord_webhook, alert_discord_webhook, fmp_api_key, openai_api_key }` and an `onChange` callback that merges back into parent state.
+- The parent `SettingsContent` component retains the single `settings` state and the single `save()` call. Sub-components are purely presentational — they display and emit changes, they do not own state or call the API.
+- The admin system settings (`sysSettings` state, `loadSysSettings`, `saveSysSettings`) are already separate state — keep them separate. Do not merge them into the main `settings` object.
+- The 2FA state, IBKR state, and accounts state are also already isolated — keep them in the parent or in per-section state, not in the main `settings` object.
 
-**Detection:** Add `console.time('monteCarlo')` around a test run with 5,000 iterations. If it exceeds 50ms synchronously, it must be moved to a worker.
+**Detection:** Change a value in tab A, switch to tab B, switch back to tab A, click Save. The value changed in tab A must still be present in the saved payload.
 
-**Phase:** Monte Carlo integration phase.
-
----
-
-### Pitfall 6: Monte Carlo Integration — Using Account Balance Without Respecting Multi-Account Scope
-
-**What goes wrong:** The Monte Carlo preview in TradeModal computes ruin probability against an account balance. If the balance pulled is the "All Accounts" aggregate (the default when `activeAccountId === null`), the ruin probability is calculated against the wrong number — often 3-5x the actual account balance being risked, making ruin look impossible when it isn't.
-
-**Why it happens:** The `useAccounts()` hook provides `activeAccountId` which can be `null` (all accounts). The `accountSize` prop passed to TradeModal falls back to a settings value (`s.account_size`) when the account-specific value isn't found. This fallback is a global setting, not per-account.
-
-**Consequences:**
-- Traders enter trades thinking their ruin probability is 2% when it's actually 18% because Monte Carlo ran against the wrong balance.
-- Risk management feature actively misleads traders.
-
-**Prevention:**
-- In TradeModal, always use `selectedAccountId` (the account the trade is being assigned to) — never `activeAccountId` — to look up balance for position sizing and Monte Carlo.
-- When `selectedAccountId` is null (edge case where user has no accounts), show a warning and disable Monte Carlo rather than using a fallback balance.
-- The `selectedAccountId` state is already in TradeModal (line 60-63). Ensure the Monte Carlo computation receives the current balance of that specific account: `startingBalance = account.starting_balance + account.realized_pnl` (computed client-side, consistent with how AccountBanner does it).
-
-**Detection:** Test with two accounts of different sizes. The Monte Carlo result should change when you switch the trade's assigned account.
-
-**Phase:** Monte Carlo integration phase.
-
----
-
-### Pitfall 7: IBKR Trade Import — Duplicate Detection Across Manual and Auto-Imported Trades
-
-**What goes wrong:** IBKR auto-import runs on a schedule and imports all trades from the past N days. If the user also manually entered the same trade (or previously imported via CSV), the same trade exists twice. Duplicate detection using only symbol + date is insufficient — IBKR assigns unique order IDs that should be the deduplication key.
-
-**Why it happens:** The existing CSV import (`app/api/trades/import/route.ts`) has no deduplication — it inserts all records in the payload. This was acceptable for manual one-time imports but breaks for recurring automated sync.
-
-**Consequences:**
-- Dashboard analytics become wrong: P&L is doubled for any trade imported twice, win rates are skewed.
-- Traders lose trust in the platform accuracy.
-- Recovery requires manual de-duplication UI or a migration, both expensive.
-
-**Prevention:**
-- Add an `external_id` column to the `trades` table in the IBKR migration: `external_id TEXT` (IBKR order ID or exec ID).
-- The IBKR import route must use `INSERT OR IGNORE` / `ON CONFLICT(user_id, external_id) DO NOTHING` — upsert semantics, not blind insert.
-- The import response should report: `{ inserted: N, skipped: M, errors: [] }` so the user sees deduplication is working.
-- For trades entered manually before IBKR sync is added, provide a "Link to IBKR" flow that sets the `external_id` on an existing trade.
-
-**Detection:** Run the auto-import twice within the same day and verify the trade count does not increase on the second run.
-
-**Phase:** IBKR Sync phase.
+**Phase:** Settings overhaul phase.
 
 ---
 
@@ -174,190 +131,153 @@ Mistakes that cause significant rework or user-visible bugs but don't require fu
 
 ---
 
-### Pitfall 8: AI Vision — Storing Images in SQLite as BLOBs
+### Pitfall 6: Admin Panel as Config Source — env Vars Read at Build Time vs Runtime
 
-**What goes wrong:** Storing chart screenshot images as BLOBs in SQLite inflates the database file rapidly. A user who analyzes 100 trades with screenshots generates 50-500MB of BLOB data. SQLite in WAL mode reads and checkpoints the entire database — large BLOBs degrade all query performance, not just image queries.
+**What goes wrong:** When migrating from `.env`-based config to DB-based config (admin panel as source of truth), some config values that used to be in `.env` may have been referenced in `next.config.ts` or used at build time. Build-time env vars are baked into the Next.js bundle at `npm run build` time. If `NEXT_PUBLIC_APP_URL` was previously used in client-side code (the `NEXT_PUBLIC_` prefix makes it client-readable), switching to a DB-sourced value requires an API call — it cannot be substituted transparently.
+
+**Why it happens:** `NEXT_PUBLIC_APP_URL` is referenced in lib/email.ts line 59 as a fallback. If client-side components or email templates are updated to also call an API to fetch the app URL dynamically, but the build still has the old `NEXT_PUBLIC_APP_URL` baked in, you get inconsistent behaviour between build-time and runtime resolution.
 
 **Prevention:**
-- Store screenshots as files on disk in a `data/uploads/` directory (gitignored). Store only the file path in the database.
-- Use content-addressed storage: filename = SHA-256 of the image bytes. Deduplicates identical screenshots and makes cleanup trivial.
-- If cloud deployment is planned, abstract the storage interface early: `lib/storage.ts` with a `save(buffer): Promise<string>` that starts with local filesystem and can be swapped for S3/R2 later.
+- `app_url` is a server-side-only value used in email link construction. It is never needed in client-side code. Do not add `NEXT_PUBLIC_` prefix to any admin-panel-sourced config values.
+- The existing `getAppUrl()` function in lib/email.ts is server-only (it calls `getDb()`). Keep all URL resolution there.
+- After the migration, `NEXT_PUBLIC_APP_URL` in `.env.example` can be marked as deprecated/optional with a comment pointing to the admin panel setting.
+- `serverExternalPackages` in `next.config.ts` does not need modification — admin panel settings are read at request time via the existing API route and DB layer.
 
-**Phase:** AI Analysis phase.
+**Detection:** Run `npm run build` with `NEXT_PUBLIC_APP_URL` unset. The build should succeed. Email links should still work based on DB config alone (if `app_url` is set in admin panel) or fall back to localhost gracefully.
+
+**Phase:** Admin panel config source phase.
 
 ---
 
-### Pitfall 9: Trading Calculators — Calculator State Not Isolated from Dashboard State
+### Pitfall 7: Strategy Enhancements — Built-In Default Strategies Overwriting User Customisations
 
-**What goes wrong:** The Trading Tools Hub calculators use fields like "account balance," "risk percentage," and "win rate" that also exist as app-wide settings. If calculator inputs are wired to global settings state, changing "account balance" in the Kelly Criterion calculator unexpectedly changes the position sizer's account size on the chart page.
+**What goes wrong:** The five built-in default strategies (Wyckoff Buying/Selling Tests, Momentum Breakout, Mean Reversion, EMA Pullback) are currently hardcoded as the initial value of the `settings` state in `SettingsContent` (lines 208-214 of settings/page.tsx). They are written to the DB only when the user saves settings. If a user has customised these strategies (renamed them, added items, deleted one), and a future code change re-seeds them via a database migration or `INSERT OR IGNORE` logic, the user's customisations would be overwritten.
+
+**Why it happens:** Developers adding "built-in default strategies" as a feature might implement it as a migration that `INSERT OR IGNORE`s the default strategies into the settings table. If the user has never saved their strategies settings key to the DB, the key is absent and the migration creates it — this is safe. But if the user has saved it, the migration should skip it. `INSERT OR IGNORE` handles this correctly only if the key is the same.
 
 **Prevention:**
-- Calculators use **fully local React state** — never read from or write to the settings API.
-- If a calculator has a "use my account balance" convenience button, it reads from settings once on click but does not subscribe to changes.
-- Calculator inputs default to empty/placeholder values, not pre-filled from global settings.
+- Default strategies are a **client-side fallback only** — the hardcoded initial state in `SettingsContent`. They are never written to the DB by migrations.
+- If the feature requires "restore defaults" functionality, implement it as an explicit user action (a "Reset to defaults" button), never as an automatic migration.
+- New built-in strategies added in a future version should be merged into the user's existing list (appended if their ID is not already present), not replace the entire list.
+- If a `strategies` DB row does not exist for a user, `GET /api/settings` returns no value and the client falls back to the hardcoded defaults — this is the current correct behaviour.
 
-**Phase:** Trading Tools Hub phase.
+**Detection:** Save custom strategy modifications, restart the app (or run any migrations), and verify the customised strategies are still present.
+
+**Phase:** Strategy enhancements phase.
 
 ---
 
-### Pitfall 10: IBKR Sync — No Handling for IBKR's Rate Limits and Pacing Violations
+### Pitfall 8: Ad-Hoc Checklists — No Strategy Selected Edge Case in Trade Modal
 
-**What goes wrong:** IBKR enforces pacing limits: no more than 50 identical requests in 10 minutes, and requests for historical data are throttled (1 request per 10 seconds for live data). Auto-import that fires on every page load or every minute will trigger pacing violations. IBKR responds by disconnecting the client and logging the API key for abuse — repeat violations can suspend paper trading accounts.
+**What goes wrong:** Strategies currently drive the Wyckoff checklist in the trade modal. The v2.1 enhancement adds ad-hoc checklists — checklist items the trader can add on a per-trade basis without selecting a named strategy. The edge case: if a trade has both a `strategy_id` pointing to a deleted strategy and ad-hoc checklist items in `checklist_state`, the rendering must handle the case where the strategy template no longer exists.
+
+**Why it happens:** Strategies are soft data (stored as JSON in the `strategies` settings key). Deleting a strategy from settings does not cascade to trade records that referenced it. `checklist_state` stores a snapshot of item texts, so the items themselves are preserved — but the strategy name and ID are dangling references.
 
 **Prevention:**
-- The sync daemon must have a configurable poll interval with a minimum floor of 5 minutes.
-- Cache the last sync timestamp in the settings table (`ibkr_last_sync`). Skip sync if fewer than 5 minutes have elapsed.
-- Implement circuit breaker: if IBKR returns a pacing error (error code 162), back off exponentially and do not retry for at least 10 minutes.
-- Log all IBKR API errors to a `ibkr_sync_log` table: `(id, timestamp, event_type, message)`. Expose the last 20 log entries in the Settings page.
+- Render `checklist_state` from the trade record, not by looking up the strategy in current settings. Since `checklist_state` snapshots the item text at trade creation time, the UI can always show the checklist regardless of whether the strategy template still exists.
+- When the strategy referenced by `strategy_id` no longer exists in the `strategies` settings, label the checklist as "[Strategy Deleted]" rather than hiding it or throwing an error.
+- The `strategy_id` column on trades (or whichever field stores this link) should be treated as a display hint only, not a foreign key dependency for checklist rendering.
 
-**Phase:** IBKR Sync phase.
+**Detection:** Create a trade with strategy "Wyckoff Buying Tests" and some boxes checked. Delete the strategy from settings. Reopen the trade — the checklist items must still be visible.
+
+**Phase:** Strategy/checklist enhancements phase.
 
 ---
 
-### Pitfall 11: Monte Carlo Preview — Insufficient Historical Data Produces Misleading Results
+### Pitfall 9: Settings Page Full-Width Layout — Sidebar Navigation on Small Screens
 
-**What goes wrong:** The existing `runMonteCarlo()` resamples from the user's historical returns array. When a new account has fewer than 20 closed trades, the resampling produces wildly inaccurate distributions — one or two outlier trades dominate. The ruin probability for a 3-trade history is essentially meaningless.
+**What goes wrong:** The v2.1 settings overhaul changes from a sidebar layout to a full-width desktop layout. The existing settings page uses `?tab=` query params for navigation and a vertical sidebar of categories. If the full-width layout removes the sidebar in favour of horizontal tabs or a top nav, the existing external links that use `?tab=account`, `?tab=admin-settings`, etc. (found in Navbar.tsx, the admin claim redirect, and any in-app "go to settings" buttons) will break if the tab ID scheme changes.
+
+**Why it happens:** Redesigning a page layout often involves renaming navigation items or restructuring tabs. If `category === "admin-settings"` becomes `section === "system"` in the new layout, any URL with `?tab=admin-settings` navigates to the wrong section silently (falling back to the first tab).
 
 **Prevention:**
-- Add a minimum trade count gate: display Monte Carlo preview only when the selected account has ≥ 20 closed trades.
-- When below the threshold, show: "Need at least 20 closed trades for reliable risk modeling. Currently: N."
-- The existing standalone Monte Carlo page likely already encounters this — check if it has a guard. If not, add one to both surfaces.
-- Consider offering a "use strategy win rate" mode as an alternative when historical data is thin: the user inputs expected win rate and R:R, the simulator generates synthetic returns.
+- Keep the `?tab=` query parameter scheme and the Category type values unchanged. The full-width layout is a visual restructuring, not a URL/navigation restructuring.
+- Search for all usages of `?tab=` before the refactor: `grep -r 'tab=' app/ components/ lib/` — every one must be verified still works after the change.
+- The line `const initialCategory = (searchParams.get("tab") ?? "account") as Category` (line 198) must remain unchanged in the new structure.
+- The account claim redirect on line 455 (`window.location.href = "/admin"`) assumes an `/admin` route exists. If the admin panel moves into the settings page, update this redirect.
 
-**Phase:** Monte Carlo integration phase.
+**Detection:** Visit `/settings?tab=admin-settings` after the refactor and confirm the System settings tab loads directly.
+
+**Phase:** Settings overhaul phase.
 
 ---
 
-### Pitfall 12: Next.js 15 App Router — API Routes That Block on SQLite During Image Processing
+### Pitfall 10: Dashboard Layout Templates — Template Widget IDs Referencing Removed Widgets
 
-**What goes wrong:** A single Next.js API route that (1) receives an image upload, (2) calls an external vision API (1-5 seconds), and (3) writes to SQLite — all in sequence — blocks the route handler's execution for the full duration. In Next.js App Router with concurrent requests, this is fine for a single user but creates a long-tail latency problem at any scale.
+**What goes wrong:** The `ALL_WIDGETS` array in DashboardShell.tsx defines the canonical set of 39 widget IDs. If a saved template references a widget ID that no longer exists (e.g., a widget is renamed or removed in a future version), loading the template produces a hidden widget that renders nothing or an order array with a dangling ID.
 
-**Why it matters for this app:** The existing `better-sqlite3` is synchronous. Any I/O wait (waiting for the OpenAI API response) blocks the Node.js thread that holds the SQLite connection, degrading all other simultaneous requests.
+**Why it happens:** The existing `dashboard_layout` already has this problem — the merge logic on lines 362-379 handles it by filtering unknown IDs. Template storage introduces the same risk on a longer timescale (templates persist indefinitely).
 
 **Prevention:**
-- Keep the AI vision API call in the route handler but ensure the SQLite write only happens after the external call resolves — do not hold a transaction open across the external call.
-- The current `getDb()` singleton pattern (line 14 in `lib/db.ts`) is fine. Just ensure no `db.prepare().run()` calls sit inside an `await externalApi()` sandwich.
-- For production, consider a job queue: the image upload endpoint enqueues the analysis job and returns `{ jobId }` immediately. A background worker processes it and updates a `chart_analyses` table. The UI polls `/api/ai/status?jobId=X`.
+- Reuse the existing merge logic when applying a template: filter out any widget IDs not present in the current `ALL_WIDGETS` array before applying the template layout.
+- The template save timestamp should be stored with the template so developers can detect "stale" templates on a future widget restructure.
+- Template application uses `saveLayout()` which already writes to `dashboard_layout` — the existing new-widget-merge logic will run on next page load, adding any new widgets not in the template.
 
-**Phase:** AI Analysis phase.
+**Detection:** Save a template. Remove a widget ID from `ALL_WIDGETS` (simulating a future widget removal). Apply the template — the removed widget ID must not appear in the order array and the dashboard must render without error.
+
+**Phase:** Dashboard layout templates phase.
 
 ---
 
-### Pitfall 13: AI Vision — OpenAI API Key Exposed in Client-Side Code or Build Output
+### Pitfall 11: Admin Panel Config Source — Nodemailer Transport Created Per-Request Without Caching
 
-**What goes wrong:** Developers add `OPENAI_API_KEY` to the `.env.local` file but accidentally reference it as `NEXT_PUBLIC_OPENAI_API_KEY` (with the `NEXT_PUBLIC_` prefix), which causes Next.js to embed it in the client bundle.
-
-**Consequences:** The API key is visible to anyone who inspects the JavaScript bundle in DevTools. IBKR credentials face the same risk.
+**What goes wrong:** `lib/email.ts` calls `getSmtpConfig()` which queries the DB on every `send()` call, then creates a new `nodemailer.createTransport()` instance per email sent. This is fine for the current usage (registration, password reset, price alerts — all low frequency). But the admin panel "Test SMTP" feature, if implemented naively, may call `send()` in a loop or fire multiple rapid test emails. Each call re-queries the DB and creates a new transport — not a correctness issue, but an unnecessary overhead pattern.
 
 **Prevention:**
-- All external API keys (`OPENAI_API_KEY`, any IBKR credentials) must be server-side only — no `NEXT_PUBLIC_` prefix, ever.
-- The AI analysis endpoint is a server-side API route (`app/api/ai/analyze/route.ts`) that calls OpenAI — the client only sends the image and receives the analysis.
-- Add `OPENAI_API_KEY` to `.env.example` with a placeholder value and a comment: `# Server-side only — never prefix with NEXT_PUBLIC_`.
-- The `next.config.ts` already has `output: "standalone"` — verify the standalone bundle does not include env vars at build time (it shouldn't, but verify by inspecting `.next/standalone`).
+- The current pattern (DB query per send) is acceptable for this application's email volume. Do not cache the transport as a module-level singleton — the admin can change SMTP config via the panel, and a cached transport would use stale credentials.
+- For the "Test SMTP" feature, send exactly one test email and show the result. Do not provide a "send multiple" option.
+- If caching is added in future, invalidate the cache when the admin panel saves new SMTP settings.
 
-**Detection:** Search the built `.next/static/` directory for any substring of the API key after a build. Should return no matches.
-
-**Phase:** AI Analysis phase, before any key is added to the environment.
+**Phase:** Admin panel config source phase.
 
 ---
 
-### Pitfall 14: Correlation Matrix Calculator — Computing Pearson Correlation in the Browser for Large Datasets
+### Pitfall 12: Settings Page Split — TypeScript Type Coverage Lost During Component Extraction
 
-**What goes wrong:** The correlation matrix requires computing pairwise correlations between N symbols × T time periods. At N=20 symbols and T=252 trading days, that's 400 pairwise calculations × 252 data points = 100,800 multiplications. This is instant. But fetching 20 symbols × 252 days of OHLCV data means 20 API calls to `/api/ohlcv` which currently calls Yahoo Finance. Yahoo throttles concurrent requests.
-
-**Prevention:**
-- Fetch OHLCV data sequentially with delays, not in `Promise.all()` (which fires 20 concurrent Yahoo Finance requests and will cause throttling).
-- Cache OHLCV responses in the `symbols` table or a new `ohlcv_cache` table with a `fetched_at` timestamp. If data is less than 24 hours old, serve from cache.
-- The correlation computation itself should be in a Web Worker (same pattern as Monte Carlo) to avoid blocking the UI during matrix calculation.
-- Limit the maximum number of symbols in the correlation matrix to 15 to keep the UI readable and the computation bounded.
-
-**Phase:** Trading Tools Hub phase.
-
----
-
-### Pitfall 15: IBKR Import — Account Mapping When User Has Multiple Ledger Accounts
-
-**What goes wrong:** IBKR supports multiple sub-accounts (individual, IRA, paper trading). When importing IBKR trades, the system must map IBKR account IDs to Ledger Of Alpha account IDs. Without explicit mapping, all IBKR trades land in a single account, defeating the multi-account system.
+**What goes wrong:** The monolithic `SettingsContent` function has the full `Settings` and `SystemSettings` interfaces defined at the top of the file. When extracting sub-components into separate files, developers who copy the component code without the type interfaces get implicit `any` types on props. With `strict: false` in tsconfig or the build passing without type errors (because the interfaces are re-inferred), the type safety is silently lost.
 
 **Prevention:**
-- Add an `ibkr_account_map` settings key (JSON): maps IBKR account IDs to Ledger Of Alpha account IDs.
-- The Settings page gets an "IBKR Account Mapping" section (visible only when IBKR sync is configured): shows detected IBKR accounts and lets the user assign each to a Ledger account or create a new one.
-- The import route checks this mapping before inserting; trades from unmapped IBKR accounts are held in a `pending_imports` state rather than silently dropped.
+- Move `Settings`, `SystemSettings`, `Category`, `CATEGORIES`, `AdminUser`, and `SYS_DEFAULTS` to a shared `lib/settings-types.ts` file before splitting. Import from there in both the parent page and all sub-components.
+- Run `npm run build` after each component extraction step — TypeScript errors surface immediately.
+- Do not use `any` in props types for the extracted components. Each component props interface should be explicit.
 
-**Phase:** IBKR Sync phase.
+**Detection:** Run `npm run build` on the split result with zero TypeScript errors.
+
+**Phase:** Settings overhaul phase.
 
 ---
 
 ## Minor Pitfalls
 
-Mistakes that cause minor UX friction or require small fixes.
+---
+
+### Pitfall 13: Template Naming — Collision with Reserved Names
+
+**What goes wrong:** If the template storage format uses the template name as its key, two templates named the same thing silently overwrite each other.
+
+**Prevention:** Templates use `crypto.randomUUID()` as their `id` (consistent with how strategies are handled in the existing code). The `name` is display-only and can be duplicated without consequence.
+
+**Phase:** Dashboard layout templates phase.
 
 ---
 
-### Pitfall 16: Trading Tools Hub — Deep Linking and Browser Back Button
+### Pitfall 14: Full-Width Settings Layout — Long Category List Not Scrollable on Short Screens
 
-**What goes wrong:** If the Trading Tools Hub is a single page with tab/calculator switching handled by React state (not URL), the browser back button does not navigate between calculators. Users who click into a calculator, configure it, then hit back to "go to the previous calculator" instead leave the page.
+**What goes wrong:** The current settings sidebar has 13 categories. A full-width layout that renders them as horizontal tabs may overflow on screens narrower than 1200px, hiding the rightmost tabs behind the viewport edge with no scroll affordance.
 
-**Prevention:**
-- Use URL query params for the active calculator: `/tools?calculator=kelly-criterion`. Read from `useSearchParams()` and push to router on tab change.
-- This also makes calculator states shareable via URL (a minor but valued UX feature for traders sharing setups).
+**Prevention:** Horizontal tab rows for 13+ items need either (a) horizontal scroll with visible overflow, (b) a dropdown overflow for excess tabs, or (c) grouping tabs into sections. Decide on the approach in the design phase, not during implementation.
 
-**Phase:** Trading Tools Hub phase.
+**Phase:** Settings overhaul phase.
 
 ---
 
-### Pitfall 17: Monte Carlo in TradeModal — No Escape Hatch for Traders Who Don't Want It
+### Pitfall 15: Per-Trade Checklist — Migration Number Conflict
 
-**What goes wrong:** Adding a Monte Carlo panel to the trade entry modal increases the modal's height and visual complexity. Traders who use the modal hundreds of times per month and understand their risk intuitively will find it friction-adding. Forcing it visible is a UX regression.
+**What goes wrong:** The DB is through migration 021. If two phases of v2.1 both add migrations and the developer uses the same migration name or number, one migration never runs (due to the `hasMigration` guard using the name as the dedup key).
 
-**Prevention:**
-- Monte Carlo preview in the modal is **collapsed by default**. A single "Show Risk Simulation" button expands it.
-- The expanded/collapsed preference is persisted in settings (`montecarlo_panel_expanded` key, boolean).
-- The full simulation is always accessible on the standalone simulator page — the modal integration is a convenience, not a replacement.
+**Prevention:** Assign migration names sequentially from 022. Use descriptive names: `022_trade_checklist_state`, `023_dashboard_templates`, etc. Check `lib/db.ts` migration list before every new migration to confirm the name is unused.
 
-**Phase:** Monte Carlo integration phase.
-
----
-
-### Pitfall 18: AI Vision — Guest Mode Behavior
-
-**What goes wrong:** Guest users (demo mode) trigger the AI analysis endpoint, which calls the external vision API. This consumes real API credits for unauthenticated users.
-
-**Prevention:**
-- The AI analysis route must check `isGuest(req)` first and return a canned demo response (or a clear message: "Create an account to use AI analysis").
-- Apply rate limiting to the AI endpoint with a tight limit (3 requests per hour per IP) as an additional safeguard beyond the guest check.
-- The existing `rateLimit()` helper in `lib/rate-limit.ts` handles this with one call.
-
-**Phase:** AI Analysis phase.
-
----
-
-### Pitfall 19: Settings Table Collision — New Feature Settings Keys Overwriting Existing Keys
-
-**What goes wrong:** New features (IBKR config, AI API key reference, calculator preferences) add new keys to the `settings` table. If a key name accidentally collides with an existing key (e.g., a new feature uses `account_size` for something different), it silently corrupts the existing setting.
-
-**Prevention:**
-- Namespace all new feature settings with a feature prefix: `ibkr_`, `ai_`, `tools_`, `montecarlo_`.
-- Document all settings keys in a central location (add a `SETTINGS_REGISTRY` comment block in `lib/db.ts` or a separate `lib/settings-keys.ts` constants file).
-- Audit the existing settings keys before adding new ones: `dashboard_layout`, `dashboard_time_filter`, `chart_tabs`, `watchlists`, `watchlist_width`, `panel_width`, `account_size`, `risk_per_trade`, `commission_per_trade`, `strategies`, `default_mistakes`, `default_tags`, `trade_templates`.
-
-**Phase:** Every phase that adds settings.
-
----
-
-### Pitfall 20: Database Migrations — Missing Account Scope on New Tables
-
-**What goes wrong:** New tables added for v2.0 features (e.g., `chart_analyses`, `ibkr_sync_log`, `pending_imports`) omit `user_id` or `account_id` columns. Data becomes globally visible across all users in a multi-user deployment.
-
-**Why it happens:** The developer is focused on the feature logic and treats the SQLite database as single-user during development.
-
-**Prevention:**
-- Every new table that stores user-generated data requires `user_id TEXT NOT NULL` at minimum.
-- Tables storing trade-linked data require `account_id TEXT` (nullable, for "all accounts" associations) with a foreign key to `accounts.id`.
-- The inline migration pattern in `lib/db.ts` makes this easy to audit — check all `CREATE TABLE` statements before committing.
-- Follow the existing pattern: `user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE`.
-
-**Phase:** Every phase that adds new database tables.
+**Phase:** Every phase adding a migration.
 
 ---
 
@@ -365,37 +285,25 @@ Mistakes that cause minor UX friction or require small fixes.
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| AI Analysis — Image Upload | Body size limit (4.5MB default) causes silent 413 failures | Client-side JPEG compression before upload |
-| AI Analysis — LLM Response | Free-form text responses break similar trade matching | Enforce JSON schema via structured output API feature |
-| AI Analysis — External API | OpenAI key leaks if prefixed with NEXT_PUBLIC_ | Server-side route only, never NEXT_PUBLIC_ |
-| AI Analysis — SQLite | Image BLOBs inflate DB, degrade all queries | Store images on disk, paths in DB |
-| AI Analysis — Guest Users | Vision API called for unauthenticated users, burns credits | isGuest() check + rate limit at route entry |
-| Monte Carlo — TradeModal | Synchronous 5K-iteration loop freezes input fields | Web Worker + debounce + reduce to 1K iterations in-modal |
-| Monte Carlo — Account Scope | Balance pulled from wrong account (null activeAccountId) | Use selectedAccountId, never activeAccountId |
-| Monte Carlo — Thin Data | Fewer than 20 trades produces meaningless ruin probability | Gate display behind minimum trade count |
-| IBKR Sync — Architecture | TWS socket cannot live in a stateless API route | Standalone daemon writes to SQLite; Next.js reads SQLite |
-| IBKR Sync — Deployment | Server cannot reach trader's local TWS | Design for Client Portal API or local-to-hosted POST bridge |
-| IBKR Sync — Duplicates | Recurring import creates duplicate trades | external_id column + ON CONFLICT DO NOTHING |
-| IBKR Sync — Rate Limits | Pacing violations disconnect client, risk account flags | Minimum 5-min poll interval, circuit breaker on error 162 |
-| IBKR Sync — Multi-Account | IBKR sub-accounts not mapped to Ledger accounts | Account mapping UI in settings, pending_imports for unmapped |
-| Tools Hub — Correlation Matrix | 20 concurrent Yahoo Finance requests get throttled | Sequential fetch with cache; max 15 symbols |
-| Tools Hub — State Management | Calculator inputs bleed into global app settings | Fully local React state; no settings API writes |
-| Tools Hub — Navigation | Back button exits page instead of switching calculators | URL query params for active calculator |
-| All Phases — Settings Keys | New keys collide with existing setting names | Prefix with feature name; maintain settings registry |
-| All Phases — New Tables | Missing user_id/account_id on new tables leaks data | Required on every new user-data table; enforce at migration |
+| Settings overhaul — component split | Admin SMTP/email fields lost during extraction | Audit `SystemSettings` interface before splitting; verify all fields survive |
+| Settings overhaul — component split | Shared state diverges across sub-components | Parent owns all state; sub-components receive slices via props |
+| Settings overhaul — layout redesign | `?tab=` external links break if Category IDs change | Keep Category type values unchanged; search for all `?tab=` usages first |
+| Settings overhaul — TypeScript | Implicit `any` when types not co-located with sub-components | Extract type interfaces to `lib/settings-types.ts` before splitting |
+| Email URL auto-detection | Docker `host` header is container service name, not public hostname | Priority chain: DB app_url > x-forwarded-host > host header > env var |
+| Email URL auto-detection | Cloudflare tunnel needs explicit header forwarding config | Show detected URL in admin UI; document Docker/tunnel override |
+| Admin panel as config source | env vars read at build time vs runtime | `app_url` is server-only; never add NEXT_PUBLIC_ prefix to admin-sourced config |
+| Admin panel as config source | SYSTEM_KEYS allowlist and UI fields out of sync | Every UI field must map to a key in SYSTEM_KEYS; verify on both sides |
+| Dashboard layout templates | Applying template overwrites user layout with no undo | Separate `dashboard_templates` key; confirmation dialog before applying |
+| Dashboard layout templates | Template stores deleted widget IDs | Filter template order array against current ALL_WIDGETS on apply |
+| Dashboard layout templates | Template name collision | Use UUID as template ID; name is display-only |
+| Strategy enhancements — defaults | Built-in defaults overwrite user customisations via migration | Defaults are client-side fallback only; never seed via migration |
+| Strategy enhancements — per-trade checklist | Completion state mixed with template definition | `checklist_state` on trade record; `strategies` setting is template-only |
+| Strategy enhancements — ad-hoc checklists | Deleted strategy breaks checklist rendering | Render from `checklist_state` snapshot, not from current strategy lookup |
+| All phases — migrations | Migration number/name conflict | Assign sequentially from 022; check lib/db.ts before every new migration |
 
 ---
 
 ## Sources
 
-- Direct codebase analysis: `lib/simulation.ts`, `lib/db.ts`, `lib/rate-limit.ts`, `lib/auth.ts`, `components/TradeModal.tsx`, `middleware.ts`, `next.config.ts`, `app/api/trades/route.ts`, `app/api/settings/route.ts`
-- Training data on IBKR TWS API architecture (socket-based EClient/EWrapper pattern) — MEDIUM confidence
-- Training data on Next.js 15 App Router body size limits and Web Worker patterns — MEDIUM confidence
-- Training data on OpenAI structured outputs and vision API patterns — MEDIUM confidence
-- Training data on SQLite BLOB performance characteristics — MEDIUM confidence
-
-**Confidence notes:**
-- IBKR architecture pitfalls: MEDIUM (TWS API design is well-established but specific SDK behavior may have changed)
-- Next.js body limit specifics: MEDIUM (4.5MB is the documented default for Pages Router; App Router behavior should be verified against Next.js 15 docs)
-- Monte Carlo Web Worker feasibility: HIGH (the simulation has zero DOM dependencies, confirmed by reading `lib/simulation.ts`)
-- Multi-account scope pitfalls: HIGH (confirmed by reading the codebase — `activeAccountId === null` is an explicit "All Accounts" state)
+- Direct codebase analysis: `app/settings/page.tsx` (lines 1-500), `lib/email.ts`, `lib/db.ts` (migrations 001-021), `app/api/admin/settings/route.ts`, `components/dashboard/DashboardShell.tsx` (lines 1-430), `app/api/auth/register/route.ts`
+- Confidence: HIGH — all pitfalls derived from reading the exact code that will be modified, not from training data assumptions

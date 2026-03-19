@@ -1,196 +1,215 @@
 # Project Research Summary
 
-**Project:** Ledger Of Alpha v2.0 — Intelligence & Automation
-**Domain:** AI-enhanced trade journaling platform with broker automation and analytical tools
-**Researched:** 2026-03-15
-**Confidence:** MEDIUM
+**Project:** Ledger Of Alpha v2.1 — Settings & Polish
+**Domain:** Self-hosted trade journaling platform — settings overhaul, deployment improvements, dashboard templates, strategy/checklist enhancements
+**Researched:** 2026-03-19
+**Confidence:** HIGH
 
 ## Executive Summary
 
-Ledger Of Alpha v2.0 adds four distinct capability clusters to an already-solid v1.0 foundation: AI chart pattern recognition via GPT-4o Vision, IBKR broker sync, Monte Carlo risk simulation embedded in trade entry, and a Trading Tools Hub with six calculators. The research reveals that the existing Next.js 15 + SQLite architecture is well-suited for all four clusters with minimal structural change — the primary additions are three new npm packages (`openai`, `fast-xml-parser`, `simple-statistics`), three database migrations, and new route/component subtrees. No ORM, no vector database, no job queue, and no stack change is warranted at this scale.
+Ledger Of Alpha v2.1 is a pure polish and refinement milestone applied to an existing, validated trading journal built on Next.js 15, TypeScript, Tailwind CSS v3, and SQLite (better-sqlite3). All five feature clusters target improvements to existing surfaces — there are no net-new capabilities, no new npm packages to install, and no new database tables required beyond a single optional column (`checklist_state` on the `trades` table via migration 022). The foundational stack is already proven in production; this milestone's complexity is entirely in integration discipline rather than technology selection.
 
-The recommended build order — Tools Hub, then Monte Carlo integration, then AI analysis, then IBKR sync — is driven by dependency isolation and risk. The Tools Hub has zero external dependencies and delivers immediate value, establishing the `/tools` page pattern and `lib/calculators.ts` module. Monte Carlo integration reuses an already-complete engine and modifies only one existing component. AI analysis introduces the only external API requirement (`openai`) and a new DB migration, but the integration is clean. IBKR sync is the most complex due to the socket/gateway architecture — it must go last because architectural decisions (daemon vs. API route, Client Portal API vs. TWS socket) affect deployment model and have the highest rewrite risk.
+The recommended execution approach is to work feature-by-feature in dependency order: email URL auto-detection first (server-only, zero UI risk, high deployment value), followed by settings component extraction (the largest mechanical refactor), then dashboard layout templates (self-contained in DashboardShell), then per-trade checklist editing (moderate DB concern). Each feature integrates into a clearly identified extension point in the existing codebase with no structural rewrites. The admin panel config expansion is a minor additive change best done as a final cleanup pass.
 
-The top risks are: (1) IBKR's TWS socket API cannot safely live in a Next.js API route — a separate singleton daemon or the REST-based Client Portal API is required; (2) AI vision responses must be structured JSON from day one or the "similar trade finder" feature becomes unbuildable without retroactive re-analysis; and (3) Monte Carlo must run in a Web Worker with debounce or it will freeze the TradeModal on every keystroke. All three risks are well-understood and have clear mitigations documented in PITFALLS.md.
+The primary risks are all integration-level rather than architectural: the settings monolith split requires careful management of shared state to prevent data loss; email URL auto-detection must implement the correct header priority chain to handle Docker and Cloudflare Tunnel deployments; and per-trade checklist editing must snapshot item text at trade-creation time rather than referencing the mutable strategy template. Every pitfall has a documented prevention pattern derived from direct codebase analysis. This milestone has no external unknowns.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The existing stack requires only three new production packages. `openai` (^4.x) handles both GPT-4o Vision calls for chart analysis and `text-embedding-3-small` for trade similarity — one package serves two features. `fast-xml-parser` (^4.x) parses IBKR Flex Query XML responses; it becomes unnecessary if the user configures IBKR Flex Query for JSON output. `simple-statistics` (^7.x) provides the Pearson correlation function for the Correlation Matrix calculator. Everything else — Monte Carlo, calculators, IBKR Client Portal REST calls — uses built-ins or existing packages.
+**Zero new dependencies.** Every v2.1 feature is implementable with the existing dependency set: Next.js 15 Route Handlers (`NextRequest.headers`), built-in `crypto.randomUUID()`, SQLite via better-sqlite3, `@dnd-kit` (already installed), and `lucide-react`. The stack is unchanged from v2.0. One DB migration is required — additive only: migration 022 adds `checklist_state TEXT` to the `trades` table. Dashboard templates require no DB migration (stored in the existing settings JSON key pattern).
 
-**Core new technologies:**
-- `openai` (^4.x): GPT-4o Vision for chart analysis + embeddings for trade similarity — server-side API route only, keeps key off client
-- `fast-xml-parser` (^4.x): IBKR Flex Query XML parsing — may be skippable if JSON format is available
-- `simple-statistics` (^7.x): Pearson correlation for Correlation Matrix — ~20KB, replaces 500KB+ math.js
-- Native `File` / `FormData` / `Buffer`: Screenshot upload pipeline — no multer needed, Next.js 15 handles multipart natively
-
-**Explicitly rejected:** vector databases (Pinecone/pgvector), TensorFlow.js/ONNX local models, Bull/BullMQ job queues, Zod, Prisma/Drizzle, sharp, WebSocket servers.
+**Core technologies (unchanged from v2.0):**
+- **Next.js 15 (App Router):** Route Handlers with `NextRequest.headers` power email URL auto-detection — documented, synchronous API
+- **better-sqlite3:** Additive migration via `lib/db.ts` inline pattern; no schema restructuring needed
+- **@dnd-kit:** Already installed; reused for checklist item reordering in TradeModal
+- **Tailwind CSS v3:** Full-width settings layout requires removing a single class (`sm:max-w-2xl`)
+- **`crypto.randomUUID()`:** Built-in browser/Node.js API; used for template IDs with no external UUID package needed
 
 ### Expected Features
 
-The four feature clusters have distinct value/complexity profiles. Monte Carlo integration is the highest-value, lowest-complexity feature (engine already exists). The five pure-math calculators are each a half-day build. AI pattern recognition is the core v2.0 differentiator. IBKR sync is the most-demanded but highest-complexity feature.
-
 **Must have (table stakes):**
-- AI: Screenshot upload, pattern label + confidence output, store analysis linked to trade
-- IBKR: One-time settings setup, manual "Sync Now" trigger, last-sync timestamp display, deduplication by `ibkr_exec_id`
-- Monte Carlo: In-modal ruin probability warning, suggested position size, integration with existing position sizer
-- Tools Hub: R:R Visualizer, Compound Growth, Drawdown Recovery, Kelly Criterion, Fibonacci (all pure math)
+- Settings sidebar navigation and `?tab=` deep-link routing must survive the component split intact — external links from TradeModal and Navbar depend on this
+- Email verification links work in Docker and Cloudflare Tunnel deployments without manual URL configuration
+- Admin panel is the single source for deployment-critical config (SMTP, app_url) with no .env editing required for runtime changes
+- Built-in default strategies ship with the app so new users never see an empty strategies list
+- Per-trade checklist state is preserved independently for each trade, not shared via the global strategy template
+- FibCalculator dead references removed from tools page and routing (cleanup from v2.0)
 
 **Should have (differentiators):**
-- AI: Similar trade finder by pattern, pattern performance stats (win rate per pattern type)
-- IBKR: Live open positions display, conflict resolution UI for manually-entered vs auto-imported trades, IBKR sub-account to Ledger account mapping
-- Monte Carlo: Per-strategy filtering (filter historical returns by setup/tag), collapsed-by-default panel with preference persistence
-- Tools Hub: Correlation Matrix (most complex — requires OHLCV fetch + Pearson computation), URL-param deep linking per calculator
+- Dashboard layout templates with named presets (save/load/delete) surfaced in edit mode toolbar
+- Ad-hoc checklist support on trades with no strategy selected
+- "Auto-detected URL" read-only display in admin panel showing what the system resolved
+- Built-in dashboard template presets (Performance Review, Daily Monitoring, Minimal Stats)
+- Checklist completion score badge on trade cards (computed from stored data, no new columns)
 
-**Defer to v2.1+:**
-- AI: Retroactive labeling of historical trades, setup chart overlay comparison
-- IBKR: Real-time position streaming, two-way sync (order entry), automatic background polling
-- Monte Carlo: Streak-aware conditioning, full simulation comparison view
-- Tools Hub: Options calculators (Black-Scholes, Greeks), save calculator state to DB
+**Defer to v2.2+:**
+- Search within settings (useful at 13+ tabs but overkill at current count)
+- Per-tab save with unsaved-change indicator (single save button is acceptable for launch)
+- Dashboard template preview thumbnails and URL sharing
+- In-modal strategy template editing (high complexity, conflates per-trade and template concerns)
+- Per-strategy performance breakdown (GROUP BY strategy_id — easy but a separate feature scope)
+- Audit log for admin config changes
 
 ### Architecture Approach
 
-All four features integrate cleanly via three extension points: new API route subtrees (`/api/ai/`, `/api/broker/ibkr/`, `/api/simulation/`, `/api/tools/`), new lib modules (`lib/ai-vision.ts`, `lib/ibkr-client.ts`, `lib/calculators.ts`), and new page/component trees (`app/tools/`, `components/tools/`). Existing files that require modification are limited to: `lib/db.ts` (migrations 019-021), `lib/types.ts` (new trade fields), `components/TradeModal.tsx` (AI upload + Monte Carlo panel), `components/dashboard/DashboardShell.tsx` (IBKR widget), and `components/Navbar.tsx` (tools link).
+All features integrate into existing extension points with no structural rewrites. The settings monolith (`app/settings/page.tsx`, ~2380 lines) splits into 13 self-contained section components under `components/settings/`, each owning its own data fetching and save lifecycle — the parent shell retains navigation and `isAdmin` state only. Email URL detection is centralized in a new `lib/request-url.ts` helper (`getRequestBaseUrl(req)`) that implements a five-level priority chain and is called from auth API route handlers. Dashboard templates follow the exact pattern already used for strategies: JSON array stored in a settings key (`dashboard_layout_templates`), with no new API route or DB table. Per-trade checklists store a snapshot of item text at creation time in a new `checklist_state` column, preventing drift when strategy templates are later edited.
 
-**Major components and responsibilities:**
-1. `lib/calculators.ts` — Pure math functions for all six Tools Hub calculators; no React, no side effects; imported directly into client components
-2. `lib/ai-vision.ts` — OpenAI client wrapper; base64 encoding, structured JSON prompt, response parsing; called only from server-side API route
-3. `lib/ibkr-client.ts` — REST wrapper for IBKR Client Portal API; proxies browser requests to local gateway; never called client-side
-4. `components/MonteCarloPreview.tsx` — Compact simulation panel embedded in TradeModal; debounced trigger, Web Worker execution, 1K iterations
-5. `components/tools/CorrelationMatrix.tsx` — Sole networked calculator; fetches OHLCV sequentially (not `Promise.all`), caches results, computes Pearson in a Web Worker
-6. `components/dashboard/IBKRWidget.tsx` — Live positions panel with connection status, 30s polling, sync-now button
+**Major components:**
+1. `components/settings/*Section.tsx` (x13, new) — Extracted section components; each self-contained with local state and own `/api/settings` GET/PUT calls
+2. `lib/request-url.ts` (new) — `getRequestBaseUrl(req)`: five-level URL priority chain for email link generation
+3. `components/dashboard/DashboardShell.tsx` (modified) — Template save/load/apply UI added to edit mode header; `dashboard_layout_templates` settings key
+4. `components/TradeModal.tsx` (modified) — Inline checklist editor with ad-hoc item support; reads/writes `checklist_state` on the trade record
+5. `app/api/admin/settings/route.ts` (optional minor modification) — SYSTEM_KEYS expansion for API key system-level fallbacks
 
 **Key patterns to follow:**
-- Stateless API route for compute-heavy operations (Monte Carlo preview, AI response parsing)
-- Settings table (existing) for all external service config — namespace with feature prefix (`ibkr_`, `ai_`, `tools_`, `montecarlo_`)
-- Inline migration pattern in `lib/db.ts` for all schema changes — every new user-data table must include `user_id TEXT NOT NULL`
-- Proxy pattern for IBKR: browser → Next.js API route → IBKR gateway — never browser direct to gateway
+- Each settings section component owns its own data lifecycle (fetch on mount, save on demand) — no shared global settings state across sections
+- JSON-in-settings for simple collections (templates follow the strategies pattern exactly)
+- Backward-compatible JSON field evolution via a `parseChecklistItems()` reader that handles both legacy `Record<string, boolean>` and new `{ items: Array<{text, checked}>, customized: bool }` formats
+- Request-aware URL resolution: API route handler calls `getRequestBaseUrl(req)`, passes result to email functions as optional `baseUrl` param
 
 ### Critical Pitfalls
 
-1. **IBKR TWS socket in API route** — TWS is a stateful socket requiring a persistent EClient. Placing it in a stateless Next.js API route causes race conditions, interleaved responses, and silent failures. Use Client Portal REST API (localhost:5000) instead, which is HTTP-based and fits the proxy pattern. If TWS socket is ever needed (real-time), it must be a separate long-lived Node daemon that writes to SQLite.
+1. **Admin SMTP fields lost during settings split** — The `SystemSettings` interface and `loadSysSettings`/`saveSysSettings` functions must be audited before splitting begins. Every field in `SYS_DEFAULTS` (account_size, risk_per_trade, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from, app_url) must appear in the extracted `AdminSystemSection`. The `SYSTEM_KEYS` allowlist in the admin API must match the UI form fields exactly — any mismatch causes silently ignored POSTs.
 
-2. **Unstructured AI vision output** — Prompting GPT-4o with "describe this chart" returns free-form prose that cannot be queried, aggregated, or used for similar trade matching. Define a strict JSON schema (`{ pattern, timeframe, trend, keyLevels, confidence, notes }`) and enforce it via OpenAI structured outputs / `response_format: json_schema` on the first API call. This cannot be retrofitted without re-analyzing all historical uploads.
+2. **Dashboard template apply overwrites user layout with no undo** — Templates must live under a separate settings key (`dashboard_templates`), never in `dashboard_layout`. Applying a template requires a confirmation dialog. The existing new-widget merge logic in DashboardShell must also run on template application to handle widget IDs added since the template was saved.
 
-3. **Monte Carlo blocking TradeModal main thread** — `runMonteCarlo()` with 5K iterations runs synchronously and takes 200-400ms. Embedded in TradeModal and triggered on price field changes, this freezes input. Solution: Web Worker + 500ms debounce + reduce to 1K iterations for the in-modal preview. The full 5K-iteration run stays on the standalone simulator page.
+3. **Email URL Docker networking mismatch** — In Docker Compose, `req.headers.get('host')` returns the container service name (e.g., `app:3000`), not the public hostname. The priority chain must be enforced: `app_url` DB setting > `x-forwarded-host` + `x-forwarded-proto` > `host` header > env var > localhost fallback. Expose the auto-detected URL read-only in the admin UI so admins can see what was resolved and override it.
 
-4. **Monte Carlo using wrong account balance** — When `activeAccountId === null` (All Accounts view), pulling balance from `account_size` settings key computes ruin probability against the wrong number. Always use `selectedAccountId` (the account the trade is assigned to) — never `activeAccountId` — when computing balance for position sizing and simulation.
+4. **Per-trade checklist state mixed with strategy template** — Completion state must be stored on the trade record (`checklist_state` JSON column with text snapshots at creation time), never in the global `strategies` settings key. This prevents cross-trade contamination and ensures checklist items remain readable even after strategy templates are edited or deleted.
 
-5. **IBKR duplicate trades on recurring import** — The existing CSV import route does blind inserts with no deduplication. Auto-import must use an `ibkr_exec_id` column with `ON CONFLICT DO NOTHING` semantics. Running import twice on the same day must produce identical trade counts. Any manually-entered trade that matches an IBKR execution should be linkable via a "Link to IBKR" workflow.
+5. **Settings split shared state divergence** — The parent shell retains the single `settings` state object; sub-components receive only their required slice via props. Alternatively, each section self-fetches on mount (acceptable at SQLite speeds). Do not duplicate state across section components — whichever tab saves last silently wins, corrupting other tabs' pending changes.
 
 ## Implications for Roadmap
 
-### Phase 1: Trading Tools Hub
+The four main features have no cross-dependencies and can be executed in any order. The recommended sequence is ordered by risk profile (lowest-risk, highest-value first) and avoids merge conflicts between phases.
 
-**Rationale:** Zero external dependencies, no new DB migrations, no API keys required. Delivers immediate user value with six calculators. Establishes the `/tools` page pattern, `lib/calculators.ts` module structure, and `components/tools/` component conventions that later phases can learn from. Lowest risk, fastest to ship.
+### Phase 1: Email URL Auto-Detection
 
-**Delivers:** Six calculators (R:R Visualizer, Compound Growth, Drawdown Recovery, Kelly Criterion, Fibonacci, Correlation Matrix) at `/tools`, with URL-param deep linking.
+**Rationale:** Lowest risk (server-only, no UI changes), highest deployment value, and fastest to verify. Delivering this first validates the `lib/request-url.ts` helper in isolation before other phases begin and gives Docker/tunnel users working email links immediately.
 
-**Addresses:** All six Tools Hub table-stakes features from FEATURES.md.
+**Delivers:** Email verification, password reset, and OTP links that work correctly in Docker, Cloudflare Tunnel, and nginx reverse proxy deployments without manual URL configuration. Optional: read-only "Auto-detected URL" display in admin panel.
 
-**Build sequence within phase:** lib/calculators.ts → app/tools/page.tsx → five pure-math calculators → Navbar update → CorrelationMatrix last (requires OHLCV fetching + sequential request handling).
+**Addresses:** Feature Cluster 2 from FEATURES.md (Email URL auto-detection).
 
-**Avoids:** Calculator state bleeding into global settings (fully local React state); Yahoo Finance throttling from concurrent OHLCV requests (sequential fetch + cache); UI jank in Correlation Matrix (Web Worker for Pearson computation).
+**Avoids:** Pitfall 3 (Docker `host` header returning container service name). Implement the full five-level priority chain; show detected URL in admin UI for transparency.
 
----
-
-### Phase 2: Monte Carlo Entry Integration
-
-**Rationale:** Reuses `lib/simulation.ts` completely unchanged. Modifies only `TradeModal.tsx` and adds one small component (`MonteCarloPreview.tsx`). No new DB migrations, no new API routes required (can call `runMonteCarlo` client-side directly). Low risk, high value. Natural follow-on to Tools Hub as it builds on the "pure computation embedded in UI" pattern established there.
-
-**Delivers:** Ruin probability preview, median outcome, and probability of profit displayed inline in TradeModal when entry price + stop loss are filled. Collapsed by default with preference persistence.
-
-**Addresses:** Monte Carlo table-stakes features (in-modal preview, ruin warning, position size suggestion).
-
-**Implements:** MonteCarloPreview component pattern; Web Worker for simulation execution; debounced trigger; account-scoped balance lookup via `selectedAccountId`.
-
-**Avoids:** Main thread blocking (Web Worker + debounce); wrong-account balance (selectedAccountId, never activeAccountId); thin-data misleading output (20-trade minimum gate with clear messaging).
+**Research flag:** SKIP — standard Next.js Route Handler header API; ~30 lines across 4 files.
 
 ---
 
-### Phase 3: AI Chart Pattern Recognition
+### Phase 2: Settings Page Component Split + Full-Width Layout
 
-**Rationale:** Introduces the first external API dependency (`OPENAI_API_KEY`), first DB migration in v2.0 (migration 019), and first file-handling requirement. These are meaningfully higher-complexity integration points than Phases 1-2. Building after Tools Hub and Monte Carlo means the team has practiced the routing and component patterns. This is the core v2.0 differentiator — it should ship before IBKR sync.
+**Rationale:** The largest mechanical change in the milestone. Must be done before any individual section content is modified (e.g., Strategies section in Phase 4) to prevent merge conflicts. Full-width layout is a single class removal applied in the same pass.
 
-**Delivers:** Screenshot upload in TradeModal, GPT-4o pattern recognition with structured JSON output, analysis stored to `trades.ai_patterns`, similar trade finder querying stored pattern tags.
+**Delivers:** Settings page split into 13 self-contained section components under `components/settings/`; full-width desktop layout; `?tab=` routing unchanged; `lib/settings-types.ts` with shared type interfaces extracted first.
 
-**Addresses:** All AI analysis table-stakes features; similar trade finder (differentiator achievable in same phase once analysis is stored).
+**Addresses:** Feature Cluster 1 from FEATURES.md (Settings page overhaul — component split, full-width layout, tab reorganization if needed).
 
-**Uses:** `openai` npm package (server-side only); `app/api/ai/analyze/route.ts`; migration 019 (`ai_patterns TEXT`, `screenshot_analyzed_at TEXT` on trades).
+**Avoids:** Pitfall 1 (admin SMTP fields lost — pre-split audit of `SYS_DEFAULTS` fields required); Pitfall 5 (shared state divergence — parent shell owns state, sections receive props); Pitfall 9 (`?tab=` URL links breaking — Category type values must remain unchanged); Pitfall 12 (TypeScript types lost — extract to `lib/settings-types.ts` before splitting); Pitfall 14 (13 categories in horizontal layout overflowing — keep vertical sidebar nav).
 
-**Avoids:** Storing images as SQLite BLOBs (analyze-and-discard, store only structured result); unstructured LLM output (enforce JSON schema from day one); API key exposure (never `NEXT_PUBLIC_`, server route only); guest mode API credit burn (`isGuest()` check + rate limiting); 413 upload errors (client-side JPEG compression + explicit size validation before upload).
+**Mandatory pre-split checklist:** Audit `SystemSettings` interface; list all `SYS_DEFAULTS` fields; extract types to `lib/settings-types.ts`; search for all `?tab=` usages; run `npm run build` after each section extraction.
+
+**Research flag:** SKIP — pure component decomposition of existing code. Risk is in execution discipline, not unknowns.
 
 ---
 
-### Phase 4: IBKR Broker Sync
+### Phase 3: Dashboard Layout Templates
 
-**Rationale:** Most complex phase — requires external process dependency (IBKR gateway), two DB migrations (020 for `ibkr_exec_id`, 021 for settings keys), a new Settings tab, and a new Dashboard widget. Must go last because an architecture mistake here (TWS socket in API route) requires a fundamental redesign. By Phase 4, all simpler patterns are established and the team understands the codebase integration points fully.
+**Rationale:** Self-contained within `DashboardShell.tsx`. No auth or email concerns. Delivers visible user-facing value (named presets) using the exact same JSON-in-settings pattern already proven for strategies, trade templates, and watchlists.
 
-**Delivers:** IBKR Client Portal API integration with manual sync trigger, live positions widget, deduplication by exec ID, last-sync timestamp, IBKR account-to-Ledger account mapping, and "Broker" settings tab.
+**Delivers:** Save/load/delete named dashboard layout presets; 2-3 built-in template presets (Performance Review, Daily Monitoring, Minimal Stats); template controls in edit mode header dropdown.
 
-**Addresses:** IBKR sync table-stakes features; live open positions display (differentiator achievable within phase); account mapping UI.
+**Addresses:** Feature Cluster 4 from FEATURES.md (Dashboard layout templates). Defers preview thumbnails and URL sharing.
 
-**Uses:** Native `fetch` for Client Portal REST API; `fast-xml-parser` if JSON format unavailable from Flex Query; migrations 020-021.
+**Avoids:** Pitfall 2 (template apply overwrites user layout — separate `dashboard_templates` key + confirmation dialog); Pitfall 10 (stale widget IDs — filter template order array against current `ALL_WIDGETS` on apply); Pitfall 13 (name collision — use UUID as template ID, name is display-only).
 
-**Avoids:** TWS socket in API route (use Client Portal REST + proxy pattern); blind inserts (ibkr_exec_id + ON CONFLICT DO NOTHING); pacing violations (5-minute minimum poll interval, circuit breaker on error 162); account mapping failure (pending_imports state for unmapped IBKR sub-accounts).
+**Research flag:** SKIP — identical to strategies JSON-in-settings pattern; already proven in codebase.
+
+---
+
+### Phase 4: Strategy + Checklist Enhancements
+
+**Rationale:** Requires the only DB migration in the milestone (`checklist_state` column, migration 022). Depends on the Strategies section being accessible (stabilized in Phase 2). Most nuanced data-correctness requirements of any phase — must clearly distinguish per-trade state from template definition.
+
+**Delivers:** Built-in default strategies from a single source of truth (`lib/strategies.ts`); per-trade checklist editing with text snapshots in `checklist_state`; ad-hoc checklists for trades with no strategy selected; graceful "[Strategy Deleted]" rendering for deleted strategy references.
+
+**Addresses:** Feature Cluster 5 from FEATURES.md (Strategy + checklist enhancements). Defers checklist score badge and per-strategy performance breakdown.
+
+**Avoids:** Pitfall 4 (per-trade state mixed with template — `checklist_state` column with text snapshot, not global strategies settings); Pitfall 7 (built-in defaults overwriting user customizations — client-side fallback only, never seeded via migration); Pitfall 8 (deleted strategy breaks checklist rendering — render from `checklist_state` snapshot, not from live strategy lookup); Pitfall 15 (migration number conflict — verify next available number in `lib/db.ts` before assigning 022).
+
+**Research flag:** SKIP for strategy defaults consolidation and ad-hoc checklists. Flag the existing `checklist_items` column format — confirm whether actual stored data is `Record<string, boolean>` or comma-delimited string before writing the backward-compat parser.
+
+---
+
+### Phase 5: Admin Panel Config Expansion + Cleanup
+
+**Rationale:** Minor additive change. Expanding `SYSTEM_KEYS` for API key system-level fallbacks and removing FibCalculator dead code are low-risk cleanup tasks best done after the larger refactors are stable and verified.
+
+**Delivers:** FMP and Gemini API key system-level fallbacks in admin panel (optional, per deployment preference); dead FibCalculator references removed from tools page and any routing files; `NEXT_PUBLIC_APP_URL` marked deprecated/optional in `.env.example`.
+
+**Addresses:** Feature Cluster 3 (admin panel as config source) and Feature Cluster 6 (FibCalculator cleanup) from FEATURES.md.
+
+**Avoids:** Pitfall 6 (build-time vs. runtime env var confusion — `app_url` and any admin-sourced config must remain server-only, never add `NEXT_PUBLIC_` prefix); Pitfall 11 (nodemailer transport created per-request — acceptable at this email volume, do not cache as singleton that persists stale SMTP credentials).
+
+**Research flag:** SKIP — entirely additive to established `SYSTEM_KEYS` pattern.
 
 ---
 
 ### Phase Ordering Rationale
 
-- **Dependencies drive order:** Tools Hub has none; Monte Carlo reuses existing engine; AI requires one new package + migration; IBKR requires the most moving parts and an external process.
-- **Risk isolation:** The two highest-risk features (IBKR architecture, AI structured output) go in later phases after simpler patterns are validated.
-- **Pitfall timing:** Critical IBKR pitfalls (socket vs. REST, deployment architecture) are architectural — they must be locked down before any IBKR code is written, making Phase 4 the right time after all other context is established.
-- **Value delivery:** Each phase independently ships user-visible features. Phase 1 unlocks calculators immediately; Phase 2 improves the most-used modal; Phase 3 ships the headline AI feature; Phase 4 completes the automation story.
+- **Email first:** Server-only, no UI risk, immediately verifiable in any deployment with email enabled. Establishes `lib/request-url.ts` in isolation.
+- **Settings split second:** Largest mechanical change; completing it before any section content is modified prevents merge conflicts in Phase 4 (Strategies section). Foundational for the milestone.
+- **Dashboard templates third:** Self-contained in one file; delivers user-visible value with no data migration risk; safe to ship while Phase 4 is being planned.
+- **Checklist enhancements fourth:** Only phase with a DB migration (022); doing it later ensures the codebase is stable and the migration can be cleanly verified against a known schema state.
+- **Admin cleanup last:** Lowest urgency, no blocking dependencies; a polish pass after all features are stable.
 
 ### Research Flags
 
-Phases likely needing deeper research or validation during planning:
+Phases requiring `/gsd:research-phase` during planning:
+- **None.** All features build on patterns already implemented and verified in the existing codebase. Research confidence is HIGH across all four files.
 
-- **Phase 3 (AI Analysis):** Verify OpenAI `response_format: json_schema` is available for `gpt-4o` at the exact model version being used. Verify the 4.5MB Next.js App Router body limit behavior (may differ from the 4.5MB Pages Router limit). Validate that `request.formData()` in App Router handles large multipart uploads without explicit config.
-- **Phase 4 (IBKR Sync):** Verify current IBKR Client Portal API gateway auth flow (OAuth session tickle requirements change between IBKR releases). Confirm Flex Query JSON output option availability in current IBKR accounts. Verify `ibkr-flex-webquery` npm package is maintained and supports current IBKR endpoint format.
-
-Phases with standard, well-documented patterns (can skip `/gsd:research-phase`):
-
-- **Phase 1 (Tools Hub):** Pure math + React state + recharts — all fully established patterns with no external unknowns.
-- **Phase 2 (Monte Carlo):** Existing engine in `lib/simulation.ts` is already validated. Web Worker pattern in Next.js 15 is well-documented. No external APIs.
+Phases with standard patterns (skip research-phase):
+- **Phase 1 (Email URL):** Standard Next.js Route Handler header reading; 30-line implementation across 4 files.
+- **Phase 2 (Settings split):** Component extraction following established React patterns; risk is execution discipline only.
+- **Phase 3 (Dashboard templates):** Identical to strategies JSON-in-settings pattern; already proven in production.
+- **Phase 4 (Checklist):** DB migration following established inline pattern; data model is straightforward.
+- **Phase 5 (Admin cleanup):** Additive to existing SYSTEM_KEYS; no new patterns.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | MEDIUM-HIGH | `openai`, `fast-xml-parser`, `simple-statistics` are well-established; IBKR Flex Query package version needs npm verification before pinning |
-| Features | MEDIUM | Calculator formulas are HIGH confidence (established math); IBKR API capabilities are MEDIUM (external service, verify against current docs); AI vision pattern accuracy requires prompt engineering validation |
-| Architecture | HIGH | Derived from direct codebase reading; integration points are concrete; patterns follow existing codebase conventions exactly |
-| Pitfalls | MEDIUM-HIGH | Monte Carlo and multi-account scope pitfalls are HIGH (confirmed from reading source); IBKR TWS socket pitfalls are MEDIUM (architecture is well-established, specific SDK behavior may vary); Next.js App Router body limit specifics need verification |
+| Stack | HIGH | Zero new dependencies confirmed; all required APIs are existing browser/Node.js built-ins or already-installed packages |
+| Features | HIGH | Derived from direct codebase analysis of exact files being modified; MEDIUM only for URL auto-detection specifics in non-standard proxy configs |
+| Architecture | HIGH | All patterns derived from reading the exact code being modified; no external architectural unknowns |
+| Pitfalls | HIGH | All pitfalls identified from direct codebase analysis, not training-data assumptions; each has a concrete prevention strategy |
 
-**Overall confidence:** MEDIUM — sufficient to begin roadmap and requirements definition. Key uncertainties are in external API specifics (IBKR, OpenAI), not in the core architecture or feature set.
+**Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **OpenAI model availability:** Verify `gpt-4o` is the current recommended model for vision tasks (vs `gpt-4o-mini` for cost, or a newer model) before implementation. Research flag for Phase 3.
-- **Next.js 15 App Router multipart body limit:** The 4.5MB limit applies to Pages Router. App Router behavior with `request.formData()` for large files needs verification against current Next.js 15 docs before assuming no config is needed.
-- **IBKR Flex Query JSON format:** Research file notes this may allow skipping `fast-xml-parser` entirely. Verify in an actual IBKR account during Phase 4 planning.
-- **IBKR Client Portal gateway auth session handling:** The gateway requires periodic session tickling (keepalive). The polling interval and session management specifics should be validated against current IBKR documentation before the IBKR implementation phase begins.
-- **Web Worker in Next.js 15 App Router:** Verify the `new Worker(new URL(..., import.meta.url))` pattern works correctly with Next.js 15's webpack config and `output: "standalone"` mode. This affects both Monte Carlo (Phase 2) and Correlation Matrix (Phase 1).
+- **Docker/Cloudflare Tunnel URL detection in practice:** The `x-forwarded-host` header behavior varies by proxy configuration. The admin UI displaying the auto-detected URL is the mitigation — surface it clearly and document that `app_url` should always be explicitly set in Docker deployments. Validate with a real Docker Compose setup during Phase 1 execution.
+- **Settings split component interface — fetch strategy:** Research files recommend each section self-fetches on mount for independence, but this causes 13 separate settings fetches on tab switch. Confirm this does not produce visible loading flickers before committing to the pattern; if it does, the parent-owns-state prop-drilling alternative is acceptable.
+- **Existing `checklist_items` stored format:** The column is described as likely `Record<string, boolean>` but the actual format was not confirmed from codebase read. Inspect real stored values in the SQLite database before writing the backward-compat `parseChecklistItems()` function in Phase 4.
+- **FibCalculator dead references scope:** The component file was confirmed deleted. Whether all import statements, tab entries, and routing references in `app/tools/page.tsx` were also cleaned up is unconfirmed — a code search for "fib" and "fibonacci" is required at Phase 5 start.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Direct codebase analysis: `lib/simulation.ts`, `lib/db.ts`, `lib/types.ts`, `lib/broker-parsers.ts`, `components/TradeModal.tsx`, `app/analytics/page.tsx`, `middleware.ts`, `next.config.ts` — architecture patterns and integration points
-- Calculator formulas (Kelly, Fibonacci, compound growth, drawdown recovery) — established financial mathematics
+- Direct codebase analysis: `app/settings/page.tsx`, `lib/email.ts`, `lib/db.ts`, `app/api/admin/settings/route.ts`, `components/dashboard/DashboardShell.tsx`, `components/TradeModal.tsx`, `app/api/auth/register/route.ts` — read directly in full or in relevant sections
+- Next.js 15 Route Handler documentation — `NextRequest.headers` and `req.headers.get()` are the standard, synchronous API for reading headers in App Router route handlers
+- RFC 7239 and reverse proxy conventions — `x-forwarded-proto` / `x-forwarded-host` behavior is widely implemented by nginx, Traefik, and Cloudflare Tunnel
 
 ### Secondary (MEDIUM confidence)
-- Training knowledge (cutoff August 2025): `openai` npm package patterns, `fast-xml-parser` usage, `simple-statistics` API — confirm versions with `npm info <package> version` before pinning
-- IBKR Client Portal API (REST): documented at ibkrcampus.com — verify current gateway auth flow and endpoint paths
-- OpenAI GPT-4o Vision API structured outputs — verify `response_format: json_schema` availability for selected model at implementation time
-- Next.js 15 App Router body size behavior with `request.formData()` — verify against Next.js 15 official docs
+- Cloudflare HTTP headers documentation — `x-forwarded-proto` and `x-forwarded-host` behavior documented; actual forwarding requires tunnel configuration (not default)
+- Next.js Discussion #34571 — `X-Forwarded-Host` header behavior in Next.js App Router
+- TradesViz per-trade checklist UX patterns — competitor analysis confirming per-trade checklist state as expected user behavior
+- UX Planet sidebar guide — settings sidebar navigation best practices (confirms keeping vertical sidebar nav over accordion or horizontal tabs at 13+ sections)
 
-### Tertiary (LOW confidence)
-- `ibkr-flex-webquery` npm package — thin wrapper around IBKR's Flex Web Query endpoint; verify package is maintained and version is current before using
-- IBKR pacing violation specifics (error code 162, 10-minute backoff) — based on training data; verify against current IBKR API documentation
+### Tertiary (LOW confidence — validate during execution)
+- Dashboard template/preset UX patterns — inferred from Notion, Linear, Retool; trading-journal-specific implementations sparse but concept is sound
 
 ---
-*Research completed: 2026-03-15*
+*Research completed: 2026-03-19*
 *Ready for roadmap: yes*

@@ -1,392 +1,731 @@
 # Architecture Patterns
 
-**Domain:** AI chart analysis, IBKR broker sync, Monte Carlo entry integration, Trading Tools Hub
-**Researched:** 2026-03-15
-**Confidence:** HIGH (codebase fully read; patterns derived from existing structure)
+**Domain:** Settings overhaul, email URL auto-detection, dashboard layout templates, per-trade checklists
+**Researched:** 2026-03-19
+**Milestone:** v2.1 Settings & Polish
+**Confidence:** HIGH (derived from full codebase read; all patterns proven from existing code)
+
+---
+
+## Executive Context
+
+This milestone adds no new pages and no new database tables beyond a single new settings key
+(`dashboard_layout_templates`). Every feature integrates into existing extension points:
+`app/settings/page.tsx` (component split), `lib/email.ts` (URL detection), `dashboard_layout`
+settings key (templates), and the `checklist_items`/`strategy_id` trade columns (per-trade
+checklist editing). The constraint is clean integration without structural rewrites.
 
 ---
 
 ## Recommended Architecture
 
-The four feature groups integrate cleanly into the existing Next.js 15 + SQLite architecture via
-three extension points: new API route subtrees, new lib modules, and new page/component subtrees.
-No structural changes to the existing foundation are needed.
-
 ```
 app/
-  api/
-    ai/
-      analyze/route.ts          ← NEW: multipart image upload → cloud vision → pattern tags
-      similar/route.ts           ← NEW: vector similarity search over trade embeddings
-    broker/
-      ibkr/
-        status/route.ts          ← NEW: poll TWS Gateway health
-        positions/route.ts       ← NEW: live position list from TWS
-        import/route.ts          ← NEW: pull executions → normalize → bulk insert
-        settings/route.ts        ← NEW: persist IBKR connection config
-    simulation/
-      preview/route.ts           ← NEW: stateless Monte Carlo preview for entry modal
-    tools/                       ← NEW: all calculator endpoints (stateless)
-      rr/route.ts
-      kelly/route.ts
-      compound/route.ts
-      drawdown/route.ts
-      fibonacci/route.ts
-      correlation/route.ts
-  tools/page.tsx                 ← NEW: Trading Tools Hub page
-lib/
-  ai-vision.ts                   ← NEW: OpenAI Vision API client wrapper
-  ibkr-client.ts                 ← NEW: TWS Client Portal API wrapper
-  calculators.ts                 ← NEW: pure math functions for all six tools
+  settings/page.tsx                  MODIFY: thin shell only — imports section components,
+                                             switches to full-width layout
 components/
-  tools/                         ← NEW: six calculator UI components
-  TradeModal.tsx                 ← MODIFY: add Monte Carlo preview panel
+  settings/                          NEW: extracted section components
+    AccountSection.tsx
+    AccountsSection.tsx
+    TagsSection.tsx
+    TemplatesSection.tsx
+    DisplaySection.tsx
+    ChartSection.tsx
+    StrategiesSection.tsx
+    IntegrationsSection.tsx
+    BrokerSection.tsx
+    SecuritySection.tsx
+    DataSection.tsx
+    AdminUsersSection.tsx
+    AdminSystemSection.tsx
+lib/
+  email.ts                           MODIFY: getAppUrl() reads request headers before DB fallback
+  request-url.ts                     NEW: getRequestBaseUrl(req) helper — single source of truth
+app/
+  api/
+    settings/
+      route.ts                       UNMODIFIED
+    admin/
+      settings/
+        route.ts                     MODIFY: add api_keys (fmp_api_key, openai_api_key, ibkr_*) to SYSTEM_KEYS
+        detect-url/route.ts          NEW: GET endpoint → returns detected base URL from request
+    dashboard/
+      templates/route.ts             NEW: GET/POST/DELETE for named layout templates
+components/
+  TradeModal.tsx                     MODIFY: checklist editor inline when strategy has items
   dashboard/
-    DashboardShell.tsx           ← MODIFY: add IBKR live positions widget
+    DashboardShell.tsx               MODIFY: template save/load/apply UI in edit mode header
 ```
 
 ---
 
 ## Component Boundaries
 
-### Feature 1: AI Chart Pattern Recognition
+### Feature 1: Settings Page Component Split
 
-| Component | Responsibility | Communicates With |
-|-----------|---------------|-------------------|
-| `TradeModal.tsx` (modified) | Screenshot upload UI, pattern tag display | `POST /api/ai/analyze` |
-| `app/api/ai/analyze/route.ts` | Accepts multipart upload, calls vision API, returns pattern tags | OpenAI Vision API (external) |
-| `app/api/ai/similar/route.ts` | Accepts trade ID, queries trade history for pattern similarity | `lib/db.ts` (reads trades.tags) |
-| `lib/ai-vision.ts` | OpenAI API client, base64 encoding, prompt construction, response parsing | `openai` npm package |
-| `lib/db.ts` (migration 019) | Adds `screenshot_url` and `ai_patterns` TEXT columns to trades | none |
+The monolith at `app/settings/page.tsx` (~2380 lines) has a single `SettingsContent` function
+containing all state and all rendering. Every tab's state lives together, causing 30+ useState
+declarations at the top and conditional rendering via `{activeCategory === "x" && <section>}`.
 
-**Data flow:**
-```
-User drops screenshot in TradeModal
-  → POST /api/ai/analyze (multipart/form-data, max 20MB)
-    → lib/ai-vision.ts encodes image, calls OpenAI gpt-4o with structured prompt
-      → Returns JSON: { patterns: string[], confidence: number, description: string }
-    → API route returns patterns to modal
-  → Modal displays patterns as tag chips
-  → On save, patterns stored in trades.ai_patterns (JSON string)
+**What to split:**
+
+Each of the 13 categories (defined in the `CATEGORIES` array) becomes its own component under
+`components/settings/`. The shell (`app/settings/page.tsx`) retains:
+- The `CATEGORIES` constant and tab navigation rendering
+- The `isAdmin`/`hasAdmin` state (needed to show/hide admin tabs)
+- The `activeCategory` state and switcher
+
+Each section component is responsible for:
+- Its own data fetching (currently inlined in one giant `useEffect`)
+- Its own local state (currently 30+ mixed useState calls)
+- Its own save handler
+- Its own rendering
+
+**Shared state problem:** Several pieces of state span categories:
+- `settings` object: currently one large state shared across all tabs
+- `isAdmin`: needed by the shell for tab visibility
+
+**Resolution:** Pass `isAdmin` down from the shell as a prop. Each section component calls
+`/api/settings` itself on mount (GET) and on save (PUT). This is acceptable because settings
+fetches are already cheap (single SQLite read) and section-level data isolation is worth the
+minor duplication. Do not introduce a React Context for settings — it is overkill for this scope.
+
+**Layout change (full-width):**
+
+Current layout (`app/settings/page.tsx` line 677):
+```tsx
+<div className="flex gap-6">
+  <nav className="hidden sm:flex flex-col w-48 shrink-0 sticky top-20 ...">
+  <div className="flex-1 min-w-0 space-y-6 sm:max-w-2xl min-h-[80vh]">
 ```
 
-**Storage decision:** Screenshots are NOT stored server-side. The analysis result (pattern tags + description) is stored in `trades.ai_patterns`. This avoids blob storage complexity, keeps SQLite the single source of truth, and respects the no-stack-change constraint.
+New layout (remove `sm:max-w-2xl`, expand content area):
+```tsx
+<div className="flex gap-6">
+  <nav className="hidden sm:flex flex-col w-52 shrink-0 sticky top-20 ...">
+  <div className="flex-1 min-w-0 space-y-6 min-h-[80vh]">
+```
 
-**Similar trade finder:**
+The `sm:max-w-2xl` constraint is the only change needed for full-width. The sidebar nav stays
+fixed-width. This affects all 13 sections — some (like Strategies with drag/drop) benefit from
+the extra width; others (like Account with 3-column grid) already handle it gracefully.
+
+**Component interface pattern:**
+
+```typescript
+// components/settings/AccountSection.tsx
+interface AccountSectionProps {
+  isAdmin: boolean;
+}
+
+export default function AccountSection({ isAdmin }: AccountSectionProps) {
+  const [settings, setSettings] = useState({ account_size: "10000", risk_per_trade: "1", ... });
+
+  useEffect(() => {
+    fetch("/api/settings").then(r => r.json()).then(data => {
+      setSettings(s => ({ ...s, ...data }));
+    });
+  }, []);
+
+  const save = async () => { ... };
+
+  return <section>...</section>;
+}
 ```
-GET /api/ai/similar?trade_id=123
-  → reads ai_patterns from trades table for trade 123
-  → scans other trades with overlapping pattern tags
-  → returns ranked list by pattern overlap score
-```
-This is pure SQLite — no vector database needed. Pattern tags are stored as JSON arrays; overlap is computed with a simple set-intersection in TypeScript after fetching all user trades. Scales adequately to tens of thousands of trades (single-user SQLite).
+
+**SortableStrategy is already extracted** (lines 110-194 in settings/page.tsx) — keep as-is,
+just move it into `components/settings/StrategiesSection.tsx`.
+
+**AdminSystemSection** is the highest-priority split: the admin system section currently
+duplicates functionality from `app/admin/settings/page.tsx`. After split, the settings page
+section and the standalone admin page should share the same data model and API. The standalone
+`/admin/settings` page can remain or be deprecated — document the decision.
+
+| Component | Communicates With | Notes |
+|-----------|------------------|-------|
+| `app/settings/page.tsx` (shell) | All section components via props | Retains nav + isAdmin only |
+| `components/settings/*Section.tsx` (×13) | `/api/settings` GET+PUT, `/api/admin/*` (admin sections only) | Each self-contained |
+| `components/settings/AdminSystemSection.tsx` | `/api/admin/settings` GET+POST | Same API as existing admin panel |
+| `components/settings/BrokerSection.tsx` | `/api/broker/ibkr/*`, `/api/settings` | No change to broker API routes |
 
 ---
 
-### Feature 2: IBKR/TWS Live Sync
+### Feature 2: Email URL Auto-Detection
 
-| Component | Responsibility | Communicates With |
-|-----------|---------------|-------------------|
-| `lib/ibkr-client.ts` | HTTP calls to TWS Client Portal API Gateway | Local TWS/Gateway process |
-| `app/api/broker/ibkr/status/route.ts` | Health check — is Gateway reachable? | `lib/ibkr-client.ts` |
-| `app/api/broker/ibkr/positions/route.ts` | Fetches live open positions | `lib/ibkr-client.ts` |
-| `app/api/broker/ibkr/import/route.ts` | Pulls executions, deduplicates, bulk-inserts | `lib/ibkr-client.ts`, `lib/db.ts` |
-| `app/api/broker/ibkr/settings/route.ts` | GET/PUT for gateway_url, account_id settings | `lib/db.ts` (settings table) |
-| `components/dashboard/IBKRWidget.tsx` | Live positions panel, sync button, connection status | `/api/broker/ibkr/*` |
-| `DashboardShell.tsx` (modified) | Adds IBKRWidget to widget list (id: "ibkr-positions") | `IBKRWidget` |
-
-**Architecture constraint:** IBKR's TWS Client Portal API runs as a local process on the trader's machine. The Next.js server routes proxy requests to `http://localhost:5000` (configurable gateway URL stored in settings). This means IBKR sync only works when:
-- TWS or IB Gateway is running
-- Client Portal API Gateway is authenticated
-
-**Data flow for live positions:**
-```
-IBKRWidget mounts, polls /api/broker/ibkr/status every 30s
-  → if connected: fetch /api/broker/ibkr/positions
-    → lib/ibkr-client.ts → GET https://{gateway_url}/v1/api/portfolio/{accountId}/positions/0
-      → returns IPosition[] from IBKR
-    → API normalizes to { symbol, shares, entry_price, unrealized_pnl, market_value }
-  → IBKRWidget renders live positions table
+**Current state (`lib/email.ts` — `getAppUrl()`):**
+```typescript
+function getAppUrl(): string {
+  try {
+    const db = getDb();
+    const row = db.prepare("SELECT value FROM settings WHERE user_id = '_system' AND key = 'app_url'").get();
+    if (row?.value) return row.value;
+  } catch {}
+  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+}
 ```
 
-**Data flow for auto-import:**
-```
-User clicks "Import Executions" in IBKRWidget (or Settings tab)
-  → POST /api/broker/ibkr/import
-    → lib/ibkr-client.ts fetches /v1/api/iserver/account/trades
-      → returns execution list for the period
-    → Normalize executions → RawBrokerTrade[] (same interface as lib/broker-parsers.ts)
-    → Deduplication: check trades table for ibkr_exec_id (new column, migration 020)
-    → Bulk insert new trades via existing trades INSERT logic
-  → Returns { imported: N, skipped: N }
+This function has no access to the incoming HTTP request, so it cannot read `Host` or
+`X-Forwarded-*` headers. `getAppUrl()` is called from `sendVerificationEmail`,
+`sendPasswordResetEmail`, `sendOtpEmail`, and `sendAlertEmail` — all server-side, triggered
+from API route handlers that DO have the request object.
+
+**Solution: pass the request to callers, add a new helper:**
+
+```typescript
+// lib/request-url.ts  (NEW)
+import { NextRequest } from "next/server";
+
+/**
+ * Derives the public base URL from the incoming request's headers.
+ * Priority: DB app_url → X-Forwarded-Proto+Host → Host header → env → localhost.
+ * Call this from API route handlers; pass the result to email functions.
+ */
+export function getRequestBaseUrl(req: NextRequest): string {
+  // 1. Admin-configured URL takes highest precedence (explicit beats inferred)
+  try {
+    const { getDb } = require("./db");
+    const db = getDb();
+    const row = db.prepare(
+      "SELECT value FROM settings WHERE user_id = '_system' AND key = 'app_url'"
+    ).get() as { value: string } | undefined;
+    if (row?.value) return row.value.replace(/\/$/, "");
+  } catch {}
+
+  // 2. Reverse proxy headers (Docker, Cloudflare Tunnel, nginx)
+  const proto = req.headers.get("x-forwarded-proto") ?? "https";
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+  if (host) return `${proto}://${host}`;
+
+  // 3. Env var fallback
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+
+  // 4. localhost default
+  return "http://localhost:3000";
+}
 ```
 
-**Deduplication column:** Migration 020 adds `ibkr_exec_id TEXT` to trades. Import queries `SELECT ibkr_exec_id FROM trades WHERE user_id = ?` before inserting, skipping any execution already present. This is idempotent — running import multiple times is safe.
+**Caller change pattern (auth API routes):**
 
-**Settings integration:** IBKR connection config (gateway URL, IBKR account ID) stored in the existing settings table under user-scoped keys `ibkr_gateway_url` and `ibkr_account_id`. Exposed in the Settings page under a new "Broker" tab.
+```typescript
+// app/api/auth/register/route.ts (and similar)
+export async function POST(req: NextRequest) {
+  // ... existing logic ...
+  const baseUrl = getRequestBaseUrl(req);
+  await sendVerificationEmail(user.email, user.name, token, baseUrl);
+}
+```
+
+**Email function signature change:**
+
+```typescript
+// lib/email.ts
+export async function sendVerificationEmail(
+  to: string,
+  name: string,
+  token: string,
+  baseUrl?: string          // NEW optional param; falls back to getAppUrl()
+): Promise<void> {
+  const url = `${baseUrl ?? getAppUrl()}/api/auth/verify-email?token=${token}`;
+  ...
+}
+```
+
+Making `baseUrl` optional maintains backward compatibility. The existing `getAppUrl()` remains
+for cases where no request is available (background jobs, if any).
+
+**Callers to update:**
+
+| File | Function | Change |
+|------|----------|--------|
+| `app/api/auth/register/route.ts` | POST | Pass `getRequestBaseUrl(req)` to `sendVerificationEmail` |
+| `app/api/auth/login/route.ts` | POST (OTP path) | Pass to `sendOtpEmail` |
+| `app/api/auth/forgot-password/route.ts` | POST | Pass to `sendPasswordResetEmail` |
+| `app/api/alerts/route.ts` (if exists) | Alert trigger | Pass to `sendAlertEmail` |
+| `lib/email.ts` | `sendVerificationEmail`, `sendOtpEmail`, `sendPasswordResetEmail`, `sendAlertEmail` | Add optional `baseUrl` param |
+
+**Detection logic rationale:**
+
+- `x-forwarded-proto` + `x-forwarded-host`: set by nginx, Traefik, Cloudflare Tunnel. Most
+  reliable for Docker/reverse-proxy setups.
+- `host` header: always present in direct HTTP/HTTPS. Sufficient for `npm run start` on custom
+  port or domain without a proxy.
+- DB `app_url` remains the override for cases where inference fails (self-signed certs, split
+  DNS, etc.).
+
+**No new API endpoint needed.** The `detect-url` route listed in the recommended architecture
+is optional: it provides a UI button in AdminSystemSection to auto-fill the app_url field by
+echoing back the detected URL. Implement if the UX warrants it:
+
+```typescript
+// app/api/admin/settings/detect-url/route.ts  (OPTIONAL)
+export async function GET(req: NextRequest) {
+  const admin = await requireAdmin(req);
+  if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  return NextResponse.json({ url: getRequestBaseUrl(req) });
+}
+```
 
 ---
 
-### Feature 3: Monte Carlo Entry Integration
+### Feature 3: Dashboard Layout Templates
 
-| Component | Responsibility | Communicates With |
-|-----------|---------------|-------------------|
-| `app/api/simulation/preview/route.ts` | Stateless endpoint: accepts position params + historical returns, runs simulation, returns preview result | `lib/simulation.ts` |
-| `lib/simulation.ts` (unmodified) | Existing `runMonteCarlo` — called directly from the API route | — |
-| `components/MonteCarloPreview.tsx` | Compact chart + key metrics panel embedded in TradeModal | `/api/simulation/preview` |
-| `TradeModal.tsx` (modified) | Hosts MonteCarloPreview in the "Setup" tab; passes entry_price, stop_loss, shares, accountId | `MonteCarloPreview` |
-
-**Integration point in TradeModal:** The existing Setup tab already shows `RiskCalculator` and `PositionSizer`. Monte Carlo preview slots in below these, triggered when entry_price + stop_loss are populated. It runs with a debounce (500ms) to avoid firing on every keystroke.
-
-**Data flow:**
-```
-User fills entry_price + stop_loss in TradeModal
-  → 500ms debounce fires
-  → MonteCarloPreview fetches historical P&L% for active account:
-      GET /api/trades?account_id={id}&status=closed
-  → Computes returns array = trades.map(t => t.pnl / t.account_size)
-  → POST /api/simulation/preview { returns, startingBalance, numTrades: 100 }
-    → Server calls runMonteCarlo(returns, balance, 100, 2000)  ← 2000 iter for speed
-      → Returns SimulationResult
-  → MonteCarloPreview renders compact version:
-      probOfRuin (large number), probOfProfit, medianBalance, max drawdown
-      Optional: collapsed sparkline of 10 paths
+**Current state:** `dashboard_layout` is a single JSON string stored in settings:
+```typescript
+interface DashboardLayout {
+  order: string[];
+  hidden: string[];
+  sizes: Record<string, WidgetSize>;
+}
 ```
 
-**Why server-side instead of client-side:** `runMonteCarlo` with 5000 iterations on the client is fast (< 100ms) and could run client-side. However, routing through a small API endpoint keeps the simulation server-side for consistency with the existing analytics page pattern, and allows caching or future expansion. Use 2000 iterations in the preview (vs 5000 in the full simulator) for sub-50ms response.
+Loaded from settings on mount, saved via debounced `PUT /api/settings` on any edit-mode change.
+There are no templates — only the live layout.
 
-**Alternative (simpler):** Import `runMonteCarlo` directly into the client component — it's pure TypeScript with no Node.js dependencies. This eliminates the API round-trip entirely. Recommended if the API route adds latency.
+**Proposed data model:**
+
+Add a new settings key `dashboard_layout_templates` (stored in settings table, user-scoped):
+
+```typescript
+interface DashboardLayoutTemplate {
+  id: string;         // crypto.randomUUID()
+  name: string;       // user-defined label
+  layout: DashboardLayout;
+  created_at: string; // ISO timestamp
+}
+// stored as: JSON.stringify(DashboardLayoutTemplate[])
+```
+
+No new database table needed. This follows the existing pattern for `strategies`, `trade_templates`,
+and `watchlists` — all stored as JSON strings in the settings table.
+
+**DashboardShell changes:**
+
+```typescript
+// components/dashboard/DashboardShell.tsx
+const [templates, setTemplates] = useState<DashboardLayoutTemplate[]>([]);
+
+// Load alongside dashboard_layout in the existing settings fetch:
+useEffect(() => {
+  fetch("/api/settings").then(r => r.json()).then(data => {
+    // existing dashboard_layout load...
+    if (data.dashboard_layout_templates) {
+      try { setTemplates(JSON.parse(data.dashboard_layout_templates)); } catch {}
+    }
+  });
+}, []);
+
+// Save templates:
+const saveTemplates = (newTemplates: DashboardLayoutTemplate[]) => {
+  setTemplates(newTemplates);
+  fetch("/api/settings", {
+    method: "PUT",
+    body: JSON.stringify({ dashboard_layout_templates: JSON.stringify(newTemplates) }),
+  });
+};
+
+// Save current layout as template:
+const saveAsTemplate = (name: string) => {
+  const newTemplate: DashboardLayoutTemplate = {
+    id: crypto.randomUUID(),
+    name,
+    layout: { ...layout },
+    created_at: new Date().toISOString(),
+  };
+  saveTemplates([...templates, newTemplate]);
+};
+
+// Apply template:
+const applyTemplate = (template: DashboardLayoutTemplate) => {
+  setLayout(template.layout);
+  // triggers existing debounced save of dashboard_layout
+};
+
+// Delete template:
+const deleteTemplate = (id: string) => {
+  saveTemplates(templates.filter(t => t.id !== id));
+};
+```
+
+**UI placement:** Template controls appear in the edit mode header bar (alongside the existing
+"Done", privacy toggle, and time filter). When `editMode === true`, add a "Templates" dropdown:
+- "Save current as template..." → input for name → `saveAsTemplate(name)`
+- Divider
+- List of saved templates → click to apply → `applyTemplate(template)`
+- Delete button per template
+
+This is entirely self-contained within `DashboardShell.tsx`. No new API route is needed since
+`/api/settings` PUT already handles arbitrary keys.
+
+**No API route needed.** The `app/api/dashboard/templates/route.ts` listed in the recommended
+architecture diagram is marked as NEW but in practice is not needed — settings PUT covers it.
+Skip the dedicated route.
 
 ---
 
-### Feature 4: Trading Tools Hub
+### Feature 4: Per-Trade Checklist Editing
 
-| Component | Responsibility | Communicates With |
-|-----------|---------------|-------------------|
-| `app/tools/page.tsx` | Hub shell: tab navigation, responsive layout | `components/tools/*` |
-| `lib/calculators.ts` | Pure math: all six calculators, no side effects | Called from client components |
-| `components/tools/RRVisualizer.tsx` | Entry/stop/target inputs, visual chart of trade zones | `lib/calculators.ts` |
-| `components/tools/KellyCriterion.tsx` | Win rate + R:R inputs → Kelly % output | `lib/calculators.ts` |
-| `components/tools/CompoundGrowth.tsx` | Starting balance, monthly %, years → growth table/chart | `lib/calculators.ts` |
-| `components/tools/DrawdownRecovery.tsx` | Drawdown % → required recovery % calculator | `lib/calculators.ts` |
-| `components/tools/FibonacciCalc.tsx` | High/low inputs → fib levels table | `lib/calculators.ts` |
-| `components/tools/CorrelationMatrix.tsx` | Symbol list → fetches OHLCV → correlation heatmap | `/api/ohlcv` (existing) |
-| `app/api/tools/correlation/route.ts` | Accepts symbols[], fetches OHLCV for each, computes matrix | `/api/ohlcv` (existing) or direct Yahoo fetch |
+**Current state:**
 
-**All calculators except CorrelationMatrix are purely client-side math.** No API calls needed. `lib/calculators.ts` exports named pure functions, each called directly from the tool component. This ensures instant response per the "calculators must be instant" constraint.
+The `Trade` interface already has:
+```typescript
+strategy_id?: string | null;     // references a strategy by ID
+checklist_items?: string | null;  // JSON: Record<string, boolean> — checked state
+wyckoff_checklist?: string | null; // legacy field (pre-strategy system)
+```
 
-**Correlation Matrix is the only networked calculator.** It calls the existing `/api/ohlcv` endpoint (which wraps Yahoo Finance) to fetch daily closes for each symbol, then computes pairwise Pearson correlation in TypeScript. This is the only tool with a loading state.
+Trades table already has both columns (migration 016 added `strategy_id`, migration 017 added
+`checklist_items`).
 
-**Navigation:** Add `tools` to the sidebar nav in `components/Navbar.tsx`. Tools page lives at `/tools` — distinct from `/analytics` which holds the risk simulator and AI insights.
+The existing `TradeModal.tsx` reads strategies from `/api/settings`, renders the strategy
+selector, and saves `strategy_id` and `checklist_items` on the trade. What is NOT implemented:
+inline editing of the checklist items themselves (adding/removing items for this specific trade).
 
-**State persistence:** Each tool's inputs persist in `localStorage` (not server settings). Tools are ephemeral calculators; persisting to the settings API would add unnecessary latency and DB writes.
+**Three new behaviors for v2.1:**
+
+1. **Built-in strategy defaults** — When `strategies` setting is empty, populate with the 5
+   Wyckoff/Momentum defaults that already exist in `TradeModal.tsx` as `DEFAULT_STRATEGIES`.
+   This is already partially done (line 98 in TradeModal: `setStrategies(DEFAULT_STRATEGIES)`
+   when settings strategies is empty). No architecture change — just ensure settings page
+   also seeds defaults when strategies is blank.
+
+2. **Per-trade checklist item editing** — When a trade has a strategy selected, allow the user
+   to add/remove/edit individual checklist items for that specific trade (overriding the strategy
+   template). Store the edited items in `checklist_items` as a structured JSON:
+
+   ```typescript
+   // Current format (unknown from codebase — likely Record<string, boolean>)
+   // Proposed extended format:
+   interface TradeChecklist {
+     items: Array<{ text: string; checked: boolean }>;
+     customized: boolean; // true if user has edited items (vs. used strategy template)
+   }
+   ```
+
+   This is a format change for `checklist_items`. Since the column exists and stores JSON, the
+   change is backward-compatible (old data: `{ "Item text": true }` → new data: `{ items: [...], customized: true }`).
+   A migration is NOT needed — the column exists. Handle both formats in the reader:
+
+   ```typescript
+   function parseChecklistItems(raw: string | null): TradeChecklist {
+     if (!raw) return { items: [], customized: false };
+     try {
+       const parsed = JSON.parse(raw);
+       // New format
+       if (parsed.items && Array.isArray(parsed.items)) return parsed;
+       // Old format: Record<string, boolean>
+       return {
+         items: Object.entries(parsed).map(([text, checked]) => ({ text, checked: Boolean(checked) })),
+         customized: false,
+       };
+     } catch { return { items: [], customized: false }; }
+   }
+   ```
+
+3. **Ad-hoc checklists** — Allow creating a checklist on a trade that has no strategy selected.
+   Same `checklist_items` field, same `TradeChecklist` format, `strategy_id = null`.
+
+**TradeModal changes:**
+
+The setup tab currently renders a strategy selector and a read-only checklist view. Add:
+- An "Edit checklist" toggle button (pencil icon) when a strategy is selected
+- When editing: each item gets an input field + delete button; an "Add item" button at bottom
+- A "Reset to strategy defaults" button to revert customization
+- When no strategy: a "+ Add checklist" button to create ad-hoc items
+
+All state is local to TradeModal — write to `form.checklist_items` via `set("checklist_items", ...)`.
+No new API calls — saved when the trade is saved via existing `PUT /api/trades/:id`.
+
+**Integration with strategy settings:** The strategies settings tab already edits the template
+checklists. Per-trade editing is strictly a TradeModal concern. The two features do not
+need to communicate beyond the initial load of the strategy template.
+
+---
+
+### Feature 5: Admin Panel as Config Source (API Keys)
+
+**Current state:** `SYSTEM_KEYS` in `app/api/admin/settings/route.ts` is:
+```typescript
+const SYSTEM_KEYS = [
+  "account_size", "risk_per_trade",
+  "smtp_host", "smtp_port", "smtp_secure", "smtp_user", "smtp_pass", "smtp_from",
+  "app_url",
+];
+```
+
+API keys (`fmp_api_key`, `openai_api_key`, `ibkr_host`, `ibkr_port`, `ibkr_client_id`) are
+currently user-scoped settings, not system settings. For a single-user instance, having the
+admin control these is more intuitive.
+
+**Decision:** Keep API keys user-scoped. Rationale: a multi-user instance might have different
+users with different API keys. The admin panel controlling user-scoped settings silently
+overwrites per-user preferences. Better approach: admin panel manages system-level config
+(SMTP, app_url, registration settings); user settings manage API keys. The "admin as single
+source of truth" goal is met by ensuring SMTP and app_url are only configurable from the admin
+panel (not duplicated in the user settings integrations tab).
+
+**Change needed:** Remove SMTP fields from the user-facing Integrations tab in settings.
+Currently `app/settings/page.tsx` admin-settings section shows SMTP, but the Integrations tab
+does not — this is already correct. Ensure `AdminSystemSection` is the only place SMTP is shown.
+
+**SYSTEM_KEYS expansion** (if desired for API keys as system defaults):
+```typescript
+// app/api/admin/settings/route.ts
+const SYSTEM_KEYS = [
+  "account_size", "risk_per_trade",
+  "smtp_host", "smtp_port", "smtp_secure", "smtp_user", "smtp_pass", "smtp_from",
+  "app_url",
+  // Add if admin should control defaults:
+  // "fmp_api_key", "openai_api_key"
+];
+```
+
+The settings API already implements `_system` fallback for user settings (via the COALESCE
+query in `GET /api/settings`). If `fmp_api_key` is stored at `_system`, it becomes the default
+for all users who haven't set their own. This is the right pattern if API keys are shared.
 
 ---
 
 ## Data Flow Changes (System-Wide)
 
-### New Database Columns (Migrations)
+### New Settings Keys
 
-| Migration | Table | Columns Added | Purpose |
-|-----------|-------|---------------|---------|
-| 019 | trades | `ai_patterns TEXT`, `screenshot_analyzed_at TEXT` | Store AI analysis results |
-| 020 | trades | `ibkr_exec_id TEXT UNIQUE` | Deduplication key for IBKR imports |
-| 021 | settings | n/a — new keys only | `ibkr_gateway_url`, `ibkr_account_id` |
+| Key | Scope | Format | Purpose |
+|-----|-------|--------|---------|
+| `dashboard_layout_templates` | user | `JSON: DashboardLayoutTemplate[]` | Named layout presets |
 
-### New Environment Variables
+No new database columns. No new tables. Next migration would be 022 if a schema change were needed — none required for this milestone.
 
-| Variable | Purpose | Required |
-|----------|---------|----------|
-| `OPENAI_API_KEY` | AI pattern recognition (OpenAI Vision) | Only if AI feature enabled |
-| `IBKR_GATEWAY_URL` | Default TWS Gateway URL (user can override in settings) | Optional default |
+### Modified Function Signatures
 
-### New npm Dependencies
+| Function | File | Change |
+|----------|------|--------|
+| `sendVerificationEmail` | `lib/email.ts` | Add optional `baseUrl?: string` param |
+| `sendOtpEmail` | `lib/email.ts` | Add optional `baseUrl?: string` param |
+| `sendPasswordResetEmail` | `lib/email.ts` | Add optional `baseUrl?: string` param |
+| `sendAlertEmail` | `lib/email.ts` | Add optional `baseUrl?: string` param |
+| `getAppUrl` | `lib/email.ts` | Keep as-is (fallback for callers without request) |
 
-| Package | Purpose | Type |
-|---------|---------|------|
-| `openai` | OpenAI Vision API client | runtime |
-| (none for IBKR) | IBKR uses REST — native fetch is sufficient | — |
-| (none for calculators) | Pure math — no library needed | — |
-| (none for Monte Carlo) | lib/simulation.ts already exists | — |
+### New Files
 
-`openai` must be added to `serverExternalPackages` in `next.config.ts` if it uses Node.js internals (unlikely — it's isomorphic, but verify during build).
+| File | Type | Purpose |
+|------|------|---------|
+| `lib/request-url.ts` | NEW lib | `getRequestBaseUrl(req)` — request-aware URL detection |
+| `components/settings/AccountSection.tsx` | NEW component | Extracted from settings monolith |
+| `components/settings/AccountsSection.tsx` | NEW component | Extracted from settings monolith |
+| `components/settings/TagsSection.tsx` | NEW component | Extracted from settings monolith |
+| `components/settings/TemplatesSection.tsx` | NEW component | Extracted from settings monolith |
+| `components/settings/DisplaySection.tsx` | NEW component | Extracted from settings monolith |
+| `components/settings/ChartSection.tsx` | NEW component | Extracted from settings monolith |
+| `components/settings/StrategiesSection.tsx` | NEW component | Extracted from settings monolith |
+| `components/settings/IntegrationsSection.tsx` | NEW component | Extracted from settings monolith |
+| `components/settings/BrokerSection.tsx` | NEW component | Extracted from settings monolith |
+| `components/settings/SecuritySection.tsx` | NEW component | Extracted from settings monolith |
+| `components/settings/DataSection.tsx` | NEW component | Extracted from settings monolith |
+| `components/settings/AdminUsersSection.tsx` | NEW component | Extracted from settings monolith |
+| `components/settings/AdminSystemSection.tsx` | NEW component | Extracted from settings monolith |
+
+### Modified Files
+
+| File | Change Type | What Changes |
+|------|-------------|--------------|
+| `app/settings/page.tsx` | MODIFY (major) | Reduce to shell: nav + isAdmin + section routing |
+| `lib/email.ts` | MODIFY | `sendX()` functions accept optional `baseUrl`; no structural change |
+| `lib/request-url.ts` | NEW | `getRequestBaseUrl(req)` helper |
+| `app/api/auth/register/route.ts` | MODIFY | Pass `getRequestBaseUrl(req)` to email sender |
+| `app/api/auth/login/route.ts` | MODIFY | Pass `getRequestBaseUrl(req)` to email sender (OTP path) |
+| `app/api/auth/forgot-password/route.ts` | MODIFY | Pass `getRequestBaseUrl(req)` to email sender |
+| `components/dashboard/DashboardShell.tsx` | MODIFY | Add template state + UI in edit mode header |
+| `components/TradeModal.tsx` | MODIFY | Add inline checklist editing, ad-hoc checklist creation |
+| `app/api/admin/settings/route.ts` | MODIFY (optional) | Expand SYSTEM_KEYS if admin controls API keys |
 
 ---
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Storing Screenshots as Blobs in SQLite
-**What:** Saving the raw image bytes in a BLOB column or file system for later re-analysis.
-**Why bad:** SQLite is not optimized for binary large objects; images can be megabytes each; the database grows unboundedly; Docker standalone output gets bloated.
-**Instead:** Analyze on upload, store only the structured result (pattern tags JSON string). If the user wants to re-analyze, they re-upload the image.
+### Anti-Pattern 1: Shared State Object Across Settings Sections
+**What:** Keeping one large `settings` state object that all 13 section components read and write.
+**Why bad:** Every keypress in any section triggers re-renders across all sections (even hidden ones). When split into components, shared state requires either prop drilling through the shell or a Context — both add complexity that defeats the purpose of splitting.
+**Instead:** Each section component owns its own state, fetches settings on mount, saves on its own schedule. Slight redundancy (13 settings fetches on tab switch) is acceptable — settings API is a fast SQLite read returning ~2KB.
 
-### Anti-Pattern 2: Polling IBKR Gateway from the Client
-**What:** Making the browser call the local TWS Gateway API directly from JavaScript.
-**Why bad:** CORS blocks it (TWS Gateway runs on localhost:5000 with its own CORS policy); exposes gateway directly; breaks in hosted deployments.
-**Instead:** All IBKR calls go server-to-server via `/api/broker/ibkr/*`. The Next.js server is the proxy.
+### Anti-Pattern 2: `getAppUrl()` Without Request Context
+**What:** Continuing to call `getAppUrl()` from API route handlers that have a `req` object available.
+**Why bad:** The DB `app_url` field is often empty. Falling through to `NEXT_PUBLIC_APP_URL` or `localhost:3000` breaks email links in Docker/tunnel deployments where the public URL was never explicitly configured.
+**Instead:** API route handlers call `getRequestBaseUrl(req)` and pass the result to email functions. `getAppUrl()` remains only as the no-request fallback.
 
-### Anti-Pattern 3: Running Full 5000-Iteration Monte Carlo in TradeModal Preview
-**What:** Using the same parameters as the analytics page simulator in the entry modal.
-**Why bad:** Each keystroke in the price fields would trigger a 5000-iteration run; even at ~50ms it creates perceived jitter.
-**Instead:** Use 2000 iterations for the preview with a 500ms debounce. Full simulation remains on `/analytics`.
+### Anti-Pattern 3: New Database Table for Layout Templates
+**What:** Creating a `dashboard_templates` table with its own CRUD API.
+**Why bad:** The existing `strategies` feature stores 5 complex objects as JSON in one settings row with no issues. Templates are smaller and simpler. A dedicated table adds migration complexity, a new API route, and TypeScript types for no benefit at current scale (solo trader, < 20 templates).
+**Instead:** `dashboard_layout_templates` key in the settings table, same pattern as `strategies`.
 
-### Anti-Pattern 4: API Routes for Pure-Math Calculators
-**What:** Routing R:R, Kelly, Fibonacci, Compound, Drawdown through API endpoints.
-**Why bad:** Adds HTTP round-trip (50-200ms) to operations that complete in < 1ms; unnecessary server load; breaks "calculators must be instant" constraint.
-**Instead:** Export pure functions from `lib/calculators.ts`, import directly into client components.
+### Anti-Pattern 4: Prompt User to Set app_url Before Request-Based Auto-Detection
+**What:** Blocking email sends or showing an error if `app_url` is not configured.
+**Why bad:** The whole point of request-header detection is to make it work without configuration. If detection works correctly, `app_url` only needs to be set in edge cases (custom domain without proper headers).
+**Instead:** Detect first, show detected URL in admin UI as read-only "Current detected URL", allow override via `app_url` setting. Never block email sends.
 
-### Anti-Pattern 5: Separate Vector Database for Similar Trade Matching
-**What:** Adding Pinecone, Weaviate, or similar for semantic embedding search.
-**Why bad:** Violates the no-stack-change constraint; massive operational overhead for a solo-trader app; overkill when pattern tags are discrete strings, not semantic embeddings.
-**Instead:** Tag-intersection scoring on existing SQLite data. Fetch all user trades (capped at a few thousand), compute overlap in TypeScript, sort and return top N.
-
----
-
-## Scalability Considerations
-
-These are single-user SQLite applications. Scalability concerns are about feature performance, not multi-tenant load.
-
-| Concern | Current State | With New Features |
-|---------|--------------|-------------------|
-| SQLite read performance | Excellent (indexed) | AI similar-trade scan over 10K trades: ~5ms |
-| OpenAI API latency | n/a | 2-8 seconds per image analysis — show loading state |
-| IBKR Gateway availability | n/a | Non-blocking: widget shows "disconnected" gracefully |
-| Monte Carlo preview speed | n/a | 2000 iterations in ~20ms client-side, ~30ms server-side |
-| Correlation matrix fetch | n/a | Fetching 10 symbols × 252 days: 2-4 API calls, ~1-2s |
+### Anti-Pattern 5: Deep Copy of Strategy Checklist on Per-Trade Edit
+**What:** On trade save, embedding the full strategy checklist text into `checklist_items` even when unchanged.
+**Why bad:** If the strategy template is later edited, existing trades silently retain the old checklist text. Harder to tell which trades used the original vs. customized checklist.
+**Instead:** When `customized: false`, store only checked states keyed by position (or empty). When `customized: true`, store the full item text. This lets TradeModal merge strategy template (current) + checked state (saved) for uncustomized trades, and use the stored text for customized ones.
 
 ---
 
-## Build Order (Dependencies)
+## Build Order (Feature Dependencies)
 
-The feature groups are largely independent, but within each group there are ordering constraints:
+The four features have no cross-dependencies. Any order is valid, but this sequence minimizes
+risk and delivers value incrementally:
 
-### Phase 1: Trading Tools Hub (no dependencies, delivers value immediately)
-Build first because: zero external dependencies, no new DB migrations, self-contained. Validates the `/tools` page pattern and `lib/calculators.ts` module before more complex features.
-1. `lib/calculators.ts` — pure math functions
-2. `app/tools/page.tsx` + tab shell
-3. Five pure calculators (`RRVisualizer`, `Kelly`, `CompoundGrowth`, `DrawdownRecovery`, `Fibonacci`)
-4. Navbar update (`/tools` link)
-5. `CorrelationMatrix` (uses existing `/api/ohlcv`)
+### 1. Email URL Auto-Detection (lowest risk, highest deployment value)
+No UI changes. Server-only. Verifiable immediately in any deployment with email enabled.
+1. Create `lib/request-url.ts` with `getRequestBaseUrl(req)`
+2. Update email function signatures in `lib/email.ts` (optional `baseUrl` param)
+3. Update auth API route callers (`register`, `login` OTP, `forgot-password`)
+4. (Optional) Add `GET /api/admin/settings/detect-url` for UI preview
 
-### Phase 2: Monte Carlo Entry Integration (depends on existing simulation.ts)
-Build second because: reuses `lib/simulation.ts` unchanged, modifies only `TradeModal.tsx`. Low risk.
-1. `MonteCarloPreview.tsx` component (standalone, testable)
-2. Optional: `app/api/simulation/preview/route.ts` (or skip — call `runMonteCarlo` client-side)
-3. TradeModal modification: add MonteCarloPreview to Setup tab
+### 2. Settings Page Component Split (high complexity, foundational for tab reorganization)
+Split before touching individual section content — changes to layout or tab structure during
+the split would cause merge conflicts if done simultaneously.
+1. Create `components/settings/` directory
+2. Extract sections one at a time (start with simplest: `AccountSection`, `DisplaySection`)
+3. Reduce `app/settings/page.tsx` to shell after all sections extracted
+4. Apply full-width layout change (remove `sm:max-w-2xl`)
+5. Tab reorganization (rename, reorder, consolidate any tabs per UX decision)
 
-### Phase 3: AI Chart Pattern Recognition (depends on external API key)
-Build third because: requires `OPENAI_API_KEY` environment setup, DB migration 019, and multipart upload handling.
-1. Migration 019 (add `ai_patterns`, `screenshot_analyzed_at` to trades)
-2. `lib/ai-vision.ts` — OpenAI client wrapper
-3. `app/api/ai/analyze/route.ts` — upload handler
-4. Screenshot upload UI in `TradeModal.tsx`
-5. `app/api/ai/similar/route.ts` — similarity search
-6. Similar trades display (TradeModal or journal card)
+### 3. Dashboard Layout Templates (medium complexity, contained in DashboardShell)
+Self-contained. No auth changes, no email changes, no settings extraction dependency.
+1. Define `DashboardLayoutTemplate` interface in `lib/types.ts`
+2. Add template state + load logic to `DashboardShell.tsx`
+3. Add template save/apply/delete functions
+4. Add template UI to edit mode header
 
-### Phase 4: IBKR/TWS Broker Sync (most complex, external process dependency)
-Build last because: requires TWS running locally, IBKR authentication, DB migrations 020-021, and a new Settings tab. Most moving parts; isolated from other features.
-1. Migrations 020 (ibkr_exec_id) + settings keys 021
-2. `lib/ibkr-client.ts` — REST wrapper for Client Portal API
-3. `app/api/broker/ibkr/status/route.ts` — connectivity probe
-4. `app/api/broker/ibkr/positions/route.ts`
-5. `app/api/broker/ibkr/import/route.ts`
-6. `components/dashboard/IBKRWidget.tsx` — live positions panel
-7. Settings page: new "Broker" tab for IBKR config
-8. DashboardShell: add IBKRWidget to widget list
+### 4. Per-Trade Checklist Editing (medium complexity, TradeModal only)
+Depends on nothing new. Modifies existing checklist rendering in TradeModal.
+1. Define `TradeChecklist` interface, write `parseChecklistItems` helper
+2. Add edit mode toggle to checklist section in TradeModal setup tab
+3. Implement inline add/edit/remove item UI
+4. Add "Reset to strategy defaults" button
+5. Add "Ad-hoc checklist" flow when no strategy selected
 
 ---
 
 ## Patterns to Follow
 
-### Pattern 1: Stateless API Route for Compute-Heavy Operations
-**What:** POST endpoint accepts all needed data, runs computation, returns result — no DB reads inside.
-**When:** Monte Carlo preview, AI analysis result parsing.
+### Pattern 1: Section Component with Self-Contained Fetch
+Each settings section owns its data lifecycle:
 ```typescript
-// app/api/simulation/preview/route.ts
+// components/settings/StrategiesSection.tsx
+export default function StrategiesSection() {
+  const [strategies, setStrategies] = useState<TradeStrategy[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then(r => r.json())
+      .then(data => {
+        if (data.strategies) {
+          try { setStrategies(JSON.parse(data.strategies)); } catch {}
+        }
+      });
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ strategies: JSON.stringify(strategies) }),
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  return <section>...</section>;
+}
+```
+
+### Pattern 2: Request-Aware URL in API Routes
+```typescript
+// app/api/auth/register/route.ts
+import { getRequestBaseUrl } from "@/lib/request-url";
+
 export async function POST(req: NextRequest) {
-  const user = await getSessionUser(req);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { returns, startingBalance, numTrades } = await req.json();
-  const result = runMonteCarlo(returns, startingBalance, numTrades, 2000);
-  return NextResponse.json(result);
+  // ... create user, token ...
+  const baseUrl = getRequestBaseUrl(req);
+  await sendVerificationEmail(user.email, user.name, token, baseUrl);
+  // ...
 }
 ```
 
-### Pattern 2: Settings Table for External Service Config
-**What:** Use the existing `settings` table (user-scoped) for all external service configuration.
-**When:** IBKR gateway URL, OpenAI model selection, any future broker configs.
+### Pattern 3: JSON-in-Settings for Simple Collections
+Template list follows the strategies pattern exactly:
 ```typescript
-// Persist: PUT /api/settings with { ibkr_gateway_url: "https://localhost:5000" }
-// Retrieve: GET /api/settings → settings.ibkr_gateway_url
-```
-This avoids introducing new config mechanisms and gets user-scoped isolation for free.
-
-### Pattern 3: Inline Migration for Schema Changes
-**What:** All schema changes go in `lib/db.ts` `runMigrations()` as numbered blocks.
-**When:** Every new column or table in v2.0.
-```typescript
-if (!hasMigration(db, "019_ai_patterns")) {
-  const cols = (db.pragma("table_info(trades)") as { name: string }[]).map(c => c.name);
-  if (!cols.includes("ai_patterns")) {
-    db.exec(`ALTER TABLE trades ADD COLUMN ai_patterns TEXT;`);
-  }
-  if (!cols.includes("screenshot_analyzed_at")) {
-    db.exec(`ALTER TABLE trades ADD COLUMN screenshot_analyzed_at TEXT;`);
-  }
-  markMigration(db, "019_ai_patterns");
-}
-```
-
-### Pattern 4: Proxy Pattern for Local Service Access
-**What:** Browser → Next.js API route → local service (TWS Gateway). Never browser → local service.
-**When:** IBKR Client Portal API, any local agent/bridge.
-```typescript
-// app/api/broker/ibkr/positions/route.ts
-const gatewayUrl = await getIbkrGatewaySetting(user.id);
-const res = await fetch(`${gatewayUrl}/v1/api/portfolio/${accountId}/positions/0`, {
+// In DashboardShell.tsx saveTemplates():
+await fetch("/api/settings", {
+  method: "PUT",
   headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    dashboard_layout_templates: JSON.stringify(newTemplates),
+  }),
 });
-const positions = await res.json();
-return NextResponse.json(positions);
 ```
 
-### Pattern 5: Pure Function Library for Calculators
-**What:** All calculator math in `lib/calculators.ts` as named exports, no React, no side effects.
-**When:** All six Trading Tools Hub calculators.
+### Pattern 4: Backward-Compatible JSON Field Evolution
+When extending an existing JSON-encoded trade field:
 ```typescript
-// lib/calculators.ts
-export function kelly(winRate: number, avgWin: number, avgLoss: number): number {
-  return (winRate / avgLoss) - ((1 - winRate) / avgWin);
+function parseChecklistItems(raw: string | null): TradeChecklist {
+  if (!raw) return { items: [], customized: false };
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed.items && Array.isArray(parsed.items)) return parsed as TradeChecklist;
+    // Legacy: Record<string, boolean>
+    return {
+      items: Object.entries(parsed as Record<string, boolean>).map(([text, checked]) => ({ text, checked })),
+      customized: false,
+    };
+  } catch {
+    return { items: [], customized: false };
+  }
 }
-export function fibonacciLevels(high: number, low: number): number[] {
-  const diff = high - low;
-  return [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0].map(r => high - diff * r);
-}
-// etc.
 ```
 
 ---
 
 ## Integration Touchpoints Summary
 
-| Existing File | Change Type | What Changes |
-|---------------|-------------|--------------|
-| `lib/db.ts` | MODIFY | Add migrations 019, 020, 021 |
-| `lib/types.ts` | MODIFY | Add `ai_patterns`, `screenshot_analyzed_at`, `ibkr_exec_id` to Trade interface |
-| `components/TradeModal.tsx` | MODIFY | Add screenshot upload + AI patterns display; add MonteCarloPreview panel |
-| `components/dashboard/DashboardShell.tsx` | MODIFY | Add IBKRWidget to ALL_WIDGETS list + render block |
-| `components/Navbar.tsx` | MODIFY | Add `/tools` nav link |
-| `app/settings/page.tsx` | MODIFY | Add "Broker" tab for IBKR config |
-| `next.config.ts` | MODIFY | Add `openai` to `serverExternalPackages` if needed |
-| `middleware.ts` | UNMODIFIED | `/tools` and `/api/broker/*` and `/api/ai/*` follow existing session-auth pattern |
+| Feature | Files Modified | Files Created |
+|---------|---------------|---------------|
+| Email URL detection | `lib/email.ts`, `app/api/auth/register/route.ts`, `app/api/auth/login/route.ts`, `app/api/auth/forgot-password/route.ts` | `lib/request-url.ts` |
+| Settings split | `app/settings/page.tsx` | `components/settings/*Section.tsx` (×13) |
+| Layout templates | `components/dashboard/DashboardShell.tsx`, `lib/types.ts` | None |
+| Per-trade checklists | `components/TradeModal.tsx` | None |
+| Admin as config source | `app/api/admin/settings/route.ts` (SYSTEM_KEYS expansion) | None |
+
+**Untouched:** `lib/db.ts` (no migrations needed), `middleware.ts`, `lib/auth.ts`,
+`app/api/settings/route.ts`, all broker API routes, all trade API routes.
+
+---
+
+## Scalability Considerations
+
+These remain single-user SQLite applications. The relevant concerns for this milestone:
+
+| Concern | Assessment |
+|---------|------------|
+| 13 settings fetches on tab switches | Each is a single SQLite row scan returning ~2KB. Negligible. No caching needed. |
+| Layout template storage as JSON string | Reasonable for < 50 templates. At ~500 bytes per template, 50 templates = 25KB. Fits comfortably in settings row. |
+| `x-forwarded-host` header trust | Next.js does not validate trusted proxies. In Docker/Cloudflare Tunnel this is fine. In public internet deployments, validate that `x-forwarded-host` is not spoofable (add to production checklist). |
+| checklist_items JSON format migration | No data migration needed — format change is backward-compatible via the `parseChecklistItems` reader. |
 
 ---
 
 ## Sources
 
-- Existing codebase: `lib/simulation.ts`, `lib/db.ts`, `lib/types.ts`, `lib/broker-parsers.ts` (read directly)
-- Existing codebase: `components/TradeModal.tsx`, `app/analytics/page.tsx`, `app/api/settings/route.ts` (read directly)
-- Existing codebase: `next.config.ts`, `middleware.ts`, `components/dashboard/DashboardShell.tsx` (read directly)
-- IBKR Client Portal API: documented at https://ibkrcampus.com/ibkr-api-page/cpapi-v1/ (knowledge cutoff-based; verify gateway auth flow)
-- OpenAI Vision API (gpt-4o): supports base64-encoded images in chat completions (knowledge cutoff-based; verify model availability and pricing)
-- Confidence: HIGH for integration patterns (derived from codebase); MEDIUM for IBKR and OpenAI API specifics (external services, verify against current docs)
+- Existing codebase: `app/settings/page.tsx` (2380 lines, read in full sections)
+- Existing codebase: `lib/email.ts`, `lib/types.ts`, `lib/db.ts` (read in full)
+- Existing codebase: `app/api/settings/route.ts`, `app/api/admin/settings/route.ts` (read in full)
+- Existing codebase: `components/dashboard/DashboardShell.tsx` (read lines 1-430)
+- Existing codebase: `components/TradeModal.tsx` (read lines 1-200)
+- Next.js 15 App Router request headers: `req.headers.get()` is the standard pattern (HIGH confidence — established API)
+- `x-forwarded-proto` / `x-forwarded-host` header conventions: standard reverse proxy behavior (HIGH confidence — RFC 7239, widely implemented)
+- Confidence: HIGH — all patterns derived directly from existing codebase; no external dependencies introduced

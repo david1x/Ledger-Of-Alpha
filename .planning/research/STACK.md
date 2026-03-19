@@ -1,165 +1,216 @@
-# Technology Stack — v2.0 New Capabilities
+# Technology Stack — v2.1 Settings & Polish
 
-**Project:** Ledger Of Alpha v2.0 — Intelligence & Automation
-**Researched:** 2026-03-15
-**Scope:** NEW libraries only. Existing stack (Next.js 15, TypeScript, SQLite, Recharts, lightweight-charts, @dnd-kit, next-themes, lucide-react, jose) is validated and unchanged.
-
----
-
-## Confidence Note
-
-External search tools were unavailable during this research session. All findings are based on training knowledge (cutoff August 2025). Confidence levels reflect source quality: HIGH = well-established APIs with stable versioning at cutoff; MEDIUM = established but evolving; LOW = verify before pinning version.
+**Project:** Ledger Of Alpha v2.1 — Settings & Polish
+**Researched:** 2026-03-19
+**Scope:** NEW capabilities only. Existing validated stack (Next.js 15, TypeScript, Tailwind CSS v3, better-sqlite3, recharts, lightweight-charts, @dnd-kit, next-themes, lucide-react, nodemailer, jose JWT, Gemini 2.5 Flash, IBKR Client Portal API) is unchanged.
 
 ---
 
-## Recommended Additions by Feature Area
+## Executive Finding
 
-### 1. AI Chart Pattern Recognition
-
-#### Core: AI Vision API Client
-
-| Technology | Version | Purpose | Confidence |
-|------------|---------|---------|------------|
-| `openai` | `^4.x` | GPT-4o vision API client for image analysis | HIGH |
-
-**Why OpenAI over Anthropic SDK or Google Vision:**
-
-GPT-4o (multimodal) is the strongest choice for chart pattern recognition because:
-- Superior spatial reasoning for candlestick/chart interpretation vs. Claude Sonnet at same cost tier
-- `openai` npm package is the industry-standard client with stable Node.js/Next.js support
-- API Route in Next.js (server-side) keeps the API key off the client and avoids CORS
-- No GPU required — cloud inference, fits the "no GPU" constraint
-
-**Why NOT local models (TensorFlow.js, ONNX, transformers.js):**
-- Minimum viable vision model for chart analysis is 1-7B parameters — too slow on CPU for real-time use
-- Model weights (1–4 GB) cannot be bundled with a Next.js app or SQLite deployment
-- Adds massive dependency surface; contradicts "no stack changes" constraint
-
-**Why NOT Google Cloud Vision:**
-- Optimized for OCR and object detection, not financial chart semantic understanding
-- Would still need a second LLM call to interpret detected objects as trading patterns
-
-#### Image Upload Handling
-
-| Technology | Version | Purpose | Confidence |
-|------------|---------|---------|------------|
-| Native `File` / `FormData` (browser) | — | Screenshot upload from client | HIGH |
-| Next.js Route Handler (`app/api/...`) | existing | Receive multipart/form-data, forward to OpenAI | HIGH |
-| Node.js `Buffer` | built-in | Convert uploaded file to base64 for OpenAI API | HIGH |
-
-**No additional library needed.** Next.js 15 Route Handlers accept `request.formData()` natively. Convert the file buffer to base64 and pass it to `openai.chat.completions.create()` with `image_url: data:image/...;base64,...`.
-
-File size constraint: OpenAI Vision accepts images up to 20 MB. Screenshots are typically under 2 MB — no compression library needed.
-
-#### Similar Trade Matching (Vector Similarity)
-
-The "similar trade finder" compares chart screenshots or trade metadata across history. Two viable approaches:
-
-| Approach | Libraries | When to Use |
-|----------|-----------|-------------|
-| **Embedding + cosine similarity** (recommended) | `openai` (embeddings API) — no new package | Best semantic matching; use `text-embedding-3-small` on trade notes/metadata |
-| Pixel hash matching | `sharp` + custom hash | Only if comparing raw screenshots; far less semantic value |
-
-**Recommendation:** Use OpenAI `text-embedding-3-small` on the concatenated trade metadata (setup notes, ticker, direction, outcome) stored in SQLite. Embeddings are stored as JSON blobs in a new `trade_embeddings` column. Cosine similarity is computed in JavaScript (no new library — 10 lines of math). This keeps everything in SQLite with no vector database dependency (scale doesn't justify Pinecone/pgvector for a solo trader app).
-
-**Confidence:** MEDIUM — embedding approach is well-established; verify `text-embedding-3-small` is still the recommended small model at implementation time.
+**Zero new npm packages required.** Every feature in v2.1 is implementable with the existing dependency set plus built-in browser and Node.js APIs. This is a pure refactoring and UI enhancement milestone.
 
 ---
 
-### 2. IBKR/TWS Broker Sync
+## Feature-by-Feature Analysis
 
-#### Primary Option: TWS API via ibkr-flex-webquery (Scheduled Import)
+### 1. Email URL Auto-Detection (npm / Docker / Cloudflare Tunnel)
 
-| Technology | Version | Purpose | Confidence |
-|------------|---------|---------|------------|
-| `ibkr-flex-webquery` | `^1.x` | Fetch IBKR Flex Query reports via HTTP (no TWS running) | MEDIUM |
+**Problem:** `lib/email.ts` `getAppUrl()` falls back to `process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"`. Users behind Docker or Cloudflare Tunnel forget to set this env var, so verification email links break.
 
-**Why Flex Query over TWS Socket API:**
+**Solution: Request-header inference in API routes**
 
-The TWS Socket API (`@stoqey/ib` or raw socket connection to port 7496/7497) requires TWS or IB Gateway to be running locally on the trader's machine. This creates a hard operational dependency — the app breaks if TWS is closed. The IBKR Client Portal API (REST, port 5000) has the same local-gateway requirement.
+Next.js 15 Route Handlers have direct access to the `NextRequest` object, which carries the full header set from the HTTP client. The detection cascade is:
 
-IBKR Flex Web Query is a REST endpoint that IBKR hosts. The user configures a Flex Query in their IBKR account (one-time setup), saves a token + query ID in the app's settings, and the app polls IBKR's servers on a schedule. No local TWS required. Returns XML/JSON with full trade history.
+```
+1. DB setting `app_url` (admin-configured, highest priority — already implemented)
+2. `x-forwarded-proto` + `x-forwarded-host` headers (Cloudflare Tunnel, nginx, Docker reverse proxy)
+3. `host` header (direct npm dev/start)
+4. `NEXT_PUBLIC_APP_URL` env var (Docker compose explicit config)
+5. `http://localhost:3000` (absolute last resort)
+```
 
-**Tradeoff:** Not real-time (15-min to 24-hour delay depending on IBKR plan). For a trade journal, this is acceptable — traders review fills after the fact. True real-time requires TWS.
+**What each deployment mode sends:**
 
-**If real-time TWS sync is required (future):**
+| Mode | Headers Available |
+|------|------------------|
+| `npm run dev` / `npm start` | `host: localhost:3000` |
+| Docker (no reverse proxy) | `host: localhost:5555` |
+| Cloudflare Tunnel | `x-forwarded-proto: https`, `x-forwarded-host: your-domain.com` |
+| nginx / Traefik | `x-forwarded-proto`, `x-forwarded-host` or `x-forwarded-for` |
 
-| Technology | Version | Purpose | Confidence |
-|------------|---------|---------|------------|
-| `@stoqey/ib` | `^1.x` | TWS Socket API wrapper for Node.js | MEDIUM |
+**Implementation:** The `getAppUrl()` function in `lib/email.ts` currently has no access to request headers because it is called from within the email-sending functions (not directly in route handlers). The cleanest approach is to add an optional `req?: NextRequest` parameter to `getAppUrl()` and thread the request object from the calling route handler (e.g., `app/api/auth/register/route.ts`).
 
-`@stoqey/ib` wraps the official IBKR Java API in a typed Node.js interface. It connects to TWS/Gateway on localhost:7496. The Next.js API route would need to maintain a persistent socket — this is incompatible with serverless deployment but works for `next start` / Docker. Recommend deferring this to a later phase and shipping Flex Query first.
+```typescript
+// lib/email.ts — updated signature
+function getAppUrl(req?: NextRequest): string {
+  // 1. DB admin override (already exists)
+  // 2. Request headers
+  if (req) {
+    const proto = req.headers.get("x-forwarded-proto") ?? "http";
+    const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+    if (host) return `${proto}://${host}`;
+  }
+  // 3. Env var / default
+  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+}
+```
 
-**XML Parsing for Flex Query Response:**
+**Libraries needed:** None. `NextRequest` is already imported in all calling route handlers. `request.headers.get()` is the standard Web API.
 
-| Technology | Version | Purpose | Confidence |
-|------------|---------|---------|------------|
-| `fast-xml-parser` | `^4.x` | Parse IBKR Flex Query XML responses | HIGH |
+**Confidence:** HIGH — Next.js 15 `NextRequest.headers` is the documented API for reading request headers in Route Handlers. Cloudflare Tunnel sending `x-forwarded-proto` + `x-forwarded-host` is documented behavior (Cloudflare Fundamentals docs).
 
-`fast-xml-parser` is the standard lightweight XML parser for Node.js. No DOM dependency. Zero config for the attribute-heavy IBKR XML format. Already in common use with financial APIs.
-
-**Alternative:** IBKR also offers JSON output from Flex Query (configurable). If JSON is available, `JSON.parse()` is sufficient and `fast-xml-parser` is not needed. Verify in IBKR account settings — if JSON format is supported, skip the XML parser entirely.
-
-**Polling / Scheduling:**
-
-No new library needed. Use `setInterval` in a long-lived Next.js API route, or trigger sync on user action (button press). For the v2.0 scope, user-triggered sync (poll on demand) is simpler and avoids background process complexity.
-
----
-
-### 3. Monte Carlo in Trade Entry
-
-**No new libraries needed.** `lib/simulation.ts` already contains the full Monte Carlo engine. The integration work is UI-only:
-
-- Import `runMonteCarlo` from `lib/simulation.ts` into the `TradeModal.tsx` component
-- Run simulation client-side with the account's historical P&L returns (already available via the trades API)
-- Display outcome distribution and ruin probability inline in the modal
-
-The simulation runs synchronously and completes in ~50ms for 5,000 iterations — no async, no worker thread, no new dependencies needed.
-
-**One consideration:** If the historical returns array needs to be loaded from the API during modal open, this is a single `fetch` call to the existing `/api/trades` endpoint. No new infrastructure.
+**Caveat:** `x-forwarded-host` is not guaranteed by all proxies. The cascade order above handles degraded cases. Admin-panel `app_url` setting (already wired in DB + `lib/email.ts`) remains the recommended override for unusual proxy setups.
 
 ---
 
-### 4. Trading Tools Hub
+### 2. Settings Page Overhaul (Component Split, Full-Width Layout, Tab Reorganization)
 
-All six calculators (R:R Visualizer, Compound Growth, Drawdown Recovery, Kelly Criterion, Fibonacci, Correlation Matrix) are pure math — no external library is strictly required. However, two calculators benefit from a library:
+**Problem:** `app/settings/page.tsx` is a monolithic ~2400-line single file. All tab panels are inline. Full-width desktop layout requires restructuring from a narrow centered column.
 
-#### Correlation Matrix
+**Solution: Pure refactoring — no new libraries**
 
-| Technology | Version | Purpose | Confidence |
-|------------|---------|---------|------------|
-| `simple-statistics` | `^7.x` | Pearson correlation, mean, standard deviation | HIGH |
+The page already uses every tool it needs:
+- Tab navigation via `useSearchParams` + `?tab=` query param (already implemented)
+- Icon set: `lucide-react` (already installed)
+- Drag-reorder: `@dnd-kit` (already installed, used for strategy ordering)
+- Styling: Tailwind CSS v3 (already installed)
 
-`simple-statistics` is a zero-dependency, browser-compatible statistics library. It provides `sampleCorrelation(x, y)` for the correlation matrix computation. Alternative is implementing Pearson correlation manually (~15 lines) — both are valid. Recommend `simple-statistics` for correctness and future expansion (additional stat tools).
+**Extraction plan:**
+- Split each `activeCategory` panel into a separate `components/settings/` file
+- `SettingsLayout.tsx` — full-width two-column layout (sidebar nav + content area)
+- Individual panel components: `AccountPanel.tsx`, `AccountsPanel.tsx`, `StrategiesPanel.tsx`, `AdminSystemPanel.tsx`, etc.
+- Pass shared `settings` state + save handlers as props
 
-**Why NOT math.js:** math.js is 500KB+ minified. Overkill for six calculators. `simple-statistics` is ~20KB.
-**Why NOT d3-array:** d3 modules are fine but introduce d3 conventions; `simple-statistics` is more readable for stat-focused code.
+**Libraries needed:** None.
 
-#### R:R Visualizer
+**Confidence:** HIGH — this is pure component decomposition of existing code.
 
-No library needed. The visual is a horizontal bar or number line rendered with Tailwind/SVG inline. Recharts (already installed) can render a simple bar if needed.
+---
 
-#### Fibonacci Calculator
+### 3. Admin Panel as Single Source of Truth for Env Config
 
-No library needed. Pure math — Fibonacci levels are static ratios (0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0) applied to a high/low range. ~10 lines of JavaScript.
+**Problem:** Admin panel at `app/api/admin/settings/route.ts` currently manages: `smtp_*`, `app_url`. Users still need `NEXT_PUBLIC_APP_URL` and `JWT_SECRET` in `.env`. The goal is to eliminate `.env` dependency for runtime config (excluding secrets that must remain env vars for security).
 
-#### Compound Growth, Drawdown Recovery, Kelly Criterion
+**Solution: Extend existing `_system` settings pattern**
 
-All pure arithmetic formulas. No library.
+The `_system` user_id row pattern in the `settings` table is already established and working. `lib/email.ts` already reads `smtp_*` and `app_url` from DB with env-var fallback.
+
+**What to add to `SYSTEM_KEYS` in `app/api/admin/settings/route.ts`:**
+
+| Key | Purpose | Notes |
+|-----|---------|-------|
+| `gemini_api_key` | Override `openai_api_key` setting name confusion | Stored in settings already as `openai_api_key`; admin panel should expose it clearly |
+| `fmp_api_key` | FMP symbol search | Currently per-user setting; promote to system-level with user override |
+| `discord_default_webhook` | Default Discord webhook for alerts | System default, users can override |
+
+**What must stay in `.env` (cannot be in DB for security/bootstrap reasons):**
+
+| Var | Why |
+|-----|-----|
+| `JWT_SECRET` | Read at startup before DB is available; changing requires all sessions to re-login |
+| `DB_PATH` | Needed before DB connection is established |
+
+**Libraries needed:** None. All infrastructure (DB upsert, `_system` partition, admin auth) already exists.
+
+**Confidence:** HIGH — the pattern is already implemented and proven for SMTP + app_url.
+
+---
+
+### 4. Dashboard Layout Templates (Saveable Presets)
+
+**Problem:** Users configure their 25-widget dashboard (order, visibility, sizes) and want to save named presets (e.g., "Day Trading View", "Review Mode").
+
+**Solution: Extend existing `dashboard_layout` settings key with a presets array**
+
+The current `dashboard_layout` structure stored in the `settings` table:
+```json
+{ "order": [...], "hidden": [...], "sizes": {...} }
+```
+
+Extend to a parallel `dashboard_layout_presets` settings key:
+```json
+[
+  { "id": "uuid", "name": "Day Trading View", "layout": { "order": [...], "hidden": [...], "sizes": {...} } },
+  { "id": "uuid", "name": "Review Mode", "layout": {...} }
+]
+```
+
+**Built-in preset definitions** (hardcoded in component, not stored in DB):
+- "Default" — the hardcoded `DEFAULT_ORDER` / `DEFAULT_SIZES` from `DashboardShell.tsx`
+- "Compact" — all widgets at compact size, full order
+- "Trading View" — only P&L, open positions, daily stats visible
+
+User can save current layout as a preset, load a preset (replacing active layout), delete presets. The "Apply" action writes to `dashboard_layout` via existing `/api/settings` POST.
+
+**Libraries needed:** None. Uses existing `/api/settings` endpoint, `crypto.randomUUID()` for IDs, and `@dnd-kit` if preset list needs drag-reorder (already installed).
+
+**Confidence:** HIGH — identical pattern to how strategies are stored (JSON array in a settings key).
+
+---
+
+### 5. Strategy Enhancements: Per-Trade Checklist Editing and Ad-Hoc Checklists
+
+**Problem:**
+- Strategies with checklists are defined globally in settings. When a trade is entered, the user selects a strategy and its checklist is shown — but they cannot edit the checklist items for that specific trade (only the global template).
+- No way to add a one-off checklist item for a specific trade without modifying the global strategy template.
+
+**Solution A: Per-trade checklist state in TradeModal**
+
+The `TradeModal.tsx` component already has a strategy selector. Add checklist state that:
+1. Loads the selected strategy's checklist items as initial state
+2. Allows the user to check/uncheck, add ad-hoc items, and reorder — all local to that trade
+3. Saves the resulting checklist state to a `trade_checklist` JSON column on the `trades` table (new DB column via migration 022)
+
+**Solution B: Built-in strategy defaults**
+
+Add a `DEFAULT_STRATEGIES` constant (hardcoded, not in DB) that the strategies settings panel shows when `strategies` is empty. The user can then edit/delete/extend. This eliminates the blank-slate first-run experience. The existing hardcoded defaults already in `page.tsx` (Wyckoff Buy, Wyckoff Sell, Momentum Breakout, etc.) become the constant.
+
+**DB migration needed:**
+
+```sql
+ALTER TABLE trades ADD COLUMN checklist TEXT; -- JSON array of {text, checked, adhoc?}
+```
+
+This is an additive migration following the established pattern in `lib/db.ts`.
+
+**Libraries needed:** None. Drag-reorder of checklist items uses existing `@dnd-kit` (`useSortable`). The pattern is identical to strategy reordering already in settings.
+
+**Confidence:** HIGH — all required infrastructure (strategy JSON in settings, @dnd-kit, SQLite migration pattern) is already established.
 
 ---
 
 ## Complete New Dependencies
 
-```bash
-# Production dependencies to add
-npm install openai fast-xml-parser simple-statistics
+**None.** Zero packages to install.
 
-# Type definitions
-npm install -D @types/simple-statistics
+```bash
+# No npm install needed for v2.1
 ```
 
-Note: `openai` and `fast-xml-parser` ship their own TypeScript types. `simple-statistics` requires `@types/simple-statistics`.
+---
+
+## Database Migrations Required
+
+| Migration | Table | Change | Purpose |
+|-----------|-------|--------|---------|
+| 022 | `trades` | `ADD COLUMN checklist TEXT` | Per-trade checklist state (JSON) |
+| 023 | `settings` | No schema change — new `_system` keys via data | Admin panel config expansion |
+
+Both are additive. No existing data affected. Pattern follows established inline migrations in `lib/db.ts`.
+
+---
+
+## Integration Points in Existing Codebase
+
+| Feature | Integration Point | Change Type |
+|---------|------------------|-------------|
+| Email URL detection | `lib/email.ts` `getAppUrl()` | Add optional `req?: NextRequest` param; thread from auth route handlers |
+| Settings split | `app/settings/page.tsx` → `components/settings/*.tsx` | Extract + decompose; zero logic change |
+| Admin config expansion | `app/api/admin/settings/route.ts` `SYSTEM_KEYS` | Add 2-3 new keys |
+| Layout presets | `components/dashboard/DashboardShell.tsx` | Add preset save/load UI; new `dashboard_layout_presets` settings key |
+| Per-trade checklist | `components/TradeModal.tsx` + `lib/db.ts` | Add checklist state + migration 022 |
+| Built-in strategy defaults | `app/settings/page.tsx` strategy section | Promote hardcoded array to named constant |
 
 ---
 
@@ -167,38 +218,12 @@ Note: `openai` and `fast-xml-parser` ship their own TypeScript types. `simple-st
 
 | Category | Recommended | Alternative | Why Not |
 |----------|-------------|-------------|---------|
-| AI Vision | `openai` (GPT-4o) | `@anthropic-ai/sdk` (Claude) | Claude vision is comparable but GPT-4o has stronger chart spatial reasoning and is the industry default for this use case |
-| AI Vision | `openai` (GPT-4o) | Local ONNX/TF.js model | Too heavy for CPU, no GPU constraint, unacceptable latency |
-| IBKR Sync | Flex Query REST + `fast-xml-parser` | TWS Socket API (`@stoqey/ib`) | TWS Socket requires local TWS running; Flex Query needs no local process |
-| Statistics | `simple-statistics` | `mathjs` | math.js is 25x larger, overkill for correlation + basic stats |
-| Embeddings storage | SQLite JSON column | Pinecone / pgvector | Solo trader scale doesn't justify a vector database; cosine similarity in JS is sufficient |
-| Image compression | `sharp` | None (no compression) | Screenshots are under 2 MB; OpenAI 20 MB limit not an issue |
-
----
-
-## Integration Points in Existing Codebase
-
-| New Capability | Integration Point | Notes |
-|----------------|------------------|-------|
-| AI Vision API call | New `app/api/ai/analyze-chart/route.ts` | Server-side only; API key in `.env.local` |
-| Trade embeddings | New column on `trades` table via inline migration in `lib/db.ts` | JSON blob, computed on trade save |
-| IBKR Flex credentials | New settings keys (`ibkr_flex_token`, `ibkr_flex_query_id`) via existing `/api/settings` | User configures in Settings page |
-| IBKR sync endpoint | New `app/api/broker/ibkr-sync/route.ts` | Calls Flex Query, parses XML, calls existing trade import logic |
-| Monte Carlo in modal | Import `runMonteCarlo` in `components/TradeModal.tsx` | Client-side; no API call needed if returns passed as prop |
-| Tools Hub page | New `app/tools/page.tsx` + `components/tools/` directory | Static calculators, no API routes needed |
-| Correlation Matrix data | Fetch from existing `/api/trades` endpoint | Compute correlations client-side |
-
----
-
-## Environment Variables to Add
-
-```bash
-# .env.local additions
-OPENAI_API_KEY=sk-...          # Required for AI chart analysis + embeddings
-OPENAI_MODEL=gpt-4o            # Override for model selection (optional, default gpt-4o)
-```
-
-No additional environment variables needed for IBKR (credentials stored in settings table per-user) or calculators (pure client-side).
+| URL detection | Native `NextRequest.headers` | `forwarded` npm package | Package adds abstraction over 5 lines of code; not worth the dependency |
+| URL detection | Request-header cascade | Force users to set env var | This is the current situation — the exact pain point being solved |
+| Layout presets | Extend settings key | Separate DB table | Overkill; presets are user preferences, same tier as other settings keys |
+| Per-trade checklist | JSON column on `trades` | Separate `trade_checklist_items` table | Normalized table adds join complexity for a simple list; JSON column is sufficient at this scale |
+| Settings decomposition | Extract to `components/settings/` | Keep monolithic | Maintainability; the monolith is already causing navigation difficulty |
+| Built-in strategy defaults | Hardcoded constant | DB seeding on first run | DB seeding is complex; constant in code is simpler and survives data wipes |
 
 ---
 
@@ -206,19 +231,19 @@ No additional environment variables needed for IBKR (credentials stored in setti
 
 | Temptation | Why to Avoid |
 |------------|-------------|
-| Vector database (Pinecone, Qdrant, pgvector) | Solo trader data volume; SQLite + JS cosine similarity is sufficient |
-| WebSocket server for real-time IBKR | Requires persistent process incompatible with Next.js serverless model; defer to v3.0 |
-| TensorFlow.js / ONNX Runtime | Local vision models too large and slow without GPU |
-| `bull` / `bullmq` job queue | No background jobs needed; user-triggered sync is sufficient |
-| `zod` for input validation | Project uses inline validation (validate-trade.ts); consistent to extend that pattern |
-| `prisma` / `drizzle` ORM | Project uses raw better-sqlite3 with inline migrations; no ORM change justified |
-| `multer` for file uploads | Next.js 15 Route Handlers handle multipart natively via `request.formData()` |
-| `sharp` for image processing | No server-side image resizing needed; pass screenshot directly to OpenAI |
+| `react-hook-form` or `formik` | Settings forms are simple controlled inputs; no validation library needed |
+| `immer` for immutable state | State updates in settings are already manageable with spread; immer adds indirection without benefit at this scale |
+| `zustand` / `jotai` state management | Settings page props drilling is shallow; React state + props is sufficient after component extraction |
+| Separate layout preset DB table | `settings` key with JSON array matches every other user preference in the app; consistent pattern |
+| `forwarded` npm package | The header cascade is 5 lines of code; a dedicated package is not warranted |
+| `uuid` npm package | `crypto.randomUUID()` is available in all modern browsers and Node.js 14.17+; no external UUID library needed |
 
 ---
 
 ## Sources
 
-- Training knowledge (cutoff August 2025) — HIGH confidence for `openai` npm package patterns, `fast-xml-parser`, `simple-statistics`
-- IBKR Flex Web Query: documented API, no library required for HTTP call; `ibkr-flex-webquery` is a thin wrapper — MEDIUM confidence on exact package version
-- External verification tools unavailable during this research session; verify package versions with `npm info <package> version` before pinning
+- [Next.js 15 `headers()` function documentation](https://nextjs.org/docs/app/api-reference/functions/headers) — confirmed async in Next.js 15, `NextRequest.headers` available synchronously in Route Handlers — HIGH confidence
+- [Next.js Route Handlers](https://nextjs.org/docs/app/getting-started/route-handlers) — `request.headers.get()` is the standard pattern — HIGH confidence
+- [Cloudflare HTTP headers documentation](https://developers.cloudflare.com/fundamentals/reference/http-headers/) — `x-forwarded-proto` and `x-forwarded-host` behavior — MEDIUM confidence (not all proxies guarantee `x-forwarded-host`)
+- [Next.js Dynamic APIs are Asynchronous](https://nextjs.org/docs/messages/sync-dynamic-apis) — Next.js 15 async header access guidance — HIGH confidence
+- Existing codebase: `lib/email.ts`, `app/api/admin/settings/route.ts`, `app/settings/page.tsx`, `components/dashboard/DashboardShell.tsx` — reviewed directly — HIGH confidence
