@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Save, RefreshCw, CheckCircle, Key, Bell, DollarSign, ShieldCheck, ShieldOff, Copy, Eye, EyeOff, Download, Upload, Database, Send, Grid3X3, Users, Settings, Trash2, UserCheck, UserX, LineChart, ListChecks, Plus, GripVertical, ChevronDown, ChevronRight, ChevronUp, Wallet, BrainCircuit, Cable, SkipForward, AlertTriangle, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback } from "react";
@@ -276,6 +276,27 @@ function SettingsContent() {
     }
   };
 
+  // Dirty-tab tracking (SETT-04)
+  const baselineRef = useRef<Settings | null>(null);
+  const [dirtyTabs, setDirtyTabs] = useState<Set<Category>>(new Set());
+
+  // Map settings keys to tabs
+  const TAB_FIELDS: Record<Category, (keyof Settings)[]> = {
+    account: ["account_size", "risk_per_trade", "commission_per_trade", "commission_model", "commission_value", "daily_loss_limit", "daily_loss_limit_type", "montecarlo_ruin_threshold"],
+    accounts: [],
+    tags: ["default_tags", "default_mistakes"],
+    templates: ["trade_templates"],
+    display: ["heatmap_ranges", "charts_collapsed", "privacy_mode"],
+    chart: ["tv_hide_side_toolbar", "tv_withdateranges", "tv_details", "tv_hotlist", "tv_calendar", "tv_studies"],
+    strategies: ["strategies"],
+    integrations: ["discord_webhook", "alert_discord_webhook", "fmp_api_key", "openai_api_key"],
+    broker: [],
+    security: [],
+    data: [],
+    "admin-users": [],
+    "admin-settings": [],
+  };
+
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -366,7 +387,11 @@ function SettingsContent() {
 
   useEffect(() => {
     fetch("/api/settings").then(r => r.json()).then(data => {
-      setSettings(s => ({ ...s, ...data }));
+      setSettings(s => {
+        const merged = { ...s, ...data };
+        baselineRef.current = merged;
+        return merged;
+      });
       // Load IBKR broker settings
       if (data.ibkr_host) setIbkrHost(data.ibkr_host);
       if (data.ibkr_port) setIbkrPort(data.ibkr_port);
@@ -394,6 +419,19 @@ function SettingsContent() {
       setHasAdmin(!!data.hasAdmin);
     }).catch(() => {});
   }, []);
+
+  // Dirty-tab detection: compare current settings against baseline
+  useEffect(() => {
+    if (!baselineRef.current) return;
+    const baseline = baselineRef.current;
+    const newDirty = new Set<Category>();
+    for (const [tab, fields] of Object.entries(TAB_FIELDS) as [Category, (keyof Settings)[]][]) {
+      if (fields.some(f => settings[f] !== baseline[f])) {
+        newDirty.add(tab);
+      }
+    }
+    setDirtyTabs(newDirty);
+  }, [settings]);
 
   // Admin data loading
   const loadAdminUsers = async () => {
@@ -463,7 +501,12 @@ function SettingsContent() {
       body: JSON.stringify(settings),
     });
     setSaving(false);
-    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 3000); }
+    if (res.ok) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+      baselineRef.current = { ...settings };
+      setDirtyTabs(new Set());
+    }
   };
 
   const refreshSymbols = async () => {
@@ -687,6 +730,9 @@ function SettingsContent() {
             )}>
             <Icon className="w-4 h-4 shrink-0" />
             {label}
+            {dirtyTabs.has(id) && (
+              <span className="ml-auto w-2 h-2 rounded-full bg-amber-400 shrink-0" title="Unsaved changes" />
+            )}
           </button>
         ))}
         {isAdmin && (
@@ -704,6 +750,9 @@ function SettingsContent() {
                 )}>
                 <Icon className="w-4 h-4 shrink-0" />
                 {label}
+                {dirtyTabs.has(id) && (
+                  <span className="ml-auto w-2 h-2 rounded-full bg-amber-400 shrink-0" title="Unsaved changes" />
+                )}
               </button>
             ))}
           </>
@@ -729,6 +778,9 @@ function SettingsContent() {
             )}>
             <Icon className="w-3.5 h-3.5" />
             {label}
+            {dirtyTabs.has(id) && (
+              <span className="ml-1 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Unsaved changes" />
+            )}
           </button>
         ))}
       </div>
