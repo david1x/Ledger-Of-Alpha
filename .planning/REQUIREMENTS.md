@@ -79,37 +79,37 @@ Deferred to later milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EMAIL-01 | — | Pending |
-| EMAIL-02 | — | Pending |
-| EMAIL-03 | — | Pending |
-| SETT-01 | — | Pending |
-| SETT-02 | — | Pending |
-| SETT-03 | — | Pending |
-| SETT-04 | — | Pending |
-| SETT-05 | — | Pending |
-| ADMIN-01 | — | Pending |
-| ADMIN-02 | — | Pending |
-| ADMIN-03 | — | Pending |
-| ADMIN-04 | — | Pending |
-| ADMIN-05 | — | Pending |
-| DASH-01 | — | Pending |
-| DASH-02 | — | Pending |
-| DASH-03 | — | Pending |
-| DASH-04 | — | Pending |
-| DASH-05 | — | Pending |
-| STRAT-01 | — | Pending |
-| STRAT-02 | — | Pending |
-| STRAT-03 | — | Pending |
-| STRAT-04 | — | Pending |
-| STRAT-05 | — | Pending |
-| CLEAN-01 | — | Pending |
-| CLEAN-02 | — | Pending |
+| EMAIL-01 | Phase 12 | Pending |
+| EMAIL-02 | Phase 12 | Pending |
+| EMAIL-03 | Phase 12 | Pending |
+| SETT-01 | Phase 13 | Pending |
+| SETT-02 | Phase 13 | Pending |
+| SETT-03 | Phase 13 | Pending |
+| SETT-04 | Phase 13 | Pending |
+| SETT-05 | Phase 13 | Pending |
+| ADMIN-01 | Phase 14 | Pending |
+| ADMIN-02 | Phase 14 | Pending |
+| ADMIN-03 | Phase 14 | Pending |
+| ADMIN-04 | Phase 14 | Pending |
+| ADMIN-05 | Phase 14 | Pending |
+| DASH-01 | Phase 15 | Pending |
+| DASH-02 | Phase 15 | Pending |
+| DASH-03 | Phase 15 | Pending |
+| DASH-04 | Phase 15 | Pending |
+| DASH-05 | Phase 15 | Pending |
+| STRAT-01 | Phase 16 | Pending |
+| STRAT-02 | Phase 16 | Pending |
+| STRAT-03 | Phase 16 | Pending |
+| STRAT-04 | Phase 16 | Pending |
+| STRAT-05 | Phase 16 | Pending |
+| CLEAN-01 | Phase 17 | Pending |
+| CLEAN-02 | Phase 17 | Pending |
 
 **Coverage:**
 - v2.1 requirements: 25 total
-- Mapped to phases: 0
-- Unmapped: 25 ⚠️
+- Mapped to phases: 25
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-19*
-*Last updated: 2026-03-19 after initial definition*
+*Last updated: 2026-03-19 after roadmap creation*
