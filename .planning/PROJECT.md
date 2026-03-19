@@ -2,27 +2,15 @@
 
 ## What This Is
 
-A professional-grade trade journaling and performance analytics platform for solo traders. Combines deep reflection tools, risk management, and data-driven insights with an analytics dashboard, journal, and chart integration.
+A professional-grade trade journaling and performance analytics platform for solo traders. Combines deep reflection tools, risk management, AI-powered chart analysis, broker integration, and data-driven insights with an analytics dashboard, journal, chart integration, and trading tools.
 
 ## Core Value
 
 Traders can track, analyze, and improve their trading through structured journaling and actionable analytics. Every feature serves the goal of turning raw trade data into better decisions.
 
-## Current Milestone: v2.0 Intelligence & Automation
-
-**Goal:** Add AI-powered chart analysis, broker automation, integrated risk modeling, and a trading tools hub to transform Ledger Of Alpha from a manual journal into an intelligent trading companion.
-
-**Target features:**
-- AI chart pattern recognition and similar trade matching from screenshots
-- Monte Carlo risk simulation integrated into trade entry flow
-- Real-time IBKR/TWS broker sync (live positions + auto-import)
-- Trading Tools Hub with 6 calculators (R:R, compound growth, drawdown recovery, Kelly criterion, Fibonacci, correlation matrix)
-
 ## Requirements
 
 ### Validated
-
-<!-- Shipped and confirmed valuable in v1.0.0. -->
 
 - ✓ Core trade CRUD with rich metadata (setup/execution/reflection) — v1.0.0
 - ✓ Performance dashboard with 24 widget cards, heatmap, weekly calendar — v1.0.0
@@ -33,55 +21,59 @@ Traders can track, analyze, and improve their trading through structured journal
 - ✓ Multi-broker CSV import (TOS, IBKR, Robinhood) — v1.0.0
 - ✓ Multi-account system — v1.0.0
 - ✓ Settings, auth, 2FA — v1.0.0
+- ✓ Trading Tools Hub (R:R, compound growth, drawdown, Kelly, correlation) — v2.0
+- ✓ AI chart pattern recognition from screenshots (Gemini 2.5 Flash) — v2.0
+- ✓ Similar trade finder by AI-detected pattern type — v2.0
+- ✓ Pattern performance analytics (win rate, avg P&L by pattern) — v2.0
+- ✓ Monte Carlo integration in trade entry (ruin probability, suggested sizing) — v2.0
+- ✓ IBKR broker sync (manual import with deduplication) — v2.0
+- ✓ IBKR live positions dashboard widget — v2.0
 
 ### Active
 
-<!-- v2.0 scope. Building toward these. -->
+<!-- Next milestone scope -->
 
-- [ ] AI chart pattern recognition from uploaded screenshots
-- [ ] Similar trade finder (compare setups across history)
-- [ ] Monte Carlo integration in trade entry for position sizing
-- [ ] IBKR/TWS live position sync
-- [ ] IBKR/TWS automatic trade import
-- [ ] Trading Tools Hub sub-page
-- [ ] Risk/Reward Visualizer
-- [ ] Compound Growth Calculator
-- [ ] Drawdown Recovery Calculator
-- [ ] Kelly Criterion Calculator
-- [ ] Fibonacci Calculator
-- [ ] Correlation Matrix
+(None yet — run /gsd:new-milestone to define next milestone)
 
 ### Out of Scope
 
-<!-- Explicit boundaries for v2.0. -->
-
-- Mobile app (PWA/React Native) — Deferred post-v2.0; web-first priority
-- Real-time chat/social features — Not aligned with solo trader focus
-- Options/futures-specific calculators — Equity/forex focus for now
-- Multi-broker live sync beyond IBKR — Start with one broker, expand later
+- Mobile app (PWA/React Native) — web-first priority
+- Real-time chat/social features — solo trader focus
+- Options/futures-specific calculators — equity/forex focus
+- Multi-broker live sync beyond IBKR — expand later based on demand
+- Two-way broker sync (send orders to IBKR) — regulatory complexity
+- On-device AI model — cloud API is sufficient
+- Offline mode — real-time data is core value
 
 ## Context
 
 - v1.0.0 shipped 2026-03-14 after 16 days and 7 phases
-- Existing codebase: Next.js 15, TypeScript, SQLite, Recharts, lightweight-charts
-- AI features will need image processing capabilities (likely cloud vision API or local model)
-- IBKR integration requires TWS API or Client Portal API
-- Monte Carlo engine already exists in `lib/simulation.ts` — extend for entry integration
+- v2.0 shipped 2026-03-19 after 2 days and 4 phases (12 plans)
+- Codebase: ~21,540 LOC TypeScript, Next.js 15, SQLite, Recharts, lightweight-charts
+- AI: Gemini 2.5 Flash via @google/generative-ai (settings key named `openai_api_key` — naming inconsistency)
+- Broker: IBKR Client Portal REST API (not TWS socket)
+- Monte Carlo: Web Worker with 1K iterations + 500ms debounce for in-modal preview
+- DB migrations through 021 (inline in lib/db.ts)
+- 25 dashboard widgets (including IBKR positions, hidden by default)
 
 ## Constraints
 
 - **Tech stack**: Next.js 15 + SQLite — no stack changes, extend existing
-- **AI processing**: Must work without GPU; cloud API or lightweight local model
-- **Broker API**: IBKR TWS API requires TWS/Gateway running locally on trader's machine
-- **Performance**: Calculators must be instant; AI/broker can be async
+- **AI processing**: Cloud API only (Gemini); no GPU requirement
+- **Broker API**: IBKR Client Portal REST requires gateway running on trader's machine
+- **Performance**: Calculators instant; AI/broker async
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| IBKR first (not multi-broker) | Most common among active traders, well-documented API | — Pending |
-| Cloud vision for AI patterns | Local models too heavy for typical trader hardware | — Pending |
-| Tools as sub-page under analytics | Keeps navigation clean, logical grouping | — Pending |
+| IBKR first (not multi-broker) | Most common among active traders, well-documented API | ✓ Good — Client Portal REST works well |
+| Cloud vision for AI patterns | Local models too heavy for typical trader hardware | ✓ Good — switched to Gemini 2.5 Flash (was OpenAI GPT-4o) |
+| Tools as dedicated /tools page | Keeps navigation clean, logical grouping | ✓ Good — 5 tabs, clean layout |
+| Monte Carlo in Web Worker | Blocks main thread at 5K iterations | ✓ Good — 1K iterations with debounce |
+| Sequential OHLCV fetches | Avoid Yahoo Finance throttling | ✓ Good — progress bar UX |
+| IBKR dedup via UNIQUE index | Blind inserts create duplicates | ✓ Good — INSERT OR IGNORE pattern |
+| Structured JSON AI output | Cannot retrofit without re-analyzing | ✓ Good — json_schema strict mode |
 
 ---
-*Last updated: 2026-03-15 after v2.0 milestone initialization*
+*Last updated: 2026-03-19 after v2.0 milestone*
