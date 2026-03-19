@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { hashPassword, generateToken, hashToken } from "@/lib/auth";
 import { sendVerificationEmail, isSmtpConfigured } from "@/lib/email";
+import { getBaseUrl } from "@/lib/request-url";
 import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
@@ -66,7 +67,8 @@ export async function POST(req: NextRequest) {
         VALUES (?, ?, ?, ?, 'verify_email', ?)
       `).run(crypto.randomUUID(), id, email.toLowerCase(), tokenHash, expiresAt);
 
-      await sendVerificationEmail(email, name.trim(), rawToken);
+      const baseUrl = getBaseUrl(req);
+      await sendVerificationEmail(email, name.trim(), rawToken, baseUrl);
 
       return NextResponse.json({ message: "Account created. Check your email to verify." }, { status: 201 });
     }

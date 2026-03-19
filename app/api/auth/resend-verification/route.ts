@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { generateToken, hashToken } from "@/lib/auth";
 import { sendVerificationEmail } from "@/lib/email";
+import { getBaseUrl } from "@/lib/request-url";
 import { rateLimit } from "@/lib/rate-limit";
 import type { User } from "@/lib/types";
 
@@ -40,7 +41,8 @@ export async function POST(req: NextRequest) {
       "INSERT INTO email_tokens (id, user_id, email, token_hash, type, expires_at) VALUES (?, ?, ?, ?, 'verify_email', ?)"
     ).run(crypto.randomUUID(), user.id, user.email, tokenHash, expiresAt);
 
-    await sendVerificationEmail(user.email, user.name, rawToken);
+    const baseUrl = getBaseUrl(req);
+    await sendVerificationEmail(user.email, user.name, rawToken, baseUrl);
 
     return NextResponse.json({ ok: true });
   } catch (e) {

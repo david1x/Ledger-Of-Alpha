@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { Alert } from "@/lib/types";
 import { sendAlertNotifications } from "@/lib/notifications";
+import { getBaseUrl } from "@/lib/request-url";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
 
     let triggeredCount = 0;
     const now = new Date().toISOString();
+    const baseUrl = getBaseUrl(req);
 
     for (const alert of activeAlerts) {
       const currentPrice = prices[alert.symbol];
@@ -66,7 +68,7 @@ export async function GET(req: NextRequest) {
         }
 
         // Send notifications
-        await sendAlertNotifications(alert);
+        await sendAlertNotifications(alert, baseUrl);
       }
     }
 

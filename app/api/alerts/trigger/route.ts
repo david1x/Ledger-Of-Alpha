@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { getSessionUser, isGuest } from "@/lib/auth";
 import { Alert } from "@/lib/types";
 import { sendAlertNotifications } from "@/lib/notifications";
+import { getBaseUrl } from "@/lib/request-url";
 
 export async function POST(req: NextRequest) {
   if (isGuest(req)) {
@@ -40,7 +41,8 @@ export async function POST(req: NextRequest) {
       updated.push(updatedAlert);
 
       // Centralized notification logic (Email + Discord)
-      await sendAlertNotifications(updatedAlert);
+      const baseUrl = getBaseUrl(req);
+      await sendAlertNotifications(updatedAlert, baseUrl);
     }
 
     return NextResponse.json(updated);
