@@ -15,11 +15,11 @@ Requirements for v2.1 Settings & Polish milestone. Each maps to roadmap phases.
 
 ### Settings Overhaul
 
-- [ ] **SETT-01**: Settings page content area uses full available width on desktop (no max-w-2xl constraint)
+- [x] **SETT-01**: Settings page content area uses full available width on desktop (no max-w-2xl constraint)
 - [ ] **SETT-02**: Settings page is split into per-tab components (extracted from 2380-line monolith)
-- [ ] **SETT-03**: Settings tabs are reorganized with clear, descriptive names (especially replacing vague "Display" tab)
-- [ ] **SETT-04**: Each settings tab shows unsaved-change indicator before switching away
-- [ ] **SETT-05**: Existing `?tab=` URL routing continues to work after reorganization
+- [x] **SETT-03**: Settings tabs are reorganized with clear, descriptive names (especially replacing vague "Display" tab)
+- [x] **SETT-04**: Each settings tab shows unsaved-change indicator before switching away
+- [x] **SETT-05**: Existing `?tab=` URL routing continues to work after reorganization
 
 ### Admin Configuration
 
@@ -82,11 +82,11 @@ Deferred to later milestones.
 | EMAIL-01 | Phase 12 | Complete |
 | EMAIL-02 | Phase 12 | Complete |
 | EMAIL-03 | Phase 12 | Complete |
-| SETT-01 | Phase 13 | Pending |
+| SETT-01 | Phase 13 | Complete |
 | SETT-02 | Phase 13 | Pending |
-| SETT-03 | Phase 13 | Pending |
-| SETT-04 | Phase 13 | Pending |
-| SETT-05 | Phase 13 | Pending |
+| SETT-03 | Phase 13 | Complete |
+| SETT-04 | Phase 13 | Complete |
+| SETT-05 | Phase 13 | Complete |
 | ADMIN-01 | Phase 14 | Pending |
 | ADMIN-02 | Phase 14 | Pending |
 | ADMIN-03 | Phase 14 | Pending |

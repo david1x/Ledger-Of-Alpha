@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Settings & Polish
 status: active
-stopped_at: Completed 12-01-PLAN.md (Email URL Auto-Detection)
-last_updated: "2026-03-19T12:14:30.534Z"
+stopped_at: Completed 13-02-PLAN.md (Settings Layout Polish and Dirty Indicators)
+last_updated: "2026-03-19T13:13:49.624Z"
 last_activity: 2026-03-19 — Completed 12-01 (request-aware URL detection for all email-sending routes)
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  total_plans: 3
+  completed_plans: 2
 ---
 
 ---
@@ -61,6 +61,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 - [Phase 12]: getBaseUrl priority chain: DB override > x-forwarded-host/proto > host header > env var > localhost — handles npm dev, Docker, Cloudflare Tunnel without config
 - [Phase 12]: sendOtpEmail unchanged (no URLs); getAppUrl() retained as internal fallback for non-request contexts
 - [Phase 12]: x-forwarded-proto defaults to "https" when absent but x-forwarded-host is present — Cloudflare Tunnel always terminates TLS
+- [Phase 13-02]: Dirty-state tracking via baselineRef + TAB_FIELDS map in monolithic settings page; admin/action tabs have empty field arrays and never show amber dot
 
 ### Blockers/Concerns
 
@@ -74,6 +75,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19
-Stopped at: Completed 12-01-PLAN.md (Email URL Auto-Detection)
+Last session: 2026-03-19T13:13:44.292Z
+Stopped at: Completed 13-02-PLAN.md (Settings Layout Polish and Dirty Indicators)
 Resume file: None
