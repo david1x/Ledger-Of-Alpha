@@ -117,7 +117,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 12. Email URL Auto-Detection | 1/1 | Complete   | 2026-03-19 | - |
+| 12. Email URL Auto-Detection | 1/1 | Complete    | 2026-03-19 | - |
 | 13. Settings Page Overhaul | v2.1 | 0/2 | Not started | - |
 | 14. Admin Configuration Expansion | v2.1 | 0/2 | Not started | - |
 | 15. Dashboard Layout Templates | v2.1 | 0/1 | Not started | - |

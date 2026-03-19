@@ -3,6 +3,21 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Settings & Polish
 status: active
+stopped_at: Completed 12-01-PLAN.md (Email URL Auto-Detection)
+last_updated: "2026-03-19T12:14:30.534Z"
+last_activity: 2026-03-19 — Completed 12-01 (request-aware URL detection for all email-sending routes)
+progress:
+  total_phases: 6
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+---
+
+---
+gsd_state_version: 1.0
+milestone: v2.1
+milestone_name: Settings & Polish
+status: active
 last_updated: "2026-03-19"
 last_activity: 2026-03-19 — Completed Phase 12 Plan 01 (Email URL Auto-Detection)
 progress:
