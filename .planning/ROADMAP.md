@@ -31,7 +31,7 @@
   2. Clicking an email link received via Cloudflare Tunnel resolves to the tunnel's public hostname
   3. URL resolution follows the documented priority chain: admin DB override > x-forwarded-host + x-forwarded-proto > host header > env var > localhost fallback
   4. All email-sending routes (register, password reset, alerts) use the auto-detected URL without manual configuration
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
 - [ ] 12-01: Implement `lib/request-url.ts` and wire into all email-sending API routes
