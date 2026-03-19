@@ -9,9 +9,9 @@ Requirements for v2.1 Settings & Polish milestone. Each maps to roadmap phases.
 
 ### Email & Deployment
 
-- [ ] **EMAIL-01**: Email verification links auto-detect the correct URL from request headers (works across npm dev, Docker, Cloudflare tunnel)
-- [ ] **EMAIL-02**: URL detection follows priority chain: admin DB override > X-Forwarded-Proto/Host > Host header > env var > localhost fallback
-- [ ] **EMAIL-03**: All email-sending API routes (register, password reset, alerts) pass request context for URL detection
+- [x] **EMAIL-01**: Email verification links auto-detect the correct URL from request headers (works across npm dev, Docker, Cloudflare tunnel)
+- [x] **EMAIL-02**: URL detection follows priority chain: admin DB override > X-Forwarded-Proto/Host > Host header > env var > localhost fallback
+- [x] **EMAIL-03**: All email-sending API routes (register, password reset, alerts) pass request context for URL detection
 
 ### Settings Overhaul
 
@@ -79,9 +79,9 @@ Deferred to later milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EMAIL-01 | Phase 12 | Pending |
-| EMAIL-02 | Phase 12 | Pending |
-| EMAIL-03 | Phase 12 | Pending |
+| EMAIL-01 | Phase 12 | Complete |
+| EMAIL-02 | Phase 12 | Complete |
+| EMAIL-03 | Phase 12 | Complete |
 | SETT-01 | Phase 13 | Pending |
 | SETT-02 | Phase 13 | Pending |
 | SETT-03 | Phase 13 | Pending |

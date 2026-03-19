@@ -13,7 +13,7 @@
 
 ## Phases
 
-- [ ] **Phase 12: Email URL Auto-Detection** - Email links work correctly across npm dev, Docker, and Cloudflare Tunnel without manual URL config
+- [x] **Phase 12: Email URL Auto-Detection** - Email links work correctly across npm dev, Docker, and Cloudflare Tunnel without manual URL config (completed 2026-03-19)
 - [ ] **Phase 13: Settings Page Overhaul** - Settings page split into per-tab components, full-width desktop layout, reorganized tabs
 - [ ] **Phase 14: Admin Configuration Expansion** - Admin panel becomes the single source of truth for runtime config (API keys, SMTP, App URL)
 - [ ] **Phase 15: Dashboard Layout Templates** - Users can save, load, and delete named dashboard layout presets with built-in defaults
@@ -117,7 +117,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 12. Email URL Auto-Detection | v2.1 | 0/1 | Not started | - |
+| 12. Email URL Auto-Detection | 1/1 | Complete   | 2026-03-19 | - |
 | 13. Settings Page Overhaul | v2.1 | 0/2 | Not started | - |
 | 14. Admin Configuration Expansion | v2.1 | 0/2 | Not started | - |
 | 15. Dashboard Layout Templates | v2.1 | 0/1 | Not started | - |
