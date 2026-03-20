@@ -17,7 +17,7 @@
 - [ ] **Phase 13: Settings Page Overhaul** - Settings page split into per-tab components, full-width desktop layout, reorganized tabs
 - [x] **Phase 14: Admin Configuration Expansion** - Admin panel becomes the single source of truth for runtime config (API keys, SMTP, App URL) (completed 2026-03-20)
 - [x] **Phase 15: Dashboard Layout Templates** - Users can save, load, and delete named dashboard layout presets with built-in defaults (completed 2026-03-20)
-- [ ] **Phase 16: Strategy & Checklist Enhancements** - Per-trade checklist editing, ad-hoc checklists, built-in default strategies, checklist score badges
+- [x] **Phase 16: Strategy & Checklist Enhancements** - Per-trade checklist editing, ad-hoc checklists, built-in default strategies, checklist score badges (completed 2026-03-20)
 - [ ] **Phase 17: Cleanup** - Fibonacci orphaned code removed, planning docs cleaned up
 
 ## Phase Details
@@ -122,7 +122,7 @@ Plans:
 | 13. Settings Page Overhaul | 1/2 | In Progress|  | - |
 | 14. Admin Configuration Expansion | 2/2 | Complete   | 2026-03-20 | - |
 | 15. Dashboard Layout Templates | 2/2 | Complete    | 2026-03-20 | - |
-| 16. Strategy & Checklist Enhancements | 1/2 | In Progress|  | - |
+| 16. Strategy & Checklist Enhancements | 2/2 | Complete   | 2026-03-20 | - |
 | 17. Cleanup | v2.1 | 0/1 | Not started | - |
 
 ---

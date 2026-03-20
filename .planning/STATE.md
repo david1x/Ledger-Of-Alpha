@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Settings & Polish
 status: active
-stopped_at: Completed 16-01 (strategy checklist core data model and UI overhaul)
-last_updated: "2026-03-20T22:26:58.128Z"
+stopped_at: Completed 16-02 (checklist progress ring on trade list and journal cards)
+last_updated: "2026-03-20T22:44:03.644Z"
 last_activity: 2026-03-19 — Completed 12-01 (request-aware URL detection for all email-sending routes)
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 ---
@@ -72,6 +72,8 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 - [Phase 15]: Human verification (Task 3) confirmed all 12 template workflow steps pass: built-in presets read-only, user templates save/load/delete, per-account isolation, reset button unchanged
 - [Phase 16]: lib/strategies.ts is single source of truth for 5 built-in strategies (Wyckoff, SMC, Breakout, Reversal, 150 SMA)
 - [Phase 16]: checklist_state JSON column per-trade; checklist_items kept for backward compat
+- [Phase 16]: ChecklistRing placed in TradeTable symbol cell (shared across pages) and journal card header
+- [Phase 16]: Null-return guard in ChecklistRing: no badge rendered for trades without checklist_state data
 
 ### Blockers/Concerns
 
@@ -85,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T22:26:58.126Z
-Stopped at: Completed 16-01 (strategy checklist core data model and UI overhaul)
+Last session: 2026-03-20T22:44:03.642Z
+Stopped at: Completed 16-02 (checklist progress ring on trade list and journal cards)
 Resume file: None

@@ -39,11 +39,11 @@ Requirements for v2.1 Settings & Polish milestone. Each maps to roadmap phases.
 
 ### Strategy & Checklists
 
-- [ ] **STRAT-01**: User can add/remove/modify checklist items for a specific trade without changing the strategy template
-- [ ] **STRAT-02**: User can create ad-hoc checklist items when no strategy is selected
-- [ ] **STRAT-03**: App ships with enriched built-in default strategies (max 5 strategies, each with max 5 checklist items)
-- [ ] **STRAT-04**: Trade and journal cards show checklist completion score (e.g., "4/5 checks")
-- [ ] **STRAT-05**: Default strategies are consolidated to a single source (lib/strategies.ts), not duplicated
+- [x] **STRAT-01**: User can add/remove/modify checklist items for a specific trade without changing the strategy template
+- [x] **STRAT-02**: User can create ad-hoc checklist items when no strategy is selected
+- [x] **STRAT-03**: App ships with enriched built-in default strategies (max 5 strategies, each with max 5 checklist items)
+- [x] **STRAT-04**: Trade and journal cards show checklist completion score (e.g., "4/5 checks")
+- [x] **STRAT-05**: Default strategies are consolidated to a single source (lib/strategies.ts), not duplicated
 
 ### Cleanup
 
@@ -97,11 +97,11 @@ Deferred to later milestones.
 | DASH-03 | Phase 15 | Complete |
 | DASH-04 | Phase 15 | Complete |
 | DASH-05 | Phase 15 | Complete |
-| STRAT-01 | Phase 16 | Pending |
-| STRAT-02 | Phase 16 | Pending |
-| STRAT-03 | Phase 16 | Pending |
-| STRAT-04 | Phase 16 | Pending |
-| STRAT-05 | Phase 16 | Pending |
+| STRAT-01 | Phase 16 | Complete |
+| STRAT-02 | Phase 16 | Complete |
+| STRAT-03 | Phase 16 | Complete |
+| STRAT-04 | Phase 16 | Complete |
+| STRAT-05 | Phase 16 | Complete |
 | CLEAN-01 | Phase 17 | Pending |
 | CLEAN-02 | Phase 17 | Pending |
 
