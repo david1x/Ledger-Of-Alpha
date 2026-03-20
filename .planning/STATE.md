@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Settings & Polish
 status: active
-stopped_at: Phase 15 context gathered
-last_updated: "2026-03-20T19:05:36.700Z"
+stopped_at: Completed 15-01-PLAN.md
+last_updated: "2026-03-20T19:26:00.402Z"
 last_activity: 2026-03-19 — Completed 12-01 (request-aware URL detection for all email-sending routes)
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 6
 ---
 
 ---
@@ -66,6 +66,8 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 - [Phase 14-admin-configuration-expansion]: detected-url endpoint intentionally skips DB override step to show what server auto-detects from request headers independently of stored override
 - [Phase 14-admin-configuration-expansion]: Test endpoints read credentials from _system DB (never request body) — admin tests actual saved config
 - [Phase 14-admin-configuration-expansion]: SMTP test uses nodemailer.verify() for TCP-level connection check without sending a real message
+- [Phase 15]: Per-account layout key: dashboard_layout_{accountId} or dashboard_layout_all_accounts for null (All Accounts view)
+- [Phase 15]: Template handlers stubbed in DashboardShell Plan 01; UI wired in Plan 02 to keep state management co-located
 
 ### Blockers/Concerns
 
@@ -79,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T19:05:36.698Z
-Stopped at: Phase 15 context gathered
-Resume file: .planning/phases/15-dashboard-layout-templates/15-CONTEXT.md
+Last session: 2026-03-20T19:26:00.400Z
+Stopped at: Completed 15-01-PLAN.md
+Resume file: None
