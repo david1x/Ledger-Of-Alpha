@@ -31,11 +31,11 @@ Requirements for v2.1 Settings & Polish milestone. Each maps to roadmap phases.
 
 ### Dashboard Templates
 
-- [ ] **DASH-01**: User can save current dashboard layout as a named template
-- [ ] **DASH-02**: User can load a saved template to replace active layout
-- [ ] **DASH-03**: User can delete saved templates
+- [x] **DASH-01**: User can save current dashboard layout as a named template
+- [x] **DASH-02**: User can load a saved template to replace active layout
+- [x] **DASH-03**: User can delete saved templates
 - [x] **DASH-04**: 2-3 built-in preset templates ship with the app (e.g., Performance Review, Daily Monitoring, Minimal)
-- [ ] **DASH-05**: Template controls are accessible from dashboard edit mode toolbar
+- [x] **DASH-05**: Template controls are accessible from dashboard edit mode toolbar
 
 ### Strategy & Checklists
 
@@ -92,11 +92,11 @@ Deferred to later milestones.
 | ADMIN-03 | Phase 14 | Complete |
 | ADMIN-04 | Phase 14 | Complete |
 | ADMIN-05 | Phase 14 | Complete |
-| DASH-01 | Phase 15 | Pending |
-| DASH-02 | Phase 15 | Pending |
-| DASH-03 | Phase 15 | Pending |
+| DASH-01 | Phase 15 | Complete |
+| DASH-02 | Phase 15 | Complete |
+| DASH-03 | Phase 15 | Complete |
 | DASH-04 | Phase 15 | Complete |
-| DASH-05 | Phase 15 | Pending |
+| DASH-05 | Phase 15 | Complete |
 | STRAT-01 | Phase 16 | Pending |
 | STRAT-02 | Phase 16 | Pending |
 | STRAT-03 | Phase 16 | Pending |

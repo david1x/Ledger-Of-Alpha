@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Settings & Polish
 status: active
-stopped_at: Completed 15-01-PLAN.md
-last_updated: "2026-03-20T19:26:00.402Z"
+stopped_at: "Checkpoint: 15-02 human-verify - awaiting manual verification of template system"
+last_updated: "2026-03-20T19:56:59.440Z"
 last_activity: 2026-03-19 — Completed 12-01 (request-aware URL detection for all email-sending routes)
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 ---
@@ -68,6 +68,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 - [Phase 14-admin-configuration-expansion]: SMTP test uses nodemailer.verify() for TCP-level connection check without sending a real message
 - [Phase 15]: Per-account layout key: dashboard_layout_{accountId} or dashboard_layout_all_accounts for null (All Accounts view)
 - [Phase 15]: Template handlers stubbed in DashboardShell Plan 01; UI wired in Plan 02 to keep state management co-located
+- [Phase 15]: TemplatePanel imports types from DashboardShell directly; admin isAdmin prop enables edit-default button for built-in presets
 
 ### Blockers/Concerns
 
@@ -81,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T19:26:00.400Z
-Stopped at: Completed 15-01-PLAN.md
+Last session: 2026-03-20T19:56:59.438Z
+Stopped at: Checkpoint: 15-02 human-verify - awaiting manual verification of template system
 Resume file: None
