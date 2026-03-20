@@ -35,6 +35,12 @@ export interface Account {
   created_at: string;
 }
 
+// ── Checklist ─────────────────────────────────────────────────────────────
+export interface ChecklistItem {
+  text: string;
+  checked: boolean;
+}
+
 // ── Trade ─────────────────────────────────────────────────────────────────
 export type TradeDirection = "long" | "short";
 export type TradeStatus = "planned" | "open" | "closed";
@@ -70,6 +76,7 @@ export interface Trade {
   account_id?: string | null;
   strategy_id?: string | null;
   checklist_items?: string | null;
+  checklist_state?: string | null;    // JSON: ChecklistItem[]
   ai_patterns?: string | null;        // JSON: AnalysisResult
   ai_screenshots?: string | null;     // JSON: string[] filenames
   ai_qa_history?: string | null;      // JSON: QAEntry[]

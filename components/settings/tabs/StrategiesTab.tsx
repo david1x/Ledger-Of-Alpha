@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { ListChecks, Plus, GripVertical, ChevronDown, ChevronRight, Trash2, Save, CheckCircle } from "lucide-react";
+import { DEFAULT_STRATEGIES } from "@/lib/strategies";
 import {
   DndContext,
   closestCenter,
@@ -18,7 +19,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { INITIAL_SETTINGS } from "@/components/settings/types";
+import { INITIAL_SETTINGS, useTabDirty } from "@/components/settings/types";
 
 interface Strategy {
   id: string;
@@ -136,6 +137,7 @@ function SortableStrategy({
 
 export default function StrategiesTab() {
   const [strategiesJson, setStrategiesJson] = useState(INITIAL_SETTINGS.strategies);
+  const { resetBaseline } = useTabDirty("strategies", { strategiesJson } as Record<string, unknown>);
   const [expandedStrategies, setExpandedStrategies] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -144,7 +146,22 @@ export default function StrategiesTab() {
     fetch("/api/settings")
       .then((r) => r.json())
       .then((data) => {
-        if (data.strategies) setStrategiesJson(data.strategies);
+        if (data.strategies) {
+          try {
+            const parsed = JSON.parse(data.strategies);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setStrategiesJson(data.strategies);
+            } else {
+              // Seed with built-in defaults
+              setStrategiesJson(JSON.stringify(DEFAULT_STRATEGIES));
+            }
+          } catch {
+            setStrategiesJson(JSON.stringify(DEFAULT_STRATEGIES));
+          }
+        } else {
+          // Fresh install — seed with 5 built-in defaults
+          setStrategiesJson(JSON.stringify(DEFAULT_STRATEGIES));
+        }
       });
   }, []);
 
@@ -230,6 +247,7 @@ export default function StrategiesTab() {
     });
     setSaving(false);
     setSaved(true);
+    resetBaseline();
     setTimeout(() => setSaved(false), 3000);
   };
 

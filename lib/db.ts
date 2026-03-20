@@ -446,6 +446,61 @@ function runMigrations(db: Database.Database) {
   if (!hasMigration(db, "021_ibkr_settings")) {
     markMigration(db, "021_ibkr_settings");
   }
+
+  // ── 022: per-trade checklist_state ────────────────────────────────────
+  if (!hasMigration(db, "022_checklist_state")) {
+    const tradeCols = (db.pragma("table_info(trades)") as { name: string }[]).map(c => c.name);
+    if (!tradeCols.includes("checklist_state")) {
+      db.exec(`ALTER TABLE trades ADD COLUMN checklist_state TEXT;`);
+    }
+
+    // Backfill: for trades that have checklist_items AND strategy_id,
+    // build ChecklistItem[] from the strategies setting or fallback defaults.
+    // checklist_items stores comma-separated TEXT of CHECKED items only.
+    const { DEFAULT_STRATEGIES: defaults } = require("./strategies");
+
+    const tradesWithChecklist = db.prepare(
+      "SELECT id, user_id, strategy_id, checklist_items FROM trades WHERE checklist_items IS NOT NULL AND checklist_items != '' AND strategy_id IS NOT NULL AND checklist_state IS NULL"
+    ).all() as { id: number; user_id: string; strategy_id: string; checklist_items: string }[];
+
+    // Cache strategies per user to avoid repeated lookups
+    const userStrategiesCache = new Map<string, { id: string; name: string; checklist: string[] }[]>();
+
+    const getStrategiesForUser = (userId: string): { id: string; name: string; checklist: string[] }[] => {
+      if (userStrategiesCache.has(userId)) return userStrategiesCache.get(userId)!;
+      const row = db.prepare("SELECT value FROM settings WHERE user_id = ? AND key = 'strategies'").get(userId) as { value: string } | undefined;
+      let strats: { id: string; name: string; checklist: string[] }[] = defaults;
+      if (row?.value) {
+        try {
+          const parsed = JSON.parse(row.value);
+          if (Array.isArray(parsed) && parsed.length > 0) strats = parsed;
+        } catch { /* use defaults */ }
+      }
+      userStrategiesCache.set(userId, strats);
+      return strats;
+    };
+
+    const updateStmt = db.prepare("UPDATE trades SET checklist_state = ? WHERE id = ?");
+
+    for (const trade of tradesWithChecklist) {
+      const strategies = getStrategiesForUser(trade.user_id ?? "_system");
+      const strat = strategies.find((s: { id: string }) => s.id === trade.strategy_id);
+      if (!strat) continue;
+
+      const checkedTexts = new Set(
+        trade.checklist_items.split(",").map((t: string) => t.trim()).filter(Boolean)
+      );
+
+      const checklistState = strat.checklist.map((text: string) => ({
+        text,
+        checked: checkedTexts.has(text),
+      }));
+
+      updateStmt.run(JSON.stringify(checklistState), trade.id);
+    }
+
+    markMigration(db, "022_checklist_state");
+  }
 }
 
 // ── Auto-promote admin from env var ─────────────────────────────────────

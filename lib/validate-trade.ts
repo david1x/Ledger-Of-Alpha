@@ -5,7 +5,8 @@ export const TRADE_FIELDS = [
   "exit_price", "shares", "entry_date", "exit_date",
   "notes", "tags", "emotions", "wyckoff_checklist", "account_size", "commission", "risk_per_trade",
   "rating", "mistakes", "market_context", "lessons",
-  "chart_tf", "chart_saved_at", "account_id", "strategy_id", "checklist_items",
+  "chart_tf", "chart_saved_at", "account_id", "strategy_id", "checklist_items", "checklist_state",
+  "ai_patterns", "ai_screenshots", "ai_qa_history", "ai_primary_pattern",
 ] as const;
 
 /** Pick only allowed trade fields from an object. */
