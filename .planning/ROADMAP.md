@@ -78,10 +78,11 @@ Plans:
   3. User can delete a named template from the list
   4. At least 2 built-in preset templates (e.g., Performance Review, Daily Monitoring) appear in the template list on a fresh install
   5. Template controls (save, load, delete) are accessible from the edit mode toolbar without leaving the dashboard
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 15-01: Implement template save/load/delete in DashboardShell with built-in presets
+- [ ] 15-01-PLAN.md — Per-account layout storage refactor, built-in preset constants, template state and handlers
+- [ ] 15-02-PLAN.md — TemplatePanel dropdown UI component and edit mode toolbar integration
 
 ### Phase 16: Strategy & Checklist Enhancements
 **Goal**: Traders can customize checklists for individual trades and always have useful default strategies available out of the box
@@ -120,7 +121,7 @@ Plans:
 | 12. Email URL Auto-Detection | 1/1 | Complete    | 2026-03-19 | - |
 | 13. Settings Page Overhaul | 1/2 | In Progress|  | - |
 | 14. Admin Configuration Expansion | 2/2 | Complete   | 2026-03-20 | - |
-| 15. Dashboard Layout Templates | v2.1 | 0/1 | Not started | - |
+| 15. Dashboard Layout Templates | v2.1 | 0/2 | Not started | - |
 | 16. Strategy & Checklist Enhancements | v2.1 | 0/2 | Not started | - |
 | 17. Cleanup | v2.1 | 0/1 | Not started | - |
 
