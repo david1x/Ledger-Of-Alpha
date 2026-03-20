@@ -75,6 +75,8 @@ export interface SystemSettings {
   smtp_pass: string;
   smtp_from: string;
   app_url: string;
+  fmp_api_key: string;
+  openai_api_key: string;
 }
 
 export const SYS_DEFAULTS: SystemSettings = {
@@ -87,6 +89,8 @@ export const SYS_DEFAULTS: SystemSettings = {
   smtp_pass: "",
   smtp_from: "",
   app_url: "",
+  fmp_api_key: "",
+  openai_api_key: "",
 };
 
 export const INITIAL_SETTINGS: Settings = {
@@ -191,6 +195,62 @@ export const INITIAL_SETTINGS: Settings = {
     },
   ]),
 };
+
+// Dirty-state signaling between tabs and shell
+export function markTabDirty(tab: Category) {
+  window.dispatchEvent(new CustomEvent("settings-dirty", { detail: tab }));
+}
+export function markTabClean(tab: Category) {
+  window.dispatchEvent(new CustomEvent("settings-clean", { detail: tab }));
+}
+
+// Hook for tab-level dirty tracking
+import { useEffect, useRef } from "react";
+
+export function useTabDirty<T extends object>(tab: Category, current: T) {
+  const baselineRef = useRef<T | null>(null);
+  const dirtyRef = useRef(false);
+
+  // Set baseline on first render (after fetch updates state)
+  useEffect(() => {
+    // Skip the initial empty/default state — wait for fetch
+    const timer = setTimeout(() => {
+      if (!baselineRef.current) baselineRef.current = { ...current };
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Compare current vs baseline
+  useEffect(() => {
+    if (!baselineRef.current) return;
+    const cur = current as Record<string, unknown>;
+    const base = baselineRef.current as Record<string, unknown>;
+    const isDirty = Object.keys(base).some((k) => cur[k] !== base[k]);
+    if (isDirty && !dirtyRef.current) {
+      dirtyRef.current = true;
+      markTabDirty(tab);
+    } else if (!isDirty && dirtyRef.current) {
+      dirtyRef.current = false;
+      markTabClean(tab);
+    }
+  }, [current, tab]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (dirtyRef.current) markTabClean(tab);
+    };
+  }, [tab]);
+
+  // Call after successful save to reset baseline
+  const resetBaseline = () => {
+    baselineRef.current = { ...current };
+    dirtyRef.current = false;
+    markTabClean(tab);
+  };
+
+  return { resetBaseline };
+}
 
 // CSS class constants (shared across tabs)
 export const INPUT =

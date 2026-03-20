@@ -12,7 +12,12 @@ const SYSTEM_KEYS = [
   "smtp_pass",
   "smtp_from",
   "app_url",
+  "fmp_api_key",
+  "openai_api_key",
 ];
+
+const SENSITIVE_KEYS = ["smtp_pass", "fmp_api_key", "openai_api_key"];
+const SENTINEL = "••••••••";
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
@@ -25,6 +30,11 @@ export async function GET(req: NextRequest) {
 
   const settings: Record<string, string> = {};
   for (const { key, value } of rows) settings[key] = value;
+
+  // Mask sensitive values so they never round-trip as cleartext through the browser
+  for (const key of SENSITIVE_KEYS) {
+    if (settings[key]) settings[key] = SENTINEL;
+  }
 
   return NextResponse.json({ settings });
 }
@@ -42,6 +52,8 @@ export async function POST(req: NextRequest) {
 
   for (const key of SYSTEM_KEYS) {
     if (key in body) {
+      // Skip sentinel values — admin didn't change this masked field, preserve real value
+      if (SENSITIVE_KEYS.includes(key) && body[key] === SENTINEL) continue;
       upsert.run(key, String(body[key] ?? ""));
     }
   }
