@@ -1,12 +1,13 @@
 "use client";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Trade, TradeStrategy, TradeTemplate } from "@/lib/types";
+import { Trade, TradeStrategy, TradeTemplate, ChecklistItem } from "@/lib/types";
+import { DEFAULT_STRATEGIES } from "@/lib/strategies";
 import SymbolSearch from "./SymbolSearch";
 import RiskCalculator from "./RiskCalculator";
 import PositionSizer from "./PositionSizer";
 import MonteCarloPreview from "./MonteCarloPreview";
 import SetupChart from "./SetupChart";
-import { X, ChevronDown, RefreshCw, Star, Wallet, Sparkles, Layout, Target, BookOpen, Tag, Smile, Plus } from "lucide-react";
+import { X, ChevronDown, RefreshCw, Star, Wallet, Sparkles, Layout, Target, BookOpen, Tag, Smile, Plus, Pencil, Check, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { useAccounts } from "@/lib/account-context";
 
@@ -44,11 +45,6 @@ const EMPTY: Partial<Trade> = {
 const LABEL = "block text-[10px] font-black uppercase tracking-[0.2em] dark:text-slate-500 text-slate-400 mb-2 ml-1";
 const INPUT = "w-full px-4 py-2.5 rounded-xl border dark:border-slate-700 border-slate-300 dark:bg-slate-800/50 bg-white dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-sm hover:border-slate-400 dark:hover:border-slate-600";
 
-const DEFAULT_STRATEGIES: TradeStrategy[] = [
-  { id: "wyckoff_buy", name: "Wyckoff Buying Tests", checklist: ["Downside objective accomplished", "Activity bullish (Vol increase on rallies)", "Preliminary support / Selling climax", "Relative strength (Bullish vs Market)", "Downward trendline broken", "Higher lows", "Higher highs", "Base forming (Cause)", "RR Potential 3:1 or better"] },
-  { id: "wyckoff_sell", name: "Wyckoff Selling Tests", checklist: ["Upside objective accomplished", "Activity bearish (Vol increase on drops)", "Preliminary supply / Buying climax", "Relative weakness (Bearish vs Market)", "Upward trendline broken", "Lower highs", "Lower lows", "Top forming (Cause)", "RR Potential 3:1 or better"] }
-];
-
 export default function TradeModal({ trade, onClose, onSaved, accountSize: accountSizeProp, riskPercent: riskPercentProp }: Props) {
   const [form, setForm] = useState<Partial<Trade>>(trade ?? EMPTY);
   const [activeTab, setActiveTab] = useState<"setup" | "execution" | "reflection">("setup");
@@ -62,6 +58,8 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
     trade?.account_id ?? activeAccountId ?? null
   );
   const [strategies, setStrategies] = useState<TradeStrategy[]>([]);
+  const [checklistState, setChecklistState] = useState<ChecklistItem[]>([]);
+  const [switchStrategyConfirm, setSwitchStrategyConfirm] = useState<string | null>(null); // pending strategyId
   const [defaultMistakes, setDefaultMistakes] = useState<string[]>(["Entered too early", "Exited too early", "Exited too late", "Moved stop loss", "Oversized position", "No stop loss", "Chased the trade", "Revenge trade", "Ignored plan", "FOMO entry"]);
   const [defaultTags, setDefaultTags] = useState<string[]>([]);
   const [templates, setTemplates] = useState<TradeTemplate[]>([]);
@@ -123,7 +121,29 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
       }).catch(() => {});
   }, [selectedAccountId, accounts, accountSizeProp, riskPercentProp]);
 
-  useEffect(() => { setForm(trade ?? EMPTY); }, [trade]);
+  useEffect(() => {
+    setForm(trade ?? EMPTY);
+    // Initialize checklistState from trade
+    if (trade?.checklist_state) {
+      try {
+        const parsed = JSON.parse(trade.checklist_state);
+        if (Array.isArray(parsed)) { setChecklistState(parsed); return; }
+      } catch { /* fall through */ }
+    }
+    // Backfill from legacy checklist_items + strategy template
+    if (trade?.strategy_id && trade?.checklist_items) {
+      const resolvedStrategies = strategies.length > 0 ? strategies : DEFAULT_STRATEGIES;
+      const strat = resolvedStrategies.find(s => s.id === trade.strategy_id);
+      if (strat) {
+        const checkedTexts = new Set(
+          trade.checklist_items.split(",").map((t: string) => t.trim()).filter(Boolean)
+        );
+        setChecklistState(strat.checklist.map(text => ({ text, checked: checkedTexts.has(text) })));
+        return;
+      }
+    }
+    setChecklistState([]);
+  }, [trade]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch historical closed trades for Monte Carlo simulation
   useEffect(() => {
@@ -189,6 +209,10 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
     if (payload.exit_price != null && payload.status !== "closed") payload.status = "closed";
     payload.chart_tf = chartInterval;
     payload.chart_saved_at = new Date().toISOString();
+    // Serialize checklist state
+    payload.checklist_state = checklistState.length > 0 ? JSON.stringify(checklistState) : null;
+    // Keep backward-compat checklist_items as comma-separated checked texts
+    payload.checklist_items = checklistState.filter(i => i.checked).map(i => i.text).join(", ") || null;
 
     try {
       const url = trade ? `/api/trades/${trade.id}` : "/api/trades";
@@ -347,10 +371,16 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
                   </section>
 
                   <section className="pt-6 border-t dark:border-slate-800 border-slate-200">
-                    <StrategyChecklist 
-                      strategies={strategies} direction={form.direction ?? "long"} 
-                      strategyId={form.strategy_id} checklist={form.checklist_items ?? ""}
-                      onStrategyChange={(sid: string) => set("strategy_id", sid)} onChecklistChange={(val: string) => set("checklist_items", val)}
+                    <StrategyChecklist
+                      strategies={strategies}
+                      strategyId={form.strategy_id ?? null}
+                      checklistState={checklistState}
+                      setChecklistState={setChecklistState}
+                      onStrategyChange={(sid: string | null) => {
+                        set("strategy_id", sid);
+                      }}
+                      switchStrategyConfirm={switchStrategyConfirm}
+                      setSwitchStrategyConfirm={setSwitchStrategyConfirm}
                     />
                   </section>
                 </div>
@@ -452,6 +482,12 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
               </div>
               
               <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-700">
+                {/* Trade-level overrides for account, risk, commission */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div><label className={LABEL}>Account ($)</label><input type="number" step="0.01" value={form.account_size ?? ""} onChange={(e) => set("account_size", e.target.value === "" ? null : parseFloat(e.target.value))} placeholder={String(accountSize)} className={INPUT} /></div>
+                  <div><label className={LABEL}>Risk (%)</label><input type="number" step="0.1" value={form.risk_per_trade ?? ""} onChange={(e) => set("risk_per_trade", e.target.value === "" ? null : parseFloat(e.target.value))} placeholder={String(riskPercent)} className={INPUT} /></div>
+                  <div><label className={LABEL}>Comm. ($)</label><input type="number" step="0.01" value={form.commission ?? ""} onChange={(e) => set("commission", e.target.value === "" ? null : parseFloat(e.target.value))} placeholder={String(defaultCommission)} className={INPUT} /></div>
+                </div>
                 <RiskCalculator
                   entry={form.entry_price ?? null} stopLoss={form.stop_loss ?? null} takeProfit={form.take_profit ?? null}
                   shares={form.shares ?? null} direction={form.direction ?? "long"} commission={form.commission ?? defaultCommission}
@@ -528,43 +564,210 @@ function SectionHeader({ icon: Icon, title, sub }: { icon: any, title: string, s
   );
 }
 
-function StrategyChecklist({ strategies, direction, strategyId, checklist, onStrategyChange, onChecklistChange }: any) {
-  const currentStratId = strategyId || (strategies.length > 0 ? (strategies.find((s: any) => direction === "long" ? s.id.includes("buy") : s.id.includes("sell"))?.id || strategies[0].id) : "");
-  const selected = useMemo(() => checklist ? checklist.split(",").map((t: any) => t.trim()).filter(Boolean) : [], [checklist]);
-  const currentStrat = strategies.find((s: any) => s.id === currentStratId) || strategies[0];
+interface StrategyChecklistProps {
+  strategies: TradeStrategy[];
+  strategyId: string | null;
+  checklistState: ChecklistItem[];
+  setChecklistState: React.Dispatch<React.SetStateAction<ChecklistItem[]>>;
+  onStrategyChange: (sid: string | null) => void;
+  switchStrategyConfirm: string | null;
+  setSwitchStrategyConfirm: React.Dispatch<React.SetStateAction<string | null>>;
+}
 
-  const toggle = (item: string) => {
-    const next = selected.includes(item) ? selected.filter((s: any) => s !== item) : [...selected, item];
-    onChecklistChange(next.join(", "));
+function StrategyChecklist({
+  strategies,
+  strategyId,
+  checklistState,
+  setChecklistState,
+  onStrategyChange,
+  switchStrategyConfirm,
+  setSwitchStrategyConfirm,
+}: StrategyChecklistProps) {
+  const [adHocInput, setAdHocInput] = useState("");
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState("");
+
+  const checkedCount = checklistState.filter(i => i.checked).length;
+  const totalCount = checklistState.length;
+
+  const handleStrategySelect = (newStratId: string) => {
+    const hasChecked = checklistState.some(i => i.checked);
+    if (hasChecked && newStratId !== (strategyId ?? "")) {
+      // Show confirmation before switching
+      setSwitchStrategyConfirm(newStratId);
+    } else {
+      applyStrategySwitch(newStratId);
+    }
   };
 
-  if (strategies.length === 0) return null;
+  const applyStrategySwitch = (newStratId: string) => {
+    setSwitchStrategyConfirm(null);
+    onStrategyChange(newStratId || null);
+    if (!newStratId) {
+      // "No Strategy" — keep only ad-hoc items (items with no strategy template origin)
+      // Per plan: clear template items when switching to "No Strategy"
+      setChecklistState([]);
+    } else {
+      const strat = strategies.find(s => s.id === newStratId);
+      if (strat) {
+        setChecklistState(strat.checklist.map(text => ({ text, checked: false })));
+      }
+    }
+  };
+
+  const toggleItem = (idx: number) => {
+    setChecklistState(prev => prev.map((item, i) => i === idx ? { ...item, checked: !item.checked } : item));
+  };
+
+  const removeItem = (idx: number) => {
+    setChecklistState(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const startEdit = (idx: number, text: string) => {
+    setEditingIdx(idx);
+    setEditingText(text);
+  };
+
+  const commitEdit = () => {
+    if (editingIdx === null) return;
+    const trimmed = editingText.trim();
+    if (trimmed) {
+      setChecklistState(prev => prev.map((item, i) => i === editingIdx ? { ...item, text: trimmed } : item));
+    }
+    setEditingIdx(null);
+    setEditingText("");
+  };
+
+  const addAdHocItem = () => {
+    const trimmed = adHocInput.trim();
+    if (!trimmed) return;
+    setChecklistState(prev => [...prev, { text: trimmed, checked: false }]);
+    setAdHocInput("");
+  };
 
   return (
     <div className="space-y-6">
       <SectionHeader icon={Target} title="System Strategy" sub="Operational checklist" />
+
+      {/* Strategy switch confirmation dialog */}
+      {switchStrategyConfirm !== null && (
+        <div className="p-4 rounded-2xl border dark:border-amber-500/30 border-amber-500/30 dark:bg-amber-500/5 bg-amber-50 space-y-3 animate-in fade-in duration-200">
+          <p className="text-xs font-bold dark:text-amber-400 text-amber-600">
+            Switch strategy? Your checked items will be cleared.
+          </p>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => applyStrategySwitch(switchStrategyConfirm)}
+              className="px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest bg-amber-500 text-white hover:bg-amber-400 transition-colors"
+            >
+              Switch
+            </button>
+            <button
+              type="button"
+              onClick={() => setSwitchStrategyConfirm(null)}
+              className="px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-4">
+        {/* Strategy dropdown */}
         <div className="flex items-center gap-4">
           <div className="flex-1 relative">
-            <select value={currentStratId} onChange={(e) => { onStrategyChange(e.target.value); onChecklistChange(""); }} className={clsx(INPUT, "appearance-none pr-10 h-11")}>
-              {strategies.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            <select
+              value={strategyId ?? ""}
+              onChange={(e) => handleStrategySelect(e.target.value)}
+              className={clsx(INPUT, "appearance-none pr-10 h-11")}
+            >
+              <option value="">No Strategy</option>
+              {strategies.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
             </select>
             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 dark:text-slate-500 text-slate-400 pointer-events-none" />
           </div>
-          <div className="px-4 py-2.5 rounded-xl dark:bg-slate-800 bg-slate-200 dark:text-emerald-400 text-emerald-600 text-xs font-black tabular-nums border dark:border-emerald-500/20 border-emerald-500/10">
-            {selected.length} / {currentStrat?.checklist.length || 0}
-          </div>
+          {totalCount > 0 && (
+            <div className="px-4 py-2.5 rounded-xl dark:bg-slate-800 bg-slate-200 dark:text-emerald-400 text-emerald-600 text-xs font-black tabular-nums border dark:border-emerald-500/20 border-emerald-500/10 shrink-0">
+              {checkedCount} / {totalCount}
+            </div>
+          )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {currentStrat?.checklist.map((item: string) => {
-            const isSelected = selected.includes(item);
-            return (
-              <label key={item} className={clsx("flex items-center gap-3 p-4 rounded-2xl border transition-all cursor-pointer group", isSelected ? "dark:border-emerald-500/50 border-emerald-500/50 dark:bg-emerald-500/10 bg-emerald-50" : "dark:border-slate-800 border-slate-100 dark:bg-slate-800/30 bg-slate-50 hover:border-slate-400 dark:hover:border-slate-600")}>
-                <input type="checkbox" checked={isSelected} onChange={() => toggle(item)} className="w-5 h-5 rounded-lg border-slate-600 text-emerald-500 focus:ring-emerald-500" />
-                <span className={clsx("text-xs font-bold transition-colors", isSelected ? "dark:text-emerald-400 text-emerald-600" : "dark:text-slate-500 text-slate-600")}>{item}</span>
-              </label>
-            );
-          })}
+
+        {/* Checklist items */}
+        {checklistState.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {checklistState.map((item, idx) => (
+              <div
+                key={idx}
+                className={clsx(
+                  "flex items-center gap-3 p-3 rounded-2xl border transition-all group",
+                  item.checked
+                    ? "dark:border-emerald-500/50 border-emerald-500/50 dark:bg-emerald-500/10 bg-emerald-50"
+                    : "dark:border-slate-800 border-slate-100 dark:bg-slate-800/30 bg-slate-50 hover:border-slate-400 dark:hover:border-slate-600"
+                )}
+              >
+                <input
+                  type="checkbox"
+                  checked={item.checked}
+                  onChange={() => toggleItem(idx)}
+                  className="w-4 h-4 shrink-0 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500"
+                />
+                {editingIdx === idx ? (
+                  <input
+                    type="text"
+                    value={editingText}
+                    onChange={e => setEditingText(e.target.value)}
+                    onBlur={commitEdit}
+                    onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") { setEditingIdx(null); } }}
+                    autoFocus
+                    className="flex-1 bg-transparent border-none p-0 text-xs font-bold dark:text-white text-slate-900 focus:ring-0 outline-none min-w-0"
+                  />
+                ) : (
+                  <span className={clsx("flex-1 text-xs font-bold transition-colors min-w-0 truncate", item.checked ? "dark:text-emerald-400 text-emerald-600 line-through opacity-70" : "dark:text-slate-300 text-slate-700")}>
+                    {item.text}
+                  </span>
+                )}
+                <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {editingIdx === idx ? (
+                    <button type="button" onClick={commitEdit} className="p-1 rounded text-emerald-400 hover:bg-emerald-500/10 transition-colors">
+                      <Check className="w-3 h-3" />
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => startEdit(idx, item.text)} className="p-1 rounded dark:text-slate-500 text-slate-400 hover:text-slate-300 transition-colors">
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
+                  <button type="button" onClick={() => removeItem(idx)} className="p-1 rounded text-slate-400 hover:text-red-400 transition-colors">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Ad-hoc item input — always visible */}
+        <div className="flex items-center gap-2 mt-1">
+          <input
+            type="text"
+            value={adHocInput}
+            onChange={e => setAdHocInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addAdHocItem(); } }}
+            placeholder="Add checklist item..."
+            className={clsx(INPUT, "h-9 text-xs py-0 flex-1")}
+          />
+          <button
+            type="button"
+            onClick={addAdHocItem}
+            disabled={!adHocInput.trim()}
+            className="px-4 h-9 rounded-xl text-xs font-black uppercase tracking-widest bg-emerald-600 hover:bg-emerald-500 text-white transition-all disabled:opacity-40 shrink-0"
+          >
+            Add
+          </button>
         </div>
       </div>
     </div>
