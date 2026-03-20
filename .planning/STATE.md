@@ -4,7 +4,7 @@ milestone: v2.1
 milestone_name: Settings & Polish
 status: active
 stopped_at: Completed 15-02-PLAN.md — Phase 15 dashboard layout templates complete
-last_updated: "2026-03-20T20:04:49.917Z"
+last_updated: "2026-03-20T20:11:48.849Z"
 last_activity: 2026-03-19 — Completed 12-01 (request-aware URL detection for all email-sending routes)
 progress:
   total_phases: 6
