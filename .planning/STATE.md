@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Settings & Polish
 status: active
-stopped_at: Completed 16-02 (checklist progress ring on trade list and journal cards)
-last_updated: "2026-03-20T22:58:38.144Z"
+stopped_at: Phase 17 context gathered
+last_updated: "2026-03-20T23:30:59.455Z"
 last_activity: 2026-03-19 — Completed 12-01 (request-aware URL detection for all email-sending routes)
 progress:
   total_phases: 6
@@ -87,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T22:44:03.642Z
-Stopped at: Completed 16-02 (checklist progress ring on trade list and journal cards)
-Resume file: None
+Last session: 2026-03-20T23:30:59.452Z
+Stopped at: Phase 17 context gathered
+Resume file: .planning/phases/17-cleanup/17-CONTEXT.md
