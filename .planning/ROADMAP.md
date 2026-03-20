@@ -122,7 +122,7 @@ Plans:
 | 13. Settings Page Overhaul | 1/2 | In Progress|  | - |
 | 14. Admin Configuration Expansion | 2/2 | Complete   | 2026-03-20 | - |
 | 15. Dashboard Layout Templates | 2/2 | Complete    | 2026-03-20 | - |
-| 16. Strategy & Checklist Enhancements | 2/2 | Complete   | 2026-03-20 | - |
+| 16. Strategy & Checklist Enhancements | 2/2 | Complete    | 2026-03-20 | - |
 | 17. Cleanup | v2.1 | 0/1 | Not started | - |
 
 ---

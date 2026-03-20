@@ -4,7 +4,7 @@ milestone: v2.1
 milestone_name: Settings & Polish
 status: active
 stopped_at: Completed 16-02 (checklist progress ring on trade list and journal cards)
-last_updated: "2026-03-20T22:44:03.644Z"
+last_updated: "2026-03-20T22:58:38.144Z"
 last_activity: 2026-03-19 — Completed 12-01 (request-aware URL detection for all email-sending routes)
 progress:
   total_phases: 6
