@@ -46,6 +46,7 @@ Next.js 15 (App Router), TypeScript, Tailwind CSS v3, better-sqlite3, recharts, 
 - JWT sessions stored in `session` cookie, verified via `jose` library
 - Guest mode uses a simple `guest=true` cookie — API routes return demo data for guests
 - 2FA: if enabled but not verified this session, middleware redirects to `/verify-2fa`
+- **Default admin**: On first startup (no admins exist), a local admin is seeded: `ledger@local` / `ledger`. Change password after first login.
 - Admin routes (`/admin`, `/api/admin`) gated in middleware; `/api/admin/claim` is exempt (bootstraps first admin)
 - Public routes: `/login`, `/register`, `/verify-2fa`, `/api/auth/*`
 

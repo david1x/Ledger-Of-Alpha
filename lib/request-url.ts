@@ -34,12 +34,19 @@ export function getBaseUrl(req: NextRequest): string {
   // Priority 3: host header (infer proto from hostname)
   const hostHeader = req.headers.get("host");
   if (hostHeader) {
+    const hostName = hostHeader.split(":")[0];
     const isLocal =
-      hostHeader.startsWith("localhost") ||
-      hostHeader.startsWith("127.") ||
-      hostHeader.startsWith("::1");
-    const proto = isLocal ? "http" : "https";
-    return `${proto}://${hostHeader}`;
+      hostName === "localhost" ||
+      hostName.startsWith("127.") ||
+      hostName === "::1" ||
+      hostName === "0.0.0.0";
+    // 0.0.0.0 is a listen address, not routable — skip to env/fallback
+    if (hostName === "0.0.0.0") {
+      // fall through to env var / fallback
+    } else {
+      const proto = isLocal ? "http" : "https";
+      return `${proto}://${hostHeader}`;
+    }
   }
 
   // Priority 4: NEXT_PUBLIC_APP_URL env var (read inside function body, not at module level)

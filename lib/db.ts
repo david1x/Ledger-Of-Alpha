@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import bcrypt from "bcryptjs";
 import path from "path";
 import fs from "fs";
 
@@ -18,6 +19,7 @@ export function getDb(): Database.Database {
     db.pragma("foreign_keys = ON");
     initSchema(db);
     runMigrations(db);
+    seedDefaultAdmin(db);
     promoteAdminFromEnv(db);
   }
   return db;
@@ -501,6 +503,38 @@ function runMigrations(db: Database.Database) {
 
     markMigration(db, "022_checklist_state");
   }
+}
+
+// ── Seed default local admin user ────────────────────────────────────────
+function seedDefaultAdmin(db: Database.Database) {
+  const adminCount = (db.prepare("SELECT COUNT(*) as n FROM users WHERE is_admin = 1").get() as { n: number }).n;
+  if (adminCount > 0) return; // already have an admin
+
+  const existing = db.prepare("SELECT id FROM users WHERE email = 'ledger@local'").get();
+  if (existing) return; // user exists but isn't admin — let promoteAdminFromEnv or claim handle it
+
+  const id = crypto.randomUUID();
+  const passwordHash = bcrypt.hashSync("ledger", 12);
+
+  db.prepare(`
+    INSERT INTO users (id, email, name, password_hash, email_verified, is_admin)
+    VALUES (?, 'ledger@local', 'Admin', ?, 1, 1)
+  `).run(id, passwordHash);
+
+  // Create a default trading account for the admin
+  const accountId = crypto.randomUUID();
+  db.prepare(`
+    INSERT INTO accounts (id, user_id, name, starting_balance, risk_per_trade, commission_value, is_default)
+    VALUES (?, ?, 'Main', 10000, 1, 0, 1)
+  `).run(accountId, id);
+
+  // Seed default settings
+  const insertSetting = db.prepare("INSERT OR IGNORE INTO settings (user_id, key, value) VALUES (?, ?, ?)");
+  for (const [key, value] of [["account_size", "10000"], ["risk_per_trade", "1"], ["discord_webhook", ""], ["fmp_api_key", ""]]) {
+    insertSetting.run(id, key, value);
+  }
+
+  console.log("✔ Created default admin user: ledger@local / ledger");
 }
 
 // ── Auto-promote admin from env var ─────────────────────────────────────

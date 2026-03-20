@@ -245,14 +245,16 @@ Click **"Continue as Guest"** on the login page to explore immediately with pre-
    - **Without SMTP (Docker)**: Run `docker compose logs -f app` to see the link in the container output
 4. After verifying, log in with your email and password
 
-### Claiming Admin
+### Default Admin
 
-The first registered user can claim admin privileges:
+A default admin account is created automatically on first startup (when no admin exists):
 
-1. Log in to your account
-2. Navigate to **/admin** in the URL bar
-3. Click **"Claim Admin"** — this button only appears when no admin exists yet
-4. You now have access to the Admin Panel, which can be found in the **User Dropdown menu** (bottom of the sidebar).
+- **Email:** `ledger@local`
+- **Password:** `ledger`
+
+> **Important:** Change the default password after your first login.
+
+You can also claim admin manually: log in, navigate to **/admin**, and click **"Claim Admin"** (only appears when no admin exists).
 
 ### Configuring App Settings
 
