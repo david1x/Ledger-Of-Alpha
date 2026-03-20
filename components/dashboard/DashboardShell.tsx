@@ -19,6 +19,7 @@ import DistributionChart from "./DistributionChart";
 import RiskSimulator from "./RiskSimulator";
 import AIInsightsWidget from "./AIInsightsWidget";
 import IBKRPositionsWidget from "./IBKRPositionsWidget";
+import TemplatePanel from "./TemplatePanel";
 import {
   Plus, RefreshCw, Pencil, Check, GripVertical, EyeOff, Eye, Plus as PlusIcon, Minimize2, Maximize2,
   RotateCcw, Download, ChevronDown as ChevronDownIcon
@@ -1088,11 +1089,21 @@ export default function DashboardShell() {
               </button>
 
               {editMode && (
-                <button onClick={resetLayout}
-                  className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:bg-red-500/20 text-red-400 transition-colors"
-                  title="Reset layout">
-                  <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </button>
+                <>
+                  <button onClick={resetLayout}
+                    className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:bg-red-500/20 text-red-400 transition-colors"
+                    title="Reset layout">
+                    <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </button>
+                  <TemplatePanel
+                    templates={allTemplates}
+                    onSave={handleSaveTemplate}
+                    onLoad={handleLoadTemplate}
+                    onDelete={handleDeleteTemplate}
+                    onSaveAs={handleSaveAsCopy}
+                    isGuest={!!me?.guest}
+                  />
+                </>
               )}
 
               <button onClick={load}
