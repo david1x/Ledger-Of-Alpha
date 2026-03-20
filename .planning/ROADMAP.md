@@ -107,10 +107,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. `lib/calculators.ts` contains no `fibonacciLevels` function or other Fibonacci-related exports
   2. No planning or milestone documents reference the Fibonacci calculator as a current or planned feature
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 17-01: Remove `fibonacciLevels` from `lib/calculators.ts` and clean up all Fibonacci references in planning docs
+- [ ] 17-01-PLAN.md — Verify source cleanup (CLEAN-01) and remove Fibonacci references from active planning docs (CLEAN-02)
 
 ## Progress
 
