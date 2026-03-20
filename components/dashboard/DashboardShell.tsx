@@ -153,14 +153,14 @@ interface DashboardLayout {
   sizes: Record<string, WidgetSize>;
 }
 
-interface LayoutTemplate {
+export interface LayoutTemplate {
   id: string;
   name: string;
   layout: DashboardLayout;
   createdAt: string;
 }
 
-interface BuiltInTemplate {
+export interface BuiltInTemplate {
   id: string;
   name: string;
   layout: DashboardLayout;
