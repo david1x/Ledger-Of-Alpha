@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Settings & Polish
 status: active
+stopped_at: Completed 17-01 (CLEAN-01 verified, CLEAN-02 fulfilled — Fibonacci refs purged from active planning docs)
+last_updated: "2026-03-20T23:45:29.949Z"
+last_activity: 2026-03-19 — Completed 12-01 (request-aware URL detection for all email-sending routes)
+progress:
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 10
+  completed_plans: 10
+  percent: 100
+---
+
+---
+gsd_state_version: 1.0
+milestone: v2.1
+milestone_name: Settings & Polish
+status: active
 stopped_at: Phase 17 context gathered
 last_updated: "2026-03-20T23:30:59.455Z"
 last_activity: 2026-03-19 — Completed 12-01 (request-aware URL detection for all email-sending routes)
 progress:
-  total_phases: 6
+  [██████████] 100%
   completed_phases: 5
   total_plans: 9
   completed_plans: 9
@@ -74,6 +90,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 - [Phase 16]: checklist_state JSON column per-trade; checklist_items kept for backward compat
 - [Phase 16]: ChecklistRing placed in TradeTable symbol cell (shared across pages) and journal card header
 - [Phase 16]: Null-return guard in ChecklistRing: no badge rendered for trades without checklist_state data
+- [Phase 17-cleanup]: TOOLS-06 classified as descoped by user decision, not a gap — archived v2.0 docs left untouched as historical records
 
 ### Blockers/Concerns
 
@@ -86,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T23:30:59.452Z
-Stopped at: Phase 17 context gathered
-Resume file: .planning/phases/17-cleanup/17-CONTEXT.md
+Last session: 2026-03-20T23:45:29.947Z
+Stopped at: Completed 17-01 (CLEAN-01 verified, CLEAN-02 fulfilled — Fibonacci refs purged from active planning docs)
+Resume file: None

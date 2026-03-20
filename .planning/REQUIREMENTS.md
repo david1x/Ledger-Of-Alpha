@@ -47,8 +47,8 @@ Requirements for v2.1 Settings & Polish milestone. Each maps to roadmap phases.
 
 ### Cleanup
 
-- [ ] **CLEAN-01**: Fibonacci calculator orphaned code removed from lib/calculators.ts
-- [ ] **CLEAN-02**: Fibonacci references removed from all planning/milestone docs
+- [x] **CLEAN-01**: Fibonacci calculator orphaned code removed from lib/calculators.ts
+- [x] **CLEAN-02**: Fibonacci references removed from all planning/milestone docs
 
 ## Future Requirements
 
@@ -102,8 +102,8 @@ Deferred to later milestones.
 | STRAT-03 | Phase 16 | Complete |
 | STRAT-04 | Phase 16 | Complete |
 | STRAT-05 | Phase 16 | Complete |
-| CLEAN-01 | Phase 17 | Pending |
-| CLEAN-02 | Phase 17 | Pending |
+| CLEAN-01 | Phase 17 | Complete |
+| CLEAN-02 | Phase 17 | Complete |
 
 **Coverage:**
 - v2.1 requirements: 25 total

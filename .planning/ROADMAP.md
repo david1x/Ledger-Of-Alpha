@@ -18,7 +18,7 @@
 - [x] **Phase 14: Admin Configuration Expansion** - Admin panel becomes the single source of truth for runtime config (API keys, SMTP, App URL) (completed 2026-03-20)
 - [x] **Phase 15: Dashboard Layout Templates** - Users can save, load, and delete named dashboard layout presets with built-in defaults (completed 2026-03-20)
 - [x] **Phase 16: Strategy & Checklist Enhancements** - Per-trade checklist editing, ad-hoc checklists, built-in default strategies, checklist score badges (completed 2026-03-20)
-- [ ] **Phase 17: Cleanup** - Fibonacci orphaned code removed, planning docs cleaned up
+- [x] **Phase 17: Cleanup** - Fibonacci orphaned code removed, planning docs cleaned up (completed 2026-03-20)
 
 ## Phase Details
 
@@ -123,7 +123,7 @@ Plans:
 | 14. Admin Configuration Expansion | 2/2 | Complete   | 2026-03-20 | - |
 | 15. Dashboard Layout Templates | 2/2 | Complete    | 2026-03-20 | - |
 | 16. Strategy & Checklist Enhancements | 2/2 | Complete    | 2026-03-20 | - |
-| 17. Cleanup | v2.1 | 0/1 | Not started | - |
+| 17. Cleanup | 1/1 | Complete   | 2026-03-20 | - |
 
 ---
 *Phase numbering continues from v2.0 (phases 1-11). v2.1 uses phases 12-17.*
