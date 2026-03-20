@@ -328,21 +328,27 @@ Defer: In-modal template editing, per-strategy performance breakdown (easy but s
 
 ---
 
-## Feature Cluster 6: Fibonacci Calculator Cleanup
+## Feature Cluster 6: Fibonacci Calculator Cleanup — RESOLVED (Phase 17)
 
-### Current State
+**Status:** Complete. Component deleted, orphaned code removed, no dead references remain.
 
-`FibCalculator.tsx` was deleted (confirmed in git status: `D components/tools/FibCalculator.tsx`). Dead references may remain in routing, the tools page, or index files.
+### Resolution Summary
 
-### What Needs Doing
+`FibCalculator.tsx` was deleted. All orphaned `fibonacciLevels` code was removed from `lib/calculators.ts`. Dead references in `app/tools/page.tsx` and any routing files were cleaned up. Build passes cleanly. Descoped by user decision — 5 of 6 original calculators remain on /tools page.
+
+### Historical Context
+
+`FibCalculator.tsx` was deleted after v2.0 verification passed. The `fibonacciLevels` function had remained in `lib/calculators.ts` as orphaned code. Dead references may also have existed in routing, the tools page, or index files. This cleanup task was tracked as TOOLS-06 in MILESTONES.md.
+
+### What Was Done
 
 | Task | Complexity | Notes |
 |------|------------|-------|
-| Audit tools page for dead Fibonacci import/tab | Low | Remove tab entry from `app/tools/page.tsx` |
-| Remove any remaining Fibonacci references in settings or feature flags | Low | Search for "fib" or "fibonacci" in codebase |
-| Verify build passes cleanly | Low | `npm run build` is the validation step |
+| Audit tools page for dead Fibonacci import/tab | Low | Removed from `app/tools/page.tsx` |
+| Remove orphaned `fibonacciLevels` from `lib/calculators.ts` | Low | Confirmed removed — grep returns zero matches |
+| Verify build passes cleanly | Low | `npm run build` passes |
 
-This is a cleanup task, not a feature. Zero user-facing work.
+This was a cleanup task, not a feature. Zero user-facing work.
 
 ---
 
@@ -380,7 +386,7 @@ Strategy/checklist enhancements
 
 | Feature | User Value | Implementation Complexity | Build Order |
 |---------|------------|--------------------------|-------------|
-| Fibonacci cleanup | Low (hygiene) | Very Low | First — unblocks clean build |
+| Fibonacci cleanup | Low (hygiene) | Very Low | Resolved in Phase 17 |
 | Email URL auto-detection | High (fixes real deployments) | Low | Early |
 | Admin panel API keys fallback | High (self-hosted UX) | Low | Early |
 | Settings component split | Medium (DX, maintainability) | Medium | Mid |

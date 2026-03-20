@@ -79,7 +79,6 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 
 - [Phase 16]: Confirm actual SQLite format of `checklist_items` column before writing backward-compat parser (may be `Record<string, boolean>` or comma-delimited)
 - [Phase 13]: Validate that 13 self-fetching section components do not produce visible loading flicker; fall back to parent-owns-state if needed
-- [MILESTONES]: TOOLS-06 — `fibonacciLevels` orphaned in `lib/calculators.ts`; resolved in Phase 17
 
 ### Pending Todos
 

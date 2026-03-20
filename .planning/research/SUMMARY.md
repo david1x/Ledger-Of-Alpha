@@ -34,7 +34,7 @@ The primary risks are all integration-level rather than architectural: the setti
 - Admin panel is the single source for deployment-critical config (SMTP, app_url) with no .env editing required for runtime changes
 - Built-in default strategies ship with the app so new users never see an empty strategies list
 - Per-trade checklist state is preserved independently for each trade, not shared via the global strategy template
-- FibCalculator dead references removed from tools page and routing (cleanup from v2.0)
+- FibCalculator dead references removed from tools page and routing (completed in Phase 17)
 
 **Should have (differentiators):**
 - Dashboard layout templates with named presets (save/load/delete) surfaced in edit mode toolbar
@@ -146,7 +146,7 @@ The four main features have no cross-dependencies and can be executed in any ord
 
 **Rationale:** Minor additive change. Expanding `SYSTEM_KEYS` for API key system-level fallbacks and removing FibCalculator dead code are low-risk cleanup tasks best done after the larger refactors are stable and verified.
 
-**Delivers:** FMP and Gemini API key system-level fallbacks in admin panel (optional, per deployment preference); dead FibCalculator references removed from tools page and any routing files; `NEXT_PUBLIC_APP_URL` marked deprecated/optional in `.env.example`.
+**Delivers:** FMP and Gemini API key system-level fallbacks in admin panel (optional, per deployment preference); `NEXT_PUBLIC_APP_URL` marked deprecated/optional in `.env.example`. (FibCalculator dead references were resolved in Phase 17.)
 
 **Addresses:** Feature Cluster 3 (admin panel as config source) and Feature Cluster 6 (FibCalculator cleanup) from FEATURES.md.
 
@@ -192,7 +192,7 @@ Phases with standard patterns (skip research-phase):
 - **Docker/Cloudflare Tunnel URL detection in practice:** The `x-forwarded-host` header behavior varies by proxy configuration. The admin UI displaying the auto-detected URL is the mitigation — surface it clearly and document that `app_url` should always be explicitly set in Docker deployments. Validate with a real Docker Compose setup during Phase 1 execution.
 - **Settings split component interface — fetch strategy:** Research files recommend each section self-fetches on mount for independence, but this causes 13 separate settings fetches on tab switch. Confirm this does not produce visible loading flickers before committing to the pattern; if it does, the parent-owns-state prop-drilling alternative is acceptable.
 - **Existing `checklist_items` stored format:** The column is described as likely `Record<string, boolean>` but the actual format was not confirmed from codebase read. Inspect real stored values in the SQLite database before writing the backward-compat `parseChecklistItems()` function in Phase 4.
-- **FibCalculator dead references scope:** The component file was confirmed deleted. Whether all import statements, tab entries, and routing references in `app/tools/page.tsx` were also cleaned up is unconfirmed — a code search for "fib" and "fibonacci" is required at Phase 5 start.
+- **FibCalculator dead references:** Confirmed resolved in Phase 17. Component file deleted, orphaned code removed from `lib/calculators.ts`, all dead references in `app/tools/page.tsx` removed.
 
 ## Sources
 

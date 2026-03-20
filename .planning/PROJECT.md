@@ -34,7 +34,6 @@ Traders can track, analyze, and improve their trading through structured journal
 <!-- Current milestone: v2.1 Settings & Polish -->
 
 - [ ] Email URL auto-detection (request headers, works across npm/Docker/Cloudflare tunnel)
-- [ ] Fibonacci calculator cleanup (remove orphaned code)
 - [ ] Settings page overhaul (component split, full-width layout, tab reorganization)
 - [ ] Admin panel as single source of truth for env config (APP_URL, API keys, SMTP, etc.)
 - [ ] Dashboard layout templates (saveable presets)
@@ -92,7 +91,6 @@ Traders can track, analyze, and improve their trading through structured journal
 - Admin panel as single config source (eliminate .env dependency)
 - Dashboard layout templates
 - Strategy/checklist flexibility in trade modal
-- Fibonacci cleanup
 
 ---
 *Last updated: 2026-03-19 after v2.1 milestone started*

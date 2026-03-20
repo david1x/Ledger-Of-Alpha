@@ -15,7 +15,7 @@
 5. IBKR broker sync — gateway connection, manual trade import with deduplication, live positions dashboard widget
 
 ### Known Gaps
-- **TOOLS-06**: Fibonacci calculator — `FibCalculator.tsx` was deleted after verification passed. The `fibonacciLevels` function remains in `lib/calculators.ts` but is orphaned. Only 5/6 calculators are accessible on the /tools page.
+- **TOOLS-06**: Fibonacci calculator — descoped by user decision. `FibCalculator.tsx` and orphaned `lib/calculators.ts` code were removed. 5 of 6 original calculators remain on /tools page (R:R, compound growth, drawdown recovery, Kelly criterion, correlation matrix). Resolved in Phase 17.
 
 ---
 
