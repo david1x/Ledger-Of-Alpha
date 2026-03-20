@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Trade, TradeStrategy } from "@/lib/types";
 import { ArrowUpRight, ArrowDownRight, Tag, FileText, Pencil, Trash2, ChevronDown, ChevronUp, LineChart, Search, LayoutGrid, List, Columns, RefreshCw, ShieldCheck, Star, Lightbulb, AlertTriangle, Smile, Plus } from "lucide-react";
+import ChecklistRing from "@/components/ChecklistRing";
 import { calcRRAchieved, calcPercentReturn, formatHoldDuration } from "@/lib/trade-utils";
 import AccountBanner from "@/components/AccountBanner";
 import { useRouter } from "next/navigation";
@@ -443,7 +444,8 @@ export default function JournalPage() {
                       <div className="flex items-center gap-2 mt-1">{t.direction === "long" ? <span className="flex items-center text-[10px] font-black uppercase text-emerald-400 gap-1"><ArrowUpRight className="w-3 h-3" />Long</span> : <span className="flex items-center text-[10px] font-black uppercase text-red-400 gap-1"><ArrowDownRight className="w-3 h-3" />Short</span>}<span className="text-[10px] font-bold dark:text-slate-500 text-slate-400 tabular-nums">{t.entry_date ?? t.created_at.slice(0, 10)}</span></div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <ChecklistRing checklistState={t.checklist_state} size={26} />
                     <button onClick={() => router.push(buildChartUrl(t))} className="p-2 rounded-xl hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors" title="Open Chart"><LineChart className="w-4 h-4 dark:text-slate-400 text-slate-500" /></button>
                     <button onClick={() => { setEditTrade(t); setShowModal(true); }} className="p-2 rounded-xl hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors" title="Edit"><Pencil className="w-4 h-4 dark:text-slate-400 text-slate-500" /></button>
                   </div>

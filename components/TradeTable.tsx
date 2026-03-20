@@ -6,6 +6,7 @@ import { Pencil, Trash2, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, L
 import { useRouter } from "next/navigation";
 import { calcRRAchieved, calcPercentReturn, formatHoldDuration } from "@/lib/trade-utils";
 import clsx from "clsx";
+import ChecklistRing from "@/components/ChecklistRing";
 
 function buildChartUrl(t: Trade): string {
   const params = new URLSearchParams({ symbol: t.symbol });
@@ -305,11 +306,12 @@ export default function TradeTable({
                       />
                     )}
                     {show("symbol") && (
-                      <span className="flex items-center gap-1 font-bold text-emerald-400 cursor-pointer hover:underline" onClick={() => onEdit(t)}>
+                      <span className="flex items-center gap-1.5 font-bold text-emerald-400 cursor-pointer hover:underline" onClick={() => onEdit(t)}>
                         {t.symbol}
                         {t.source === "ibkr" && (
                           <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-500/15 text-blue-400">IBKR</span>
                         )}
+                        <ChecklistRing checklistState={t.checklist_state} size={22} />
                       </span>
                     )}
                     {show("direction") && (
@@ -483,11 +485,12 @@ export default function TradeTable({
                         className="px-4 py-3 font-bold text-emerald-400 cursor-pointer hover:underline"
                         onClick={() => onEdit(t)}
                       >
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-1.5">
                           {t.symbol}
                           {t.source === "ibkr" && (
                             <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-500/15 text-blue-400">IBKR</span>
                           )}
+                          <ChecklistRing checklistState={t.checklist_state} size={24} />
                         </span>
                       </td>
                     )}
