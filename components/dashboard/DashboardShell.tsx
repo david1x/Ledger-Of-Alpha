@@ -153,6 +153,62 @@ interface DashboardLayout {
   sizes: Record<string, WidgetSize>;
 }
 
+interface LayoutTemplate {
+  id: string;
+  name: string;
+  layout: DashboardLayout;
+  createdAt: string;
+}
+
+interface BuiltInTemplate {
+  id: string;
+  name: string;
+  layout: DashboardLayout;
+  readonly: true;
+}
+
+const BUILT_IN_TEMPLATES: BuiltInTemplate[] = [
+  {
+    id: '__preset_performance_review',
+    name: 'Performance Review',
+    readonly: true,
+    layout: {
+      order: [...DEFAULT_ORDER],
+      hidden: [],
+      sizes: { ...DEFAULT_SIZES },
+    },
+  },
+  {
+    id: '__preset_daily_monitor',
+    name: 'Daily Monitor',
+    readonly: true,
+    layout: {
+      order: [
+        'daily-loss-status', 'fear-greed', 'vix', 'market-overview',
+        'heatmap', 'total-return', 'total-trades', 'profit-factor',
+        ...DEFAULT_ORDER.filter(w => ![
+          'daily-loss-status', 'fear-greed', 'vix', 'market-overview',
+          'heatmap', 'total-return', 'total-trades', 'profit-factor',
+        ].includes(w)),
+      ],
+      hidden: DEFAULT_ORDER.filter(w => ![
+        'daily-loss-status', 'fear-greed', 'vix', 'market-overview',
+        'heatmap', 'total-return', 'total-trades', 'profit-factor',
+      ].includes(w)),
+      sizes: {
+        'daily-loss-status': 'compact',
+        'fear-greed': 'compact',
+        'vix': 'compact',
+        'market-overview': 'compact',
+        'heatmap': 'compact',
+        'total-return': 'compact',
+        'total-trades': 'compact',
+        'profit-factor': 'compact',
+      },
+    },
+  },
+];
+
 function getLayoutKey(accountId: string | null): string {
   return accountId ? `dashboard_layout_${accountId}` : 'dashboard_layout_all_accounts';
 }
@@ -283,6 +339,7 @@ export default function DashboardShell() {
   const [editMode, setEditMode] = useState(false);
   const [layout, setLayout] = useState<DashboardLayout>({ order: DEFAULT_ORDER, hidden: DEFAULT_HIDDEN, sizes: { ...DEFAULT_SIZES } });
   const [hidden, setHidden] = useState(false);
+  const [templates, setTemplates] = useState<LayoutTemplate[]>([]);
 
   // ── Privacy persistence ──
   useEffect(() => {
@@ -383,6 +440,12 @@ export default function DashboardShell() {
           }
         } catch { /* keep defaults */ }
       }
+      if (settingsData.dashboard_layout_templates) {
+        try {
+          const parsed = JSON.parse(settingsData.dashboard_layout_templates);
+          if (Array.isArray(parsed)) setTemplates(parsed);
+        } catch { /* keep empty array default */ }
+      }
       if (settingsData.dashboard_time_filter) {
         const v = settingsData.dashboard_time_filter;
         if (v === "30" || v === "60" || v === "90") setTimeFilter(parseInt(v) as TimeFilter);
@@ -445,6 +508,69 @@ export default function DashboardShell() {
       });
     }
   };
+
+  // ── Template handlers ────────────────────────────────────────────────
+  const handleSaveTemplate = useCallback((name: string) => {
+    const newTemplate: LayoutTemplate = {
+      id: String(Date.now()),
+      name: name.trim(),
+      layout: { order: [...layout.order], hidden: [...layout.hidden], sizes: { ...layout.sizes } },
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [...templates, newTemplate];
+    setTemplates(updated);
+    if (me && !me.guest) {
+      fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dashboard_layout_templates: JSON.stringify(updated) }),
+      });
+    }
+  }, [layout, templates, me]);
+
+  const handleLoadTemplate = useCallback((template: LayoutTemplate | BuiltInTemplate) => {
+    const newLayout: DashboardLayout = {
+      order: [...template.layout.order],
+      hidden: [...template.layout.hidden],
+      sizes: { ...template.layout.sizes },
+    };
+    saveLayout(newLayout, true);
+  }, [saveLayout]);
+
+  const handleDeleteTemplate = useCallback((templateId: string) => {
+    const updated = templates.filter(t => t.id !== templateId);
+    setTemplates(updated);
+    if (me && !me.guest) {
+      fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dashboard_layout_templates: JSON.stringify(updated) }),
+      });
+    }
+  }, [templates, me]);
+
+  const handleSaveAsCopy = useCallback((preset: BuiltInTemplate, newName: string) => {
+    const copy: LayoutTemplate = {
+      id: String(Date.now()),
+      name: newName.trim() || `${preset.name} (copy)`,
+      layout: { order: [...preset.layout.order], hidden: [...preset.layout.hidden], sizes: { ...preset.layout.sizes } },
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [...templates, copy];
+    setTemplates(updated);
+    if (me && !me.guest) {
+      fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dashboard_layout_templates: JSON.stringify(updated) }),
+      });
+    }
+  }, [templates, me]);
+
+  const allTemplates = useMemo(() => [
+    ...BUILT_IN_TEMPLATES,
+    ...templates,
+  ], [templates]);
 
   // ── Filtered closed trades ──────────────────────────────────────────
   const closed = useMemo(() => {
