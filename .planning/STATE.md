@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Settings & Polish
 status: active
-stopped_at: Completed 14-01-PLAN.md (Admin API Keys and Sentinel Masking)
-last_updated: "2026-03-20T13:11:10.350Z"
+stopped_at: Completed 14-02-PLAN.md (Admin Connection Test Endpoints)
+last_updated: "2026-03-20T13:18:20.423Z"
 last_activity: 2026-03-19 — Completed 12-01 (request-aware URL detection for all email-sending routes)
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 ---
@@ -64,6 +64,8 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 - [Phase 13-02]: Dirty-state tracking via baselineRef + TAB_FIELDS map in monolithic settings page; admin/action tabs have empty field arrays and never show amber dot
 - [Phase 14-admin-configuration-expansion]: Sentinel masking pattern: GET masks non-empty sensitive values as bullets, POST skips upsert when value equals sentinel to prevent overwriting real keys
 - [Phase 14-admin-configuration-expansion]: detected-url endpoint intentionally skips DB override step to show what server auto-detects from request headers independently of stored override
+- [Phase 14-admin-configuration-expansion]: Test endpoints read credentials from _system DB (never request body) — admin tests actual saved config
+- [Phase 14-admin-configuration-expansion]: SMTP test uses nodemailer.verify() for TCP-level connection check without sending a real message
 
 ### Blockers/Concerns
 
@@ -77,6 +79,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T13:11:10.345Z
-Stopped at: Completed 14-01-PLAN.md (Admin API Keys and Sentinel Masking)
+Last session: 2026-03-20T13:18:20.420Z
+Stopped at: Completed 14-02-PLAN.md (Admin Connection Test Endpoints)
 Resume file: None

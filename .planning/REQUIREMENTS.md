@@ -26,7 +26,7 @@ Requirements for v2.1 Settings & Polish milestone. Each maps to roadmap phases.
 - [x] **ADMIN-01**: Admin panel manages system-level API keys (FMP, Gemini) as fallback defaults
 - [x] **ADMIN-02**: Per-user API keys override system-level keys when set
 - [x] **ADMIN-03**: Admin panel shows auto-detected App URL alongside the manual override field
-- [ ] **ADMIN-04**: Connection test buttons verify SMTP, FMP API, and Gemini API configuration
+- [x] **ADMIN-04**: Connection test buttons verify SMTP, FMP API, and Gemini API configuration
 - [x] **ADMIN-05**: Sensitive values (API keys, SMTP password) are masked in the admin UI after save
 
 ### Dashboard Templates
@@ -90,7 +90,7 @@ Deferred to later milestones.
 | ADMIN-01 | Phase 14 | Complete |
 | ADMIN-02 | Phase 14 | Complete |
 | ADMIN-03 | Phase 14 | Complete |
-| ADMIN-04 | Phase 14 | Pending |
+| ADMIN-04 | Phase 14 | Complete |
 | ADMIN-05 | Phase 14 | Complete |
 | DASH-01 | Phase 15 | Pending |
 | DASH-02 | Phase 15 | Pending |
