@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Settings & Polish
 status: active
-stopped_at: Phase 16 context gathered
-last_updated: "2026-03-20T22:12:10.943Z"
+stopped_at: Completed 16-01 (strategy checklist core data model and UI overhaul)
+last_updated: "2026-03-20T22:26:58.128Z"
 last_activity: 2026-03-19 — Completed 12-01 (request-aware URL detection for all email-sending routes)
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 9
+  completed_plans: 8
 ---
 
 ---
@@ -70,6 +70,8 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 - [Phase 15]: Template handlers stubbed in DashboardShell Plan 01; UI wired in Plan 02 to keep state management co-located
 - [Phase 15]: TemplatePanel imports types from DashboardShell directly; admin isAdmin prop enables edit-default button for built-in presets
 - [Phase 15]: Human verification (Task 3) confirmed all 12 template workflow steps pass: built-in presets read-only, user templates save/load/delete, per-account isolation, reset button unchanged
+- [Phase 16]: lib/strategies.ts is single source of truth for 5 built-in strategies (Wyckoff, SMC, Breakout, Reversal, 150 SMA)
+- [Phase 16]: checklist_state JSON column per-trade; checklist_items kept for backward compat
 
 ### Blockers/Concerns
 
@@ -83,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T22:12:10.940Z
-Stopped at: Phase 16 context gathered
-Resume file: .planning/phases/16-strategy-checklist-enhancements/16-CONTEXT.md
+Last session: 2026-03-20T22:26:58.126Z
+Stopped at: Completed 16-01 (strategy checklist core data model and UI overhaul)
+Resume file: None
