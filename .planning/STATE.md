@@ -4,7 +4,7 @@ milestone: v2.1
 milestone_name: Settings & Polish
 status: active
 stopped_at: Completed 17-01 (CLEAN-01 verified, CLEAN-02 fulfilled — Fibonacci refs purged from active planning docs)
-last_updated: "2026-03-20T23:45:29.949Z"
+last_updated: "2026-03-20T23:48:37.610Z"
 last_activity: 2026-03-19 — Completed 12-01 (request-aware URL detection for all email-sending routes)
 progress:
   total_phases: 6
