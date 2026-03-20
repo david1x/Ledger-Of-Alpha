@@ -144,7 +144,7 @@ The four main features have no cross-dependencies and can be executed in any ord
 
 ### Phase 5: Admin Panel Config Expansion + Cleanup
 
-**Rationale:** Minor additive change. Expanding `SYSTEM_KEYS` for API key system-level fallbacks and removing FibCalculator dead code are low-risk cleanup tasks best done after the larger refactors are stable and verified.
+**Rationale:** Minor additive change. Expanding `SYSTEM_KEYS` for API key system-level fallbacks is the remaining low-risk cleanup task after the larger refactors are stable and verified. (FibCalculator dead code was resolved earlier in Phase 17.)
 
 **Delivers:** FMP and Gemini API key system-level fallbacks in admin panel (optional, per deployment preference); `NEXT_PUBLIC_APP_URL` marked deprecated/optional in `.env.example`. (FibCalculator dead references were resolved in Phase 17.)
 
