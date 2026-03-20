@@ -153,6 +153,10 @@ interface DashboardLayout {
   sizes: Record<string, WidgetSize>;
 }
 
+function getLayoutKey(accountId: string | null): string {
+  return accountId ? `dashboard_layout_${accountId}` : 'dashboard_layout_all_accounts';
+}
+
 // ── Sortable widget card wrapper ────────────────────────────────────────
 function WidgetCard({ id, title, editMode, size, onHide, onToggleSize, children }: {
   id: string;
@@ -355,9 +359,10 @@ export default function DashboardShell() {
         try { setStrategies(JSON.parse(settingsData.strategies)); } catch { /* keep defaults */ }
       }
 
-      if (settingsData.dashboard_layout) {
+      const layoutRaw = settingsData[getLayoutKey(activeAccountId)] ?? settingsData.dashboard_layout;
+      if (layoutRaw) {
         try {
-          const parsed = JSON.parse(settingsData.dashboard_layout);
+          const parsed = JSON.parse(layoutRaw);
           if (parsed.order && Array.isArray(parsed.order)) {
             // Ensure all widget IDs are present (new widgets added after save)
             const existingOrder = new Set(parsed.order);
@@ -422,13 +427,13 @@ export default function DashboardShell() {
         fetch("/api/settings", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dashboard_layout: JSON.stringify(newLayout) }),
+          body: JSON.stringify({ [getLayoutKey(activeAccountId)]: JSON.stringify(newLayout) }),
         });
       }
     };
     if (immediate) doSave();
     else saveTimer.current = setTimeout(doSave, 1000);
-  }, [me]);
+  }, [me, activeAccountId]);
 
   const saveTimeFilter = (tf: TimeFilter) => {
     setTimeFilter(tf);
