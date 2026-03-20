@@ -62,11 +62,11 @@ Plans:
   3. Admin panel shows an auto-detected App URL field alongside the manual override, reflecting what the server would use for email links
   4. Admin can click "Test" buttons for SMTP, FMP API, and Gemini API and receive a pass/fail result
   5. API keys and SMTP password appear masked (e.g., `••••••••`) after being saved
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 14-01: Expand `SYSTEM_KEYS` for API key fallbacks and add auto-detected URL display
-- [ ] 14-02: Add connection test buttons for SMTP, FMP, and Gemini; implement value masking
+- [ ] 14-01-PLAN.md — Expand SYSTEM_KEYS with API key fallbacks, sentinel masking, auto-detected URL endpoint, and override chain fixes
+- [ ] 14-02-PLAN.md — Add connection test buttons for SMTP, FMP, and Gemini in admin panel
 
 ### Phase 15: Dashboard Layout Templates
 **Goal**: Users can save their current dashboard arrangement as a named template and restore it at any time
