@@ -94,11 +94,11 @@ Plans:
   3. A fresh install shows pre-populated built-in strategies (not an empty strategies list), and user edits do not overwrite them on restart
   4. Trade and journal cards display a checklist completion score (e.g., "4/5 checks") computed from the trade's saved state
   5. Default strategy definitions exist in exactly one place in the codebase (`lib/strategies.ts`)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 16-01: Consolidate strategies to `lib/strategies.ts`, add DB migration 022 for `checklist_state`, implement per-trade checklist editing and ad-hoc support
-- [ ] 16-02: Add checklist completion score badge to trade cards and journal cards
+- [ ] 16-01-PLAN.md — Consolidate strategies to lib/strategies.ts, DB migration 022, per-trade checklist editing and ad-hoc support
+- [ ] 16-02-PLAN.md — ChecklistRing progress component on trade list rows and journal cards
 
 ### Phase 17: Cleanup
 **Goal**: Orphaned Fibonacci code and planning doc references are removed, leaving no dead code in the codebase
