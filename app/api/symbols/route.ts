@@ -18,11 +18,12 @@ export async function GET(req: NextRequest) {
     let apiKey = "";
     if (user) {
       const row = db.prepare("SELECT value FROM settings WHERE user_id = ? AND key = 'fmp_api_key'").get(user.id) as { value: string } | undefined;
-      if (!row) {
+      if (!row?.value) {
+        // No personal key (or empty string) — fall back to system key
         const sys = db.prepare("SELECT value FROM settings WHERE user_id = '_system' AND key = 'fmp_api_key'").get() as { value: string } | undefined;
         apiKey = sys?.value ?? "";
       } else {
-        apiKey = row.value;
+        apiKey = (row as { value: string }).value;
       }
     }
 

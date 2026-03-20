@@ -32,16 +32,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Retrieve OpenAI API key from user settings
+  // Retrieve Gemini API key — user key takes priority, fall back to system key
   const db = getDb();
-  const keyRow = db
+  const userRow = db
     .prepare("SELECT value FROM settings WHERE user_id = ? AND key = 'openai_api_key'")
     .get(user.id) as { value: string } | undefined;
-  const apiKey = keyRow?.value ?? "";
+  const apiKey =
+    (userRow as { value: string } | undefined)?.value ||
+    (db.prepare("SELECT value FROM settings WHERE user_id = '_system' AND key = 'openai_api_key'").get() as { value: string } | undefined)?.value ||
+    "";
 
   if (!apiKey) {
     return NextResponse.json(
-      { error: "OpenAI API key not configured", code: "NO_API_KEY" },
+      { error: "No Gemini API key set. Configure one in Settings > Integrations or ask your admin to set a system key.", code: "NO_API_KEY" },
       { status: 400 }
     );
   }

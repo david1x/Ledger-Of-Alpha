@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Settings, Eye, EyeOff, Save, CheckCircle } from "lucide-react";
-import { INPUT, LABEL, HINT, SYS_DEFAULTS } from "@/components/settings/types";
+import { Settings, Eye, EyeOff, Save, CheckCircle, Key } from "lucide-react";
+import { INPUT, LABEL, HINT, SYS_DEFAULTS, useTabDirty } from "@/components/settings/types";
 import type { SystemSettings } from "@/components/settings/types";
 
 interface Props {
@@ -10,10 +10,14 @@ interface Props {
 
 export default function AdminSettingsTab({ isAdmin }: Props) {
   const [sysSettings, setSysSettings] = useState<SystemSettings>(SYS_DEFAULTS);
+  const { resetBaseline } = useTabDirty("admin-settings", sysSettings);
   const [sysLoading, setSysLoading] = useState(false);
   const [sysSaving, setSysSaving] = useState(false);
   const [sysSaved, setSysSaved] = useState(false);
   const [showSmtpPass, setShowSmtpPass] = useState(false);
+  const [showFmpKey, setShowFmpKey] = useState(false);
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [detectedUrl, setDetectedUrl] = useState("");
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -25,6 +29,13 @@ export default function AdminSettingsTab({ isAdmin }: Props) {
         setSysLoading(false);
       })
       .catch(() => setSysLoading(false));
+
+    fetch("/api/admin/detected-url")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.url) setDetectedUrl(data.url);
+      })
+      .catch(() => {});
   }, [isAdmin]);
 
   const saveSysSettings = async () => {
@@ -36,6 +47,7 @@ export default function AdminSettingsTab({ isAdmin }: Props) {
     });
     setSysSaving(false);
     setSysSaved(true);
+    resetBaseline();
     setTimeout(() => setSysSaved(false), 2500);
   };
 
@@ -97,6 +109,14 @@ export default function AdminSettingsTab({ isAdmin }: Props) {
                 placeholder="https://yourdomain.com"
                 className={INPUT}
               />
+              {detectedUrl && (
+                <p className={HINT + " mt-2"}>
+                  Auto-detected: <span className="dark:text-slate-300 text-slate-600 font-mono">{detectedUrl}</span>
+                </p>
+              )}
+              <p className={HINT + " mt-1"}>
+                This is what the server detects from request headers. The override above takes priority when set.
+              </p>
             </div>
 
             {/* SMTP */}
@@ -180,6 +200,58 @@ export default function AdminSettingsTab({ isAdmin }: Props) {
                   placeholder="Ledger Of Alpha <noreply@yourdomain.com>"
                   className={INPUT}
                 />
+              </div>
+            </div>
+
+            {/* API Keys */}
+            <div className="pt-4 border-t dark:border-slate-800 border-slate-100 space-y-4">
+              <div>
+                <h3 className="text-sm font-medium dark:text-white text-slate-900 mb-1 flex items-center gap-2">
+                  <Key className="w-4 h-4 text-emerald-400" /> API Keys
+                </h3>
+                <p className={HINT + " mb-3"}>
+                  System-level API keys used as fallbacks when users have no personal key set.
+                </p>
+              </div>
+              <div>
+                <label className={LABEL}>FMP API Key</label>
+                <div className="relative">
+                  <input
+                    type={showFmpKey ? "text" : "password"}
+                    value={sysSettings.fmp_api_key}
+                    onChange={(e) => setSysSettings((s) => ({ ...s, fmp_api_key: e.target.value }))}
+                    placeholder="••••••••"
+                    autoComplete="new-password"
+                    className={`${INPUT} pr-10`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowFmpKey((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 dark:text-slate-400 text-slate-500"
+                  >
+                    {showFmpKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className={LABEL}>Gemini API Key</label>
+                <div className="relative">
+                  <input
+                    type={showGeminiKey ? "text" : "password"}
+                    value={sysSettings.openai_api_key}
+                    onChange={(e) => setSysSettings((s) => ({ ...s, openai_api_key: e.target.value }))}
+                    placeholder="••••••••"
+                    autoComplete="new-password"
+                    className={`${INPUT} pr-10`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowGeminiKey((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 dark:text-slate-400 text-slate-500"
+                  >
+                    {showGeminiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             </div>
 
