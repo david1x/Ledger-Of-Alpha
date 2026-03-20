@@ -37,6 +37,8 @@ key-decisions:
   - "onEditBuiltIn handler in DashboardShell updates builtInTemplates state locally (in-memory) — not persisted to DB (admin customization is a separate Phase 16 concern)"
   - "Guest users can browse and apply templates (layout changes in memory) but cannot save or delete"
 
+requirements-completed: [DASH-01, DASH-02, DASH-03, DASH-05]
+
 # Metrics
 duration: 8min
 completed: 2026-03-20
@@ -51,7 +53,7 @@ completed: 2026-03-20
 - **Duration:** 8 min
 - **Started:** 2026-03-20T19:26:00Z
 - **Completed:** 2026-03-20T19:56:10Z
-- **Tasks:** 2 of 3 (Task 3 is human-verify checkpoint)
+- **Tasks:** 3 of 3 (Task 3 human-verify checkpoint approved by user)
 - **Files modified:** 2 (1 created, 1 modified)
 
 ## Accomplishments
@@ -90,9 +92,17 @@ Each task was committed atomically:
 - **Files modified:** `components/dashboard/TemplatePanel.tsx`, `components/dashboard/DashboardShell.tsx`
 - **Commits:** `51e63e5`, `271d269`
 
-## Awaiting Human Verification
+## Human Verification
 
-Task 3 is a `checkpoint:human-verify` gate. The dev server must be running and a human must verify the complete template workflow before this plan is considered fully complete.
+Task 3 was a `checkpoint:human-verify` gate. User confirmed all 12 verification steps pass:
+- Built-in presets (Performance Review, Daily Monitor) visible in dropdown
+- Apply confirmation inline two-step works
+- Save user template and it appears in list
+- Apply saved template with confirmation restores layout
+- Delete user template removes it from list
+- Copy built-in preset populates name field with "(copy)" suffix
+- Per-account layouts persist independently when switching accounts
+- Reset button behavior unchanged (restores DEFAULT_ORDER)
 
 ## Self-Check: PASSED
 

@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Settings & Polish
 status: active
-stopped_at: "Checkpoint: 15-02 human-verify - awaiting manual verification of template system"
-last_updated: "2026-03-20T19:56:59.440Z"
+stopped_at: Completed 15-02-PLAN.md — Phase 15 dashboard layout templates complete
+last_updated: "2026-03-20T20:04:49.917Z"
 last_activity: 2026-03-19 — Completed 12-01 (request-aware URL detection for all email-sending routes)
 progress:
   total_phases: 6
@@ -69,6 +69,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 - [Phase 15]: Per-account layout key: dashboard_layout_{accountId} or dashboard_layout_all_accounts for null (All Accounts view)
 - [Phase 15]: Template handlers stubbed in DashboardShell Plan 01; UI wired in Plan 02 to keep state management co-located
 - [Phase 15]: TemplatePanel imports types from DashboardShell directly; admin isAdmin prop enables edit-default button for built-in presets
+- [Phase 15]: Human verification (Task 3) confirmed all 12 template workflow steps pass: built-in presets read-only, user templates save/load/delete, per-account isolation, reset button unchanged
 
 ### Blockers/Concerns
 
@@ -82,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T19:56:59.438Z
-Stopped at: Checkpoint: 15-02 human-verify - awaiting manual verification of template system
+Last session: 2026-03-20T20:04:49.915Z
+Stopped at: Completed 15-02-PLAN.md — Phase 15 dashboard layout templates complete
 Resume file: None
