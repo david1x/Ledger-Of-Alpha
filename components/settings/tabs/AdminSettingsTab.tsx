@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Settings, Eye, EyeOff, Save, CheckCircle, Key } from "lucide-react";
+import { useEffect, useState, Dispatch, SetStateAction } from "react";
+import { Settings, Eye, EyeOff, Save, CheckCircle, Key, Loader2 } from "lucide-react";
 import { INPUT, LABEL, HINT, SYS_DEFAULTS, useTabDirty } from "@/components/settings/types";
 import type { SystemSettings } from "@/components/settings/types";
 
@@ -18,6 +18,9 @@ export default function AdminSettingsTab({ isAdmin }: Props) {
   const [showFmpKey, setShowFmpKey] = useState(false);
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [detectedUrl, setDetectedUrl] = useState("");
+  const [smtpTest, setSmtpTest] = useState<{ loading: boolean; result: { text: string; type: "ok" | "err" } | null }>({ loading: false, result: null });
+  const [fmpTest, setFmpTest] = useState<{ loading: boolean; result: { text: string; type: "ok" | "err" } | null }>({ loading: false, result: null });
+  const [geminiTest, setGeminiTest] = useState<{ loading: boolean; result: { text: string; type: "ok" | "err" } | null }>({ loading: false, result: null });
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -49,6 +52,25 @@ export default function AdminSettingsTab({ isAdmin }: Props) {
     setSysSaved(true);
     resetBaseline();
     setTimeout(() => setSysSaved(false), 2500);
+  };
+
+  type TestState = { loading: boolean; result: { text: string; type: "ok" | "err" } | null };
+  type SetTestState = Dispatch<SetStateAction<TestState>>;
+
+  const runTest = async (endpoint: string, setState: SetTestState) => {
+    setState({ loading: true, result: null });
+    try {
+      const res = await fetch(endpoint, { method: "POST" });
+      const data = await res.json();
+      const result: { text: string; type: "ok" | "err" } = data.ok
+        ? { text: "Connection successful", type: "ok" }
+        : { text: data.error || "Test failed", type: "err" };
+      setState({ loading: false, result });
+      setTimeout(() => setState((s) => ({ ...s, result: null })), 5000);
+    } catch {
+      setState({ loading: false, result: { text: "Network error", type: "err" } });
+      setTimeout(() => setState((s) => ({ ...s, result: null })), 5000);
+    }
   };
 
   return (
@@ -201,6 +223,25 @@ export default function AdminSettingsTab({ isAdmin }: Props) {
                   className={INPUT}
                 />
               </div>
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => runTest("/api/admin/test-smtp", setSmtpTest)}
+                  disabled={smtpTest.loading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-xs font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                >
+                  {smtpTest.loading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : null}
+                  {smtpTest.loading ? "Testing..." : "Test Connection"}
+                </button>
+                {smtpTest.result && (
+                  <span className={`text-xs ${smtpTest.result.type === "ok" ? "text-emerald-400" : "text-red-400"}`}>
+                    {smtpTest.result.text}
+                  </span>
+                )}
+              </div>
+              <p className={HINT}>Save settings first, then test to verify.</p>
             </div>
 
             {/* API Keys */}
@@ -215,43 +256,77 @@ export default function AdminSettingsTab({ isAdmin }: Props) {
               </div>
               <div>
                 <label className={LABEL}>FMP API Key</label>
-                <div className="relative">
-                  <input
-                    type={showFmpKey ? "text" : "password"}
-                    value={sysSettings.fmp_api_key}
-                    onChange={(e) => setSysSettings((s) => ({ ...s, fmp_api_key: e.target.value }))}
-                    placeholder="••••••••"
-                    autoComplete="new-password"
-                    className={`${INPUT} pr-10`}
-                  />
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type={showFmpKey ? "text" : "password"}
+                      value={sysSettings.fmp_api_key}
+                      onChange={(e) => setSysSettings((s) => ({ ...s, fmp_api_key: e.target.value }))}
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                      className={`${INPUT} pr-10`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowFmpKey((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 dark:text-slate-400 text-slate-500"
+                    >
+                      {showFmpKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setShowFmpKey((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 dark:text-slate-400 text-slate-500"
+                    onClick={() => runTest("/api/admin/test-fmp", setFmpTest)}
+                    disabled={fmpTest.loading}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-xs font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors disabled:opacity-50 whitespace-nowrap"
                   >
-                    {showFmpKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {fmpTest.loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                    {fmpTest.loading ? "Testing..." : "Test"}
                   </button>
                 </div>
+                {fmpTest.result && (
+                  <span className={`text-xs mt-1 block ${fmpTest.result.type === "ok" ? "text-emerald-400" : "text-red-400"}`}>
+                    {fmpTest.result.text}
+                  </span>
+                )}
+                <p className={HINT + " mt-1"}>Tests the saved key. Save first if you made changes.</p>
               </div>
               <div>
                 <label className={LABEL}>Gemini API Key</label>
-                <div className="relative">
-                  <input
-                    type={showGeminiKey ? "text" : "password"}
-                    value={sysSettings.openai_api_key}
-                    onChange={(e) => setSysSettings((s) => ({ ...s, openai_api_key: e.target.value }))}
-                    placeholder="••••••••"
-                    autoComplete="new-password"
-                    className={`${INPUT} pr-10`}
-                  />
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type={showGeminiKey ? "text" : "password"}
+                      value={sysSettings.openai_api_key}
+                      onChange={(e) => setSysSettings((s) => ({ ...s, openai_api_key: e.target.value }))}
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                      className={`${INPUT} pr-10`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowGeminiKey((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 dark:text-slate-400 text-slate-500"
+                    >
+                      {showGeminiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setShowGeminiKey((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 dark:text-slate-400 text-slate-500"
+                    onClick={() => runTest("/api/admin/test-gemini", setGeminiTest)}
+                    disabled={geminiTest.loading}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border dark:border-slate-600 border-slate-300 dark:text-slate-300 text-slate-700 text-xs font-medium hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors disabled:opacity-50 whitespace-nowrap"
                   >
-                    {showGeminiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {geminiTest.loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                    {geminiTest.loading ? "Testing..." : "Test"}
                   </button>
                 </div>
+                {geminiTest.result && (
+                  <span className={`text-xs mt-1 block ${geminiTest.result.type === "ok" ? "text-emerald-400" : "text-red-400"}`}>
+                    {geminiTest.result.text}
+                  </span>
+                )}
+                <p className={HINT + " mt-1"}>Tests the saved key. Save first if you made changes.</p>
               </div>
             </div>
 
