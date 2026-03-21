@@ -27,9 +27,9 @@ Requirements for Trades Page Overhaul. Each maps to roadmap phases.
 
 ### Summary Stats
 
-- [ ] **STAT-01**: User can see cumulative return, P/L ratio, and win % in a summary stats bar
-- [ ] **STAT-02**: User can see sparkline charts in each summary stat card
-- [ ] **STAT-03**: Summary stats reflect all trades unless a date filter is active (then scoped to date range)
+- [x] **STAT-01**: User can see cumulative return, P/L ratio, and win % in a summary stats bar
+- [x] **STAT-02**: User can see sparkline charts in each summary stat card
+- [x] **STAT-03**: Summary stats reflect all trades unless a date filter is active (then scoped to date range)
 
 ### Trade Table
 
@@ -91,9 +91,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MIST-01 | Phase 18 | Complete |
 | MIST-02 | Phase 22 | Pending |
 | MIST-03 | Phase 22 | Pending |
-| STAT-01 | Phase 21 | Pending |
-| STAT-02 | Phase 21 | Pending |
-| STAT-03 | Phase 21 | Pending |
+| STAT-01 | Phase 21 | Complete |
+| STAT-02 | Phase 21 | Complete |
+| STAT-03 | Phase 21 | Complete |
 | TABL-01 | Phase 22 | Pending |
 | TABL-02 | Phase 22 | Pending |
 | TABL-03 | Phase 22 | Pending |

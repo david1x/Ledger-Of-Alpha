@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Trades Page Overhaul
 status: completed
-stopped_at: Phase 21 context gathered
-last_updated: "2026-03-21T15:26:33.566Z"
+stopped_at: Completed 21-01-PLAN.md (SummaryStatsBar)
+last_updated: "2026-03-21T15:56:59.287Z"
 last_activity: 2026-03-21 — Completed Phase 19 (TradesShell Refactor, 2 plans)
 progress:
   total_phases: 6
-  completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  completed_phases: 4
+  total_plans: 7
+  completed_plans: 7
   percent: 100
 ---
 
@@ -58,6 +58,8 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 - [Phase 20-filter-system-saved-views]: Mistake type dropdown sets filter.mistakeId but applyFilter logic deferred to Phase 22 (trade-mistake junction data not in trades fetch yet)
 - [Phase 20-filter-system-saved-views]: settingsData state must be declared before useMemo that reads it to avoid TS2448 block-scoped variable before declaration
 - [Phase 20-filter-system-saved-views]: SavedViewsDropdown placed alongside Columns button in filter toolbar for visual proximity to filter controls
+- [Phase 21-summary-stats-bar]: SummaryStatsBar calls usePrivacy() internally — TradesShell no longer needs the usePrivacy import
+- [Phase 21-summary-stats-bar]: P/L Ratio sparkline uses neutral blue (#3b82f6) to avoid confusing color flips as rolling ratio crosses 1.0
 
 ### Blockers/Concerns
 
@@ -70,6 +72,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-21T15:26:33.563Z
-Stopped at: Phase 21 context gathered
-Resume file: .planning/phases/21-summary-stats-bar/21-CONTEXT.md
+Last session: 2026-03-21T15:56:59.284Z
+Stopped at: Completed 21-01-PLAN.md (SummaryStatsBar)
+Resume file: None

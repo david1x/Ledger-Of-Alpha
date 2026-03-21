@@ -45,7 +45,7 @@ See [v2.1 Roadmap Archive](.planning/milestones/v2.1-ROADMAP.md) for details.
 - [x] **Phase 18: DB & API Foundation** - Mistakes tables, CRUD API routes, extended trades query params (completed 2026-03-21)
 - [x] **Phase 19: TradesShell Refactor** - Extract trades page into component tree; define unified filter state type (completed 2026-03-21)
 - [x] **Phase 20: Filter System & Saved Views** - All filter controls, active chips, quick presets, named saved views (completed 2026-03-21)
-- [ ] **Phase 21: Summary Stats Bar** - Cumulative return, P/L ratio, win % with sparklines scoped to filtered trades
+- [x] **Phase 21: Summary Stats Bar** - Cumulative return, P/L ratio, win % with sparklines scoped to filtered trades (completed 2026-03-21)
 - [ ] **Phase 22: Enhanced Trade Table & Mistakes** - Badges, new columns, column reorder, mistakes tagging
 - [ ] **Phase 23: Sidebar Analytics & Mobile Polish** - Right sidebar panels, collapse toggle, responsive layouts
 
@@ -101,7 +101,7 @@ Plans:
   1. User can see three stat cards (Cumulative Return, P/L Ratio, Win %) at the top of the trades page
   2. Each stat card displays a small sparkline chart showing the trend over time
   3. When a date filter is active, all three stats reflect only the filtered date range; removing the filter updates stats to show all trades
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 21-01-PLAN.md — SummaryStatsBar component with sparklines, replaces AccountBanner on trades page
 
@@ -141,7 +141,7 @@ Plans:
 | 18. DB & API Foundation | 2/2 | Complete    | 2026-03-21 | - |
 | 19. TradesShell Refactor | 2/2 | Complete    | 2026-03-21 | - |
 | 20. Filter System & Saved Views | 2/2 | Complete    | 2026-03-21 | - |
-| 21. Summary Stats Bar | v3.0 | 0/1 | Not started | - |
+| 21. Summary Stats Bar | 1/1 | Complete   | 2026-03-21 | - |
 | 22. Enhanced Trade Table & Mistakes | v3.0 | 0/TBD | Not started | - |
 | 23. Sidebar Analytics & Mobile Polish | v3.0 | 0/TBD | Not started | - |
 
