@@ -4,10 +4,9 @@ import { TradeFilterState, DEFAULT_FILTER, Trade, QuoteMap, SavedView } from "@/
 import TradeTable, { ALL_COLUMNS, DEFAULT_COLUMNS, ColumnKey } from "@/components/TradeTable";
 import TradeModal from "@/components/TradeModal";
 import { Plus, SlidersHorizontal } from "lucide-react";
-import AccountBanner from "@/components/AccountBanner";
+import SummaryStatsBar from "./SummaryStatsBar";
 import AlertModal from "@/components/AlertModal";
 import { useAccounts } from "@/lib/account-context";
-import { usePrivacy } from "@/lib/privacy-context";
 import TradeImportExport from "./TradeImportExport";
 import TradeFilterChips from "./TradeFilterChips";
 import TradeFilterBar from "./TradeFilterBar";
@@ -40,7 +39,6 @@ function applyFilter(trades: Trade[], filter: TradeFilterState): Trade[] {
 
 export default function TradesShell() {
   const { accounts, activeAccountId, activeAccount } = useAccounts();
-  const { hidden, toggleHidden } = usePrivacy();
 
   const [me, setMe] = useState<any>(null);
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
@@ -236,13 +234,11 @@ export default function TradesShell() {
         </div>
       </div>
 
-      {/* Account Stats Banner */}
-      <AccountBanner
-        trades={allTrades}
-        quotes={quotes}
+      {/* Summary Stats */}
+      <SummaryStatsBar
+        filteredTrades={filteredTrades}
+        allTrades={allTrades}
         accountSize={accountSize}
-        hidden={hidden}
-        onToggleHidden={toggleHidden}
       />
 
       {/* Filters */}
