@@ -36,7 +36,9 @@ export async function GET(req: NextRequest) {
     const symbol = searchParams.get("symbol");
     const aiPattern = searchParams.get("ai_pattern");
 
-    let query = "SELECT * FROM trades WHERE user_id = ?";
+    let query = `SELECT t.*,
+      (SELECT GROUP_CONCAT(tmt.mistake_id) FROM trade_mistake_tags tmt WHERE tmt.trade_id = t.id) AS mistake_tag_ids
+      FROM trades t WHERE t.user_id = ?`;
     const params: unknown[] = [user.id];
 
     const accountId = searchParams.get("account_id");

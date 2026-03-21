@@ -27,6 +27,11 @@ function applyFilter(trades: Trade[], filter: TradeFilterState): Trade[] {
       const tradeTags = t.tags ? t.tags.split(",").map(s => s.trim()) : [];
       if (!filter.tags.some(ft => tradeTags.includes(ft))) return false;
     }
+    // Mistake filter (uses junction table data from API)
+    if (filter.mistakeId) {
+      const ids = t.mistake_tag_ids ? t.mistake_tag_ids.split(",") : [];
+      if (!ids.includes(filter.mistakeId)) return false;
+    }
     // Account filter (client-side, only used in All Accounts mode)
     if (filter.accountId && t.account_id !== filter.accountId) return false;
     return true;

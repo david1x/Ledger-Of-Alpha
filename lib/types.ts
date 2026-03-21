@@ -83,6 +83,7 @@ export interface Trade {
   ai_primary_pattern?: string | null; // denormalized pattern name
   ibkr_exec_id?: string | null;       // IBKR execution ID for deduplication
   source?: string | null;             // 'manual' | 'ibkr'
+  mistake_tag_ids?: string | null;    // comma-separated mistake_type IDs from junction table
   created_at: string;
   user_id: string | null;
 }
