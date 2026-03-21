@@ -6,7 +6,7 @@
 - [v2.0 (SHIPPED)](.planning/milestones/v2.0-ROADMAP.md) — Intelligence & Automation (2026-03-19)
 - [v2.1 (SHIPPED)](.planning/milestones/v2.1-ROADMAP.md) — Settings & Polish (2026-03-21)
 - **v2.3 (SHIPPED)** — Verify URL Hotfix (2026-03-21)
-- **v3.0 (In Progress)** — Trades Page Overhaul (Phases 18-23)
+- **v3.0 (In Progress)** — Trades Page Overhaul (Phases 18-24)
 
 ## Phases
 
@@ -137,7 +137,7 @@ Plans:
 
 ## Progress
 
-**Execution Order:** 18 → 19 → 20 → 21 → 22 → 23
+**Execution Order:** 18 → 19 → 20 → 21 → 22 → 23 → 24
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -153,13 +153,14 @@ Plans:
 
 ### Phase 24: Trades page UI tightening — wider sidebar, compact cards, grid layout polish, filter relocation
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Tighten the trades page layout into a dense, well-assembled grid: relocate filters to the top, remove the title, widen the sidebar with full-height border, reduce all card/button radii, compact stat cards, and embed the column config cog alongside saved views in the table card header
+**Requirements**: UI-LAYOUT, UI-SIDEBAR, UI-FILTER-RELOC, UI-COG, UI-CARDS, UI-BUTTONS, UI-SPACING
 **Depends on:** Phase 23
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 24 to break down)
+- [ ] 24-01-PLAN.md — TradesShell layout restructuring: filter relocation, title removal, sidebar fixes, cog icon, spacing/radius
+- [ ] 24-02-PLAN.md — Sub-component polish: SummaryStatsBar height, TradeFilterBar/SavedViewsDropdown/TradesSidebar radius and gaps
 
 ---
-*Phase numbering continues across milestones. Next phase after v3.0: 24.*
+*Phase numbering continues across milestones. Next phase after v3.0: 25.*
