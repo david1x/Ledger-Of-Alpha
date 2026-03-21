@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser, isGuest } from "@/lib/auth";
-import { ibkrFetch, getIbkrSettings, IbkrPosition } from "@/lib/ibkr-client";
+import { getIBClient, waitForConnection, getIbkrSettings, getPositions } from "@/lib/ibkr-client";
+import { IBApiNext } from "@stoqey/ib";
+import { firstValueFrom, take, timeout, catchError, of } from "rxjs";
 
-interface MappedPosition {
+interface PositionWithPnl {
   symbol: string;
   quantity: number;
   unrealizedPnl: number;
@@ -14,20 +16,27 @@ interface MappedPosition {
   ibkrAccountId: string;
 }
 
-async function fetchPositionPage(
-  gatewayUrl: string,
-  ibkrAccountId: string,
-  sslVerify: boolean,
-  page: number
-): Promise<IbkrPosition[]> {
-  const res = await ibkrFetch(
-    gatewayUrl,
-    `/portfolio/${ibkrAccountId}/positions/${page}`,
-    sslVerify
-  );
-  if (!res.ok) return [];
-  const data = await res.json();
-  return Array.isArray(data) ? (data as IbkrPosition[]) : [];
+async function getPositionPnl(
+  ib: IBApiNext,
+  account: string,
+  conId: number,
+): Promise<{ unrealizedPnl: number; mktPrice: number } | null> {
+  try {
+    const pnl = await firstValueFrom(
+      ib.getPnLSingle(account, "", conId).pipe(
+        take(1),
+        timeout(5000),
+        catchError(() => of(null)),
+      )
+    );
+    if (pnl) {
+      return {
+        unrealizedPnl: pnl.unrealizedPnL ?? 0,
+        mktPrice: pnl.marketValue && pnl.position ? pnl.marketValue / Math.abs(pnl.position) : 0,
+      };
+    }
+  } catch { /* fall through */ }
+  return null;
 }
 
 export async function GET(req: NextRequest) {
@@ -36,49 +45,54 @@ export async function GET(req: NextRequest) {
   if (isGuest(req)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const db = getDb();
-  const { gatewayUrl, sslVerify, accountMappings } = getIbkrSettings(db, user.id);
+  const { host, port, clientId, accountMappings } = getIbkrSettings(db, user.id);
 
-  if (!gatewayUrl) {
-    return NextResponse.json({ error: "No gateway URL configured" }, { status: 400 });
+  if (!host || !port) {
+    return NextResponse.json({ error: "No connection configured" }, { status: 400 });
   }
 
-  const positions: MappedPosition[] = [];
+  const ib = getIBClient(host, port, clientId);
+  const connected = await waitForConnection(ib, 5000);
 
-  for (const { ibkrAccountId } of accountMappings) {
-    let page = 0;
-    let keepFetching = true;
+  if (!connected) {
+    return NextResponse.json({ error: "Not connected to TWS/IB Gateway" }, { status: 503 });
+  }
 
-    while (keepFetching) {
-      let batch: IbkrPosition[];
-      try {
-        batch = await fetchPositionPage(gatewayUrl, ibkrAccountId, sslVerify, page);
-      } catch {
-        break;
-      }
+  try {
+    const rawPositions = await getPositions(ib);
 
-      for (const pos of batch) {
-        const pnlPercent =
-          pos.mktValue !== 0
-            ? (pos.unrealizedPnl / Math.abs(pos.mktValue)) * 100
-            : 0;
+    // Filter to only mapped accounts
+    const mappedAccountIds = new Set(accountMappings.map(m => m.ibkrAccountId));
+    const filtered = mappedAccountIds.size > 0
+      ? rawPositions.filter(p => mappedAccountIds.has(p.account))
+      : rawPositions;
 
-        positions.push({
-          symbol: pos.ticker,
-          quantity: pos.position,
-          unrealizedPnl: pos.unrealizedPnl,
-          pnlPercent,
-          direction: pos.position > 0 ? "long" : "short",
-          mktPrice: pos.mktPrice,
-          avgPrice: pos.avgPrice,
-          ibkrAccountId,
-        });
-      }
+    // Enrich with P&L data
+    const positions: PositionWithPnl[] = [];
+    for (const pos of filtered) {
+      if (pos.quantity === 0) continue;
 
-      // IBKR returns at most 30 positions per page; fewer means last page
-      keepFetching = batch.length === 30;
-      page++;
+      const pnlData = await getPositionPnl(ib, pos.account, pos.conId);
+      const unrealizedPnl = pnlData?.unrealizedPnl ?? 0;
+      const mktPrice = pnlData?.mktPrice ?? 0;
+      const costBasis = Math.abs(pos.quantity) * pos.avgCost;
+      const pnlPercent = costBasis > 0 ? (unrealizedPnl / costBasis) * 100 : 0;
+
+      positions.push({
+        symbol: pos.symbol,
+        quantity: pos.quantity,
+        unrealizedPnl,
+        pnlPercent,
+        direction: pos.quantity > 0 ? "long" : "short",
+        mktPrice,
+        avgPrice: pos.avgCost,
+        ibkrAccountId: pos.account,
+      });
     }
-  }
 
-  return NextResponse.json({ positions, fetchedAt: new Date().toISOString() });
+    return NextResponse.json({ positions, fetchedAt: new Date().toISOString() });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
 }

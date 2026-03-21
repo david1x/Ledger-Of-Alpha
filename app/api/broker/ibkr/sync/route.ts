@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser, isGuest } from "@/lib/auth";
-import { ibkrFetch, getIbkrSettings, mapSide, IbkrExecution } from "@/lib/ibkr-client";
+import { getIBClient, waitForConnection, getIbkrSettings, getExecutions } from "@/lib/ibkr-client";
 
 interface SyncBody {
   dateRange?: "7d" | "30d" | "custom";
@@ -18,20 +18,28 @@ interface SyncResult {
   error?: string;
 }
 
-async function fetchExecutions(
-  gatewayUrl: string,
-  ibkrAccountId: string,
-  sslVerify: boolean,
-  days: number
-): Promise<IbkrExecution[]> {
-  const res = await ibkrFetch(
-    gatewayUrl,
-    `/iserver/account/${ibkrAccountId}/trades?days=${days}`,
-    sslVerify
-  );
-  if (!res.ok) return [];
-  const data = await res.json();
-  return Array.isArray(data) ? (data as IbkrExecution[]) : [];
+/**
+ * Build the IB time filter string (format: "yyyymmdd hh:mm:ss").
+ * IB only returns executions from the current and previous 6 days max.
+ */
+function buildTimeFilter(dateRange: string, startDate?: string): string {
+  let since: Date;
+
+  if (dateRange === "custom" && startDate) {
+    since = new Date(startDate);
+  } else if (dateRange === "30d") {
+    // IB caps at ~7 days, but we'll send the filter anyway
+    since = new Date();
+    since.setDate(since.getDate() - 30);
+  } else {
+    since = new Date();
+    since.setDate(since.getDate() - 7);
+  }
+
+  const yyyy = since.getFullYear().toString();
+  const mm = (since.getMonth() + 1).toString().padStart(2, "0");
+  const dd = since.getDate().toString().padStart(2, "0");
+  return `${yyyy}${mm}${dd} 00:00:00`;
 }
 
 export async function POST(req: NextRequest) {
@@ -46,26 +54,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { dateRange = "7d" } = body;
+  const { dateRange = "7d", startDate } = body;
 
   const db = getDb();
-  const { gatewayUrl, sslVerify, accountMappings } = getIbkrSettings(db, user.id);
+  const { host, port, clientId, accountMappings } = getIbkrSettings(db, user.id);
 
-  if (!gatewayUrl) {
-    return NextResponse.json({ error: "No gateway URL configured" }, { status: 400 });
+  if (!host || !port) {
+    return NextResponse.json({ error: "No connection configured" }, { status: 400 });
   }
 
   if (!accountMappings || accountMappings.length === 0) {
     return NextResponse.json({ error: "No accounts linked" }, { status: 400 });
   }
 
-  // Initialize brokerage session (required before iserver/account/trades)
-  try {
-    await ibkrFetch(gatewayUrl, "/iserver/accounts", sslVerify);
-  } catch {
-    // Non-fatal — proceed and let individual account fetches fail
+  const ib = getIBClient(host, port, clientId);
+  const connected = await waitForConnection(ib, 5000);
+
+  if (!connected) {
+    return NextResponse.json({ error: "Not connected to TWS/IB Gateway" }, { status: 503 });
   }
 
+  const sinceTime = buildTimeFilter(dateRange, startDate);
   const syncedAt = new Date().toISOString();
   const results: SyncResult[] = [];
 
@@ -88,49 +97,20 @@ export async function POST(req: NextRequest) {
     };
 
     try {
-      let executions: IbkrExecution[] = [];
-
-      if (dateRange === "7d") {
-        executions = await fetchExecutions(gatewayUrl, ibkrAccountId, sslVerify, 7);
-      } else {
-        // 30d or custom: make 5 sequential calls with 7-day windows to avoid gateway limits
-        const totalDays = dateRange === "30d" ? 30 : 30;
-        const windows = Math.ceil(totalDays / 7);
-        for (let i = 0; i < windows; i++) {
-          const windowDays = Math.min(7, totalDays - i * 7);
-          const batch = await fetchExecutions(
-            gatewayUrl,
-            ibkrAccountId,
-            sslVerify,
-            windowDays
-          );
-          executions.push(...batch);
-          if (i < windows - 1) {
-            await new Promise(r => setTimeout(r, 1000));
-          }
-        }
-        // Deduplicate executions by execution_id before inserting
-        const seen = new Set<string>();
-        executions = executions.filter(e => {
-          if (!e.execution_id || seen.has(e.execution_id)) return false;
-          seen.add(e.execution_id);
-          return true;
-        });
-      }
+      const executions = await getExecutions(ib, ibkrAccountId, sinceTime);
 
       for (const exec of executions) {
         try {
-          const direction = mapSide(exec.side);
           const insertResult = insertTrade.run(
             user.id,
             ledgerAccountId,
             exec.symbol,
-            direction,
+            exec.side,
             exec.price,
-            exec.size,
-            exec.trade_time,
-            exec.commission ?? 0,
-            exec.execution_id,
+            exec.shares,
+            exec.time,
+            exec.commission,
+            exec.execId,
           ) as { changes: number };
 
           if (insertResult.changes === 0) {

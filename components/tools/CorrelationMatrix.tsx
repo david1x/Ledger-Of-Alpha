@@ -1,7 +1,16 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
-import { X, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { X, AlertTriangle, Info } from "lucide-react";
 import { sampleCorrelation } from "simple-statistics";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+} from "recharts";
 import SymbolSearch from "@/components/SymbolSearch";
 
 const MAX_SYMBOLS = 10;
@@ -31,14 +40,33 @@ interface ProgressState {
   symbol: string;
 }
 
+// Colors for up to 10 lines
+const LINE_COLORS = [
+  "#10b981", // emerald
+  "#3b82f6", // blue
+  "#f59e0b", // amber
+  "#ef4444", // red
+  "#8b5cf6", // violet
+  "#ec4899", // pink
+  "#14b8a6", // teal
+  "#f97316", // orange
+  "#6366f1", // indigo
+  "#84cc16", // lime
+];
+
 function getCorrelationColor(val: number): string {
-  if (val >= 0) {
-    // emerald-500: rgb(16,185,129)
-    return `rgba(16,185,129,${(val * 0.65).toFixed(2)})`;
-  } else {
-    // red-500: rgb(239,68,68)
-    return `rgba(239,68,68,${(Math.abs(val) * 0.65).toFixed(2)})`;
-  }
+  if (val >= 0.7) return "text-emerald-400";
+  if (val >= 0.3) return "dark:text-emerald-300/70 text-emerald-600";
+  if (val >= -0.3) return "dark:text-slate-400 text-slate-500";
+  if (val >= -0.7) return "dark:text-red-300/70 text-red-600";
+  return "text-red-400";
+}
+
+function getCorrelationLabel(val: number): string {
+  const abs = Math.abs(val);
+  if (abs >= 0.7) return "Strong";
+  if (abs >= 0.3) return "Moderate";
+  return "Weak";
 }
 
 function getJan1Timestamp(): number {
@@ -53,8 +81,8 @@ export default function CorrelationMatrix() {
   const [searchValue, setSearchValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<ProgressState | null>(null);
-  const [matrix, setMatrix] = useState<(number | null)[][] | null>(null);
-  const [matrixSymbols, setMatrixSymbols] = useState<string[]>([]);
+  const [seriesData, setSeriesData] = useState<Record<string, Bar[]> | null>(null);
+  const [validSymbols, setValidSymbols] = useState<string[]>([]);
   const abortRef = useRef(false);
 
   // On mount: fetch user's trade history to pre-populate symbols
@@ -65,7 +93,6 @@ export default function CorrelationMatrix() {
         if (!res.ok) return;
         const data = await res.json();
         if (!Array.isArray(data) || data.length === 0) return;
-        // Count frequency
         const freq: Record<string, number> = {};
         for (const trade of data) {
           if (trade.symbol) {
@@ -96,25 +123,24 @@ export default function CorrelationMatrix() {
     if (symbols.length >= MAX_SYMBOLS) return;
     setSymbols((prev) => [...prev, upper]);
     setSearchValue("");
-    // Clear matrix when symbols change
-    setMatrix(null);
+    setSeriesData(null);
   }
 
   function removeSymbol(sym: string) {
     setSymbols((prev) => prev.filter((s) => s !== sym));
-    setMatrix(null);
+    setSeriesData(null);
   }
 
   async function calculate() {
     if (symbols.length < 2) return;
     setLoading(true);
     setProgress(null);
-    setMatrix(null);
+    setSeriesData(null);
     setErrorSymbols(new Set());
     abortRef.current = false;
 
     const range = PERIOD_TO_RANGE[period];
-    const seriesMap: Record<string, Bar[]> = {};
+    const fetchedSeries: Record<string, Bar[]> = {};
     const newErrors = new Set<string>();
 
     for (let i = 0; i < symbols.length; i++) {
@@ -130,14 +156,13 @@ export default function CorrelationMatrix() {
         let bars: Bar[] = await res.json();
         if (!Array.isArray(bars) || bars.length === 0) throw new Error("no data");
 
-        // YTD filter: only bars from Jan 1 of current year
         if (period === "YTD") {
           const jan1 = getJan1Timestamp();
           bars = bars.filter((b) => b.time >= jan1);
         }
 
         if (bars.length < 2) throw new Error("insufficient data");
-        seriesMap[sym] = bars;
+        fetchedSeries[sym] = bars;
       } catch {
         newErrors.add(sym);
       }
@@ -145,32 +170,75 @@ export default function CorrelationMatrix() {
 
     setErrorSymbols(newErrors);
 
-    // Build list of symbols that successfully fetched
     const valid = symbols.filter((s) => !newErrors.has(s));
-
     if (valid.length < 2) {
       setLoading(false);
       setProgress(null);
-      setMatrix(null);
       return;
     }
 
-    // Compute NxN matrix
-    const n = valid.length;
-    const result: (number | null)[][] = Array.from({ length: n }, () =>
-      new Array(n).fill(null)
+    setSeriesData(fetchedSeries);
+    setValidSymbols(valid);
+    setLoading(false);
+    setProgress(null);
+  }
+
+  // Build normalized chart data: % change from first close
+  const chartData = useMemo(() => {
+    if (!seriesData || validSymbols.length < 2) return [];
+
+    // Find common timestamps across all valid symbols
+    const timestampSets = validSymbols.map(
+      (sym) => new Set(seriesData[sym].map((b) => b.time))
     );
+    const commonTimestamps = [...timestampSets[0]].filter((t) =>
+      timestampSets.every((s) => s.has(t))
+    );
+    commonTimestamps.sort((a, b) => a - b);
 
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        if (i === j) {
-          result[i][j] = 1.0;
-          continue;
-        }
-        const seriesA = seriesMap[valid[i]];
-        const seriesB = seriesMap[valid[j]];
+    if (commonTimestamps.length < 2) return [];
 
-        // Align by common timestamps
+    // Build lookup maps
+    const lookups: Record<string, Map<number, number>> = {};
+    for (const sym of validSymbols) {
+      const m = new Map<number, number>();
+      for (const bar of seriesData[sym]) m.set(bar.time, bar.close);
+      lookups[sym] = m;
+    }
+
+    // First close for normalization
+    const firstClose: Record<string, number> = {};
+    for (const sym of validSymbols) {
+      firstClose[sym] = lookups[sym].get(commonTimestamps[0])!;
+    }
+
+    return commonTimestamps.map((t) => {
+      const date = new Date(t * 1000);
+      const point: Record<string, string | number> = {
+        date: `${date.getMonth() + 1}/${date.getDate()}`,
+      };
+      for (const sym of validSymbols) {
+        const close = lookups[sym].get(t)!;
+        point[sym] = Number(
+          (((close - firstClose[sym]) / firstClose[sym]) * 100).toFixed(2)
+        );
+      }
+      return point;
+    });
+  }, [seriesData, validSymbols]);
+
+  // Compute pairwise correlations
+  const pairs = useMemo(() => {
+    if (!seriesData || validSymbols.length < 2) return [];
+
+    const result: { a: string; b: string; corr: number }[] = [];
+    for (let i = 0; i < validSymbols.length; i++) {
+      for (let j = i + 1; j < validSymbols.length; j++) {
+        const symA = validSymbols[i];
+        const symB = validSymbols[j];
+        const seriesA = seriesData[symA];
+        const seriesB = seriesData[symB];
+
         const bMap = new Map<number, number>();
         for (const bar of seriesB) bMap.set(bar.time, bar.close);
 
@@ -184,23 +252,18 @@ export default function CorrelationMatrix() {
           }
         }
 
-        if (alignedA.length < 2) {
-          result[i][j] = null; // N/A
-        } else {
+        if (alignedA.length >= 2) {
           try {
-            result[i][j] = sampleCorrelation(alignedA, alignedB);
+            result.push({ a: symA, b: symB, corr: sampleCorrelation(alignedA, alignedB) });
           } catch {
-            result[i][j] = null;
+            // skip pair
           }
         }
       }
     }
-
-    setMatrix(result);
-    setMatrixSymbols(valid);
-    setLoading(false);
-    setProgress(null);
-  }
+    result.sort((a, b) => Math.abs(b.corr) - Math.abs(a.corr));
+    return result;
+  }, [seriesData, validSymbols]);
 
   const atLimit = symbols.length >= MAX_SYMBOLS;
 
@@ -208,11 +271,28 @@ export default function CorrelationMatrix() {
     <div className="space-y-5">
       <div>
         <h2 className="text-base font-semibold dark:text-white text-slate-900 mb-1">
-          Correlation Matrix
+          Correlation
         </h2>
-        <p className="text-sm dark:text-slate-400 text-slate-500">
-          Compare Pearson correlation between multiple symbols using daily closes.
+        <p className="text-sm dark:text-slate-400 text-slate-500 mb-3">
+          Compare price movements and Pearson correlation between symbols.
         </p>
+
+        {/* Explainer */}
+        <div className="px-4 py-3 rounded-lg dark:bg-slate-800/50 bg-slate-50 border dark:border-slate-700/50 border-slate-200 text-sm dark:text-slate-400 text-slate-500">
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 mt-0.5 shrink-0 dark:text-slate-500 text-slate-400" />
+            <div>
+              <p className="mb-1.5">
+                <span className="dark:text-white text-slate-900 font-medium">Correlation</span> measures how closely two assets move together, from <span className="text-red-400 font-medium">-1.0</span> (perfect inverse) to <span className="text-emerald-400 font-medium">+1.0</span> (perfect sync).
+              </p>
+              <ul className="space-y-0.5 dark:text-slate-500 text-slate-400 text-xs">
+                <li><span className="text-emerald-400 font-medium">+0.7 to +1.0</span> — Strong positive: assets move in the same direction. Holding both increases concentration risk.</li>
+                <li><span className="dark:text-slate-300 text-slate-600 font-medium">-0.3 to +0.3</span> — Weak/no correlation: assets move independently. Good for diversification.</li>
+                <li><span className="text-red-400 font-medium">-1.0 to -0.7</span> — Strong negative: assets move opposite. Can be used as a hedge.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Symbol selection */}
@@ -224,7 +304,7 @@ export default function CorrelationMatrix() {
         {/* Chips */}
         {symbols.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
-            {symbols.map((sym) => (
+            {symbols.map((sym, idx) => (
               <span
                 key={sym}
                 className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
@@ -236,6 +316,10 @@ export default function CorrelationMatrix() {
                 {errorSymbols.has(sym) && (
                   <AlertTriangle className="w-3 h-3" />
                 )}
+                <span
+                  className="w-2 h-2 rounded-full inline-block"
+                  style={{ backgroundColor: LINE_COLORS[idx % LINE_COLORS.length] }}
+                />
                 {sym}
                 <button
                   onClick={() => removeSymbol(sym)}
@@ -277,7 +361,7 @@ export default function CorrelationMatrix() {
             value={period}
             onChange={(e) => {
               setPeriod(e.target.value as Period);
-              setMatrix(null);
+              setSeriesData(null);
             }}
             className="px-3 py-2 rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
@@ -319,118 +403,113 @@ export default function CorrelationMatrix() {
       {/* Empty state */}
       {symbols.length < 2 && !loading && (
         <p className="text-sm dark:text-slate-500 text-slate-400 italic">
-          Add at least 2 symbols to calculate correlations.
+          Add at least 2 symbols to compare correlations.
         </p>
       )}
 
-      {/* Matrix */}
-      {matrix && matrixSymbols.length >= 2 && (
-        <div className="overflow-x-auto">
-          <table className="border-collapse text-sm">
-            <thead>
-              <tr>
-                {/* top-left empty cell */}
-                <th className="p-0 w-12" />
-                {matrixSymbols.map((sym) => (
-                  <th
+      {/* Normalized price chart */}
+      {chartData.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium dark:text-slate-300 text-slate-700 mb-3">
+            Normalized Price Movement (% change)
+          </h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: "#94a3b8", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#334155" }}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fill: "#94a3b8", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#334155" }}
+                  tickFormatter={(v: number) => `${v > 0 ? "+" : ""}${v}%`}
+                  width={55}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#1e293b",
+                    border: "1px solid #334155",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                  }}
+                  labelStyle={{ color: "#94a3b8" }}
+                  formatter={(value: number, name: string) => [
+                    `${value > 0 ? "+" : ""}${value.toFixed(2)}%`,
+                    name,
+                  ]}
+                />
+                <Legend
+                  wrapperStyle={{ fontSize: "12px" }}
+                />
+                {validSymbols.map((sym, idx) => (
+                  <Line
                     key={sym}
-                    className={`px-2 py-1 text-center font-medium dark:text-slate-300 text-slate-600 ${
-                      matrixSymbols.length > 5 ? "w-16" : "w-20"
-                    }`}
-                  >
-                    {matrixSymbols.length > 5 ? (
-                      <span
-                        style={{
-                          display: "inline-block",
-                          transform: "rotate(-45deg)",
-                          transformOrigin: "center",
-                          whiteSpace: "nowrap",
-                          fontSize: "0.7rem",
-                        }}
-                      >
-                        {sym}
-                      </span>
-                    ) : (
-                      sym
-                    )}
-                  </th>
+                    type="monotone"
+                    dataKey={sym}
+                    stroke={LINE_COLORS[symbols.indexOf(sym) % LINE_COLORS.length]}
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 3 }}
+                  />
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {matrixSymbols.map((rowSym, i) => (
-                <tr key={rowSym}>
-                  <td className="pr-3 py-1 text-right font-medium dark:text-slate-300 text-slate-600 text-xs whitespace-nowrap">
-                    {rowSym}
-                  </td>
-                  {matrixSymbols.map((_, j) => {
-                    const val = matrix[i][j];
-                    const isDiag = i === j;
-
-                    if (isDiag) {
-                      return (
-                        <td
-                          key={j}
-                          className="text-center px-2 py-2 rounded dark:bg-slate-700 bg-slate-200 font-bold dark:text-slate-300 text-slate-600"
-                          style={{ minWidth: "3rem" }}
-                        >
-                          1.00
-                        </td>
-                      );
-                    }
-
-                    if (val === null) {
-                      return (
-                        <td
-                          key={j}
-                          className="text-center px-2 py-2 dark:text-slate-500 text-slate-400 text-xs"
-                          style={{ minWidth: "3rem" }}
-                        >
-                          N/A
-                        </td>
-                      );
-                    }
-
-                    return (
-                      <td
-                        key={j}
-                        className="text-center px-2 py-2 font-medium dark:text-white text-slate-900 transition-colors"
-                        style={{
-                          backgroundColor: getCorrelationColor(val),
-                          minWidth: "3rem",
-                        }}
-                      >
-                        {val.toFixed(2)}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       )}
 
-      {/* Legend */}
-      {matrix && matrixSymbols.length >= 2 && (
-        <div className="flex items-center gap-3 text-xs dark:text-slate-400 text-slate-500 mt-1">
-          <div className="flex items-center gap-1">
-            <div
-              className="w-4 h-4 rounded"
-              style={{ backgroundColor: "rgba(239,68,68,0.65)" }}
-            />
-            <span>Strong negative</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded dark:bg-slate-700 bg-slate-200" />
-            <span>Diagonal (self)</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div
-              className="w-4 h-4 rounded"
-              style={{ backgroundColor: "rgba(16,185,129,0.65)" }}
-            />
-            <span>Strong positive</span>
+      {/* Pairwise correlations */}
+      {pairs.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium dark:text-slate-300 text-slate-700 mb-1">
+            Pairwise Correlations
+          </h3>
+          <p className="text-xs dark:text-slate-500 text-slate-400 mb-3">
+            Each pair shows a Pearson correlation coefficient. The bar extends right (green) for positive and left (red) for negative correlation. Sorted by strength.
+          </p>
+          <div className="space-y-2">
+            {pairs.map(({ a, b, corr }) => (
+              <div
+                key={`${a}-${b}`}
+                className="flex items-center gap-3 px-4 py-2.5 rounded-lg dark:bg-slate-800/50 bg-slate-50 border dark:border-slate-700/50 border-slate-200"
+              >
+                <span className="text-sm font-medium dark:text-white text-slate-900 min-w-[120px]">
+                  {a} / {b}
+                </span>
+                {/* Bar visualization */}
+                <div className="flex-1 h-3 rounded-full dark:bg-slate-700 bg-slate-200 overflow-hidden relative">
+                  {/* Center line at 0 */}
+                  <div className="absolute left-1/2 top-0 bottom-0 w-px dark:bg-slate-500 bg-slate-400 z-10" />
+                  {corr >= 0 ? (
+                    <div
+                      className="absolute top-0 bottom-0 rounded-r-full bg-emerald-500/70"
+                      style={{ left: "50%", width: `${(corr / 1) * 50}%` }}
+                    />
+                  ) : (
+                    <div
+                      className="absolute top-0 bottom-0 rounded-l-full bg-red-500/70"
+                      style={{
+                        right: "50%",
+                        width: `${(Math.abs(corr) / 1) * 50}%`,
+                      }}
+                    />
+                  )}
+                </div>
+                <span
+                  className={`text-sm font-mono font-semibold min-w-[50px] text-right ${getCorrelationColor(corr)}`}
+                >
+                  {corr >= 0 ? "+" : ""}{corr.toFixed(2)}
+                </span>
+                <span className="text-xs dark:text-slate-500 text-slate-400 min-w-[60px]">
+                  {getCorrelationLabel(corr)}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -4,7 +4,6 @@ import { useSearchParams, useRouter } from "next/navigation";
 import clsx from "clsx";
 import DrawdownCalculator from "@/components/tools/DrawdownCalculator";
 import KellyCalculator from "@/components/tools/KellyCalculator";
-import FibCalculator from "@/components/tools/FibCalculator";
 import RRCalculator from "@/components/tools/RRCalculator";
 import GrowthCalculator from "@/components/tools/GrowthCalculator";
 import CorrelationMatrix from "@/components/tools/CorrelationMatrix";
@@ -14,8 +13,7 @@ const TABS = [
   { id: "growth",      label: "Compound Growth" },
   { id: "drawdown",    label: "Drawdown Recovery" },
   { id: "kelly",       label: "Kelly Criterion" },
-  { id: "fibonacci",   label: "Fibonacci Levels" },
-  { id: "correlation", label: "Correlation Matrix" },
+  { id: "correlation", label: "Correlation" },
 ];
 
 function ToolsContent() {
@@ -60,7 +58,6 @@ function ToolsContent() {
           {tab === "growth"      && <GrowthCalculator />}
           {tab === "drawdown"    && <DrawdownCalculator />}
           {tab === "kelly"       && <KellyCalculator />}
-          {tab === "fibonacci"   && <FibCalculator />}
           {tab === "correlation" && <CorrelationMatrix />}
         </div>
       </div>

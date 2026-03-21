@@ -3,10 +3,10 @@ import { useEffect, useState, useRef } from "react";
 import { Trade, QuoteMap } from "@/lib/types";
 import TradeTable, { ALL_COLUMNS, DEFAULT_COLUMNS, ColumnKey } from "@/components/TradeTable";
 import TradeModal from "@/components/TradeModal";
-import { Plus, Search, Filter, SlidersHorizontal, Download, Upload, ChevronDown } from "lucide-react";
+import { Plus, Search, Filter, SlidersHorizontal, Download, Upload, ChevronDown, Cable } from "lucide-react";
 import AccountBanner from "@/components/AccountBanner";
 import AlertModal from "@/components/AlertModal";
-import { tradesToCsv, csvToTrades } from "@/lib/csv";
+import { tradesToCsv, csvToTrades, isIbkrCsv, ibkrCsvToTrades } from "@/lib/csv";
 import { TRADE_FIELDS } from "@/lib/validate-trade";
 import { useAccounts } from "@/lib/account-context";
 
@@ -78,6 +78,7 @@ export default function TradesPage() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
   const [importing, setImporting] = useState(false);
+  const [showImportMenu, setShowImportMenu] = useState(false);
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertDefaults, setAlertDefaults] = useState<{ symbol?: string; price?: number }>({});
   const [hidden, setHidden] = useState(false);
@@ -96,7 +97,7 @@ export default function TradesPage() {
   }, []);
   const columnMenuRef = useRef<HTMLDivElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // fileInputRef removed — import uses inline dropdown labels now
 
   const loadQuotes = async (currentTrades: Trade[]) => {
     const symbols = [...new Set(
@@ -268,6 +269,7 @@ export default function TradesPage() {
 
     setImporting(true);
     setImportResult(null);
+    setShowImportMenu(false);
     try {
       const text = await file.text();
       let parsedTrades: Record<string, unknown>[];
@@ -300,6 +302,51 @@ export default function TradesPage() {
       }
     } catch {
       setImportResult({ imported: 0, skipped: 0, errors: ["Failed to parse file."] });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleImportIbkr = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    setImporting(true);
+    setImportResult(null);
+    setShowImportMenu(false);
+    try {
+      const text = await file.text();
+
+      if (!isIbkrCsv(text)) {
+        setImportResult({ imported: 0, skipped: 0, errors: ["This does not look like an IBKR Transaction History CSV."] });
+        setImporting(false);
+        return;
+      }
+
+      const parsedTrades = ibkrCsvToTrades(text);
+
+      if (parsedTrades.length === 0) {
+        setImportResult({ imported: 0, skipped: 0, errors: ["No trades found in IBKR file. Only Buy/Sell transactions are imported."] });
+        setImporting(false);
+        return;
+      }
+
+      const res = await fetch("/api/trades/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trades: parsedTrades, account_id: activeAccountId ?? undefined }),
+      });
+      const result = await res.json();
+
+      if (res.ok) {
+        setImportResult(result);
+        load();
+      } else {
+        setImportResult({ imported: 0, skipped: 0, errors: [result.error] });
+      }
+    } catch {
+      setImportResult({ imported: 0, skipped: 0, errors: ["Failed to parse IBKR file."] });
     } finally {
       setImporting(false);
     }
@@ -348,22 +395,41 @@ export default function TradesPage() {
             )}
           </div>
 
-          {/* Import button */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={importing}
-            className="flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2 sm:px-3 rounded-lg dark:bg-slate-800/50 bg-slate-100/50 dark:text-slate-300 text-slate-700 text-[10px] sm:text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-200 transition-colors disabled:opacity-50 shadow-sm"
-          >
-            <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>{importing ? "..." : "Import"}</span>
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,.json"
-            onChange={handleImportFile}
-            className="hidden"
-          />
+          {/* Import button with dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowImportMenu(v => !v)}
+              disabled={importing}
+              className="flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2 sm:px-3 rounded-lg dark:bg-slate-800/50 bg-slate-100/50 dark:text-slate-300 text-slate-700 text-[10px] sm:text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-200 transition-colors disabled:opacity-50 shadow-sm"
+            >
+              <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span>{importing ? "..." : "Import"}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${showImportMenu ? "rotate-180" : ""}`} />
+            </button>
+            {showImportMenu && !importing && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowImportMenu(false)} />
+                <div className="absolute right-0 top-full mt-1 z-50 w-52 rounded-lg border dark:border-slate-700 border-slate-200 dark:bg-slate-800 bg-white shadow-xl overflow-hidden">
+                  <label className="flex items-center gap-3 px-3 py-2.5 text-sm dark:text-slate-300 text-slate-700 hover:dark:bg-slate-700 hover:bg-slate-50 cursor-pointer transition-colors border-b dark:border-slate-700 border-slate-100">
+                    <Upload className="w-4 h-4 shrink-0" />
+                    <div>
+                      <div className="font-medium text-xs">From Backup</div>
+                      <div className="text-[10px] dark:text-slate-500 text-slate-400">CSV or JSON file</div>
+                    </div>
+                    <input type="file" accept=".csv,.json" onChange={handleImportFile} className="hidden" />
+                  </label>
+                  <label className="flex items-center gap-3 px-3 py-2.5 text-sm dark:text-slate-300 text-slate-700 hover:dark:bg-slate-700 hover:bg-slate-50 cursor-pointer transition-colors">
+                    <Cable className="w-4 h-4 shrink-0 text-blue-400" />
+                    <div>
+                      <div className="font-medium text-xs">From IBKR</div>
+                      <div className="text-[10px] dark:text-slate-500 text-slate-400">Transaction History CSV</div>
+                    </div>
+                    <input type="file" accept=".csv" onChange={handleImportIbkr} className="hidden" />
+                  </label>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* New Trade button */}
           <button

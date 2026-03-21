@@ -85,7 +85,13 @@ export default function RRCalculator() {
           <label className="text-xs text-slate-400">Direction</label>
           <div className="flex rounded-lg border border-slate-700 dark:border-slate-700 border-slate-200 overflow-hidden">
             <button
-              onClick={() => setDirection("long")}
+              onClick={() => {
+                if (direction !== "long") {
+                  setDirection("long");
+                  setStop(target);
+                  setTarget(stop);
+                }
+              }}
               className={`flex-1 py-2 text-sm font-medium transition-colors ${
                 direction === "long"
                   ? "bg-emerald-600 text-white"
@@ -95,7 +101,13 @@ export default function RRCalculator() {
               Long
             </button>
             <button
-              onClick={() => setDirection("short")}
+              onClick={() => {
+                if (direction !== "short") {
+                  setDirection("short");
+                  setStop(target);
+                  setTarget(stop);
+                }
+              }}
               className={`flex-1 py-2 text-sm font-medium transition-colors ${
                 direction === "short"
                   ? "bg-red-600 text-white"

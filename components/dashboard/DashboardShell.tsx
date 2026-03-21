@@ -168,7 +168,7 @@ export interface BuiltInTemplate {
   readonly: true;
 }
 
-const BUILT_IN_TEMPLATES: BuiltInTemplate[] = [
+const DEFAULT_BUILT_IN_TEMPLATES: BuiltInTemplate[] = [
   {
     id: '__preset_performance_review',
     name: 'Performance Review',
@@ -341,6 +341,7 @@ export default function DashboardShell() {
   const [layout, setLayout] = useState<DashboardLayout>({ order: DEFAULT_ORDER, hidden: DEFAULT_HIDDEN, sizes: { ...DEFAULT_SIZES } });
   const [hidden, setHidden] = useState(false);
   const [templates, setTemplates] = useState<LayoutTemplate[]>([]);
+  const [builtInTemplates, setBuiltInTemplates] = useState<BuiltInTemplate[]>(DEFAULT_BUILT_IN_TEMPLATES);
 
   // ── Privacy persistence ──
   useEffect(() => {
@@ -446,6 +447,17 @@ export default function DashboardShell() {
           const parsed = JSON.parse(settingsData.dashboard_layout_templates);
           if (Array.isArray(parsed)) setTemplates(parsed);
         } catch { /* keep empty array default */ }
+      }
+      if (settingsData.admin_default_templates) {
+        try {
+          const parsed = JSON.parse(settingsData.admin_default_templates) as Record<string, { order: string[]; hidden: string[]; sizes: Record<string, WidgetSize> }>;
+          const merged = DEFAULT_BUILT_IN_TEMPLATES.map(t => {
+            const override = parsed[t.id];
+            if (!override) return t;
+            return { ...t, layout: { order: override.order, hidden: override.hidden, sizes: override.sizes } };
+          });
+          setBuiltInTemplates(merged);
+        } catch { /* keep defaults */ }
       }
       if (settingsData.dashboard_time_filter) {
         const v = settingsData.dashboard_time_filter;
@@ -568,10 +580,30 @@ export default function DashboardShell() {
     }
   }, [templates, me]);
 
+  const handleEditBuiltIn = useCallback((preset: BuiltInTemplate) => {
+    const updatedLayout = { order: [...layout.order], hidden: [...layout.hidden], sizes: { ...layout.sizes } };
+    const updatedPreset = { ...preset, layout: updatedLayout };
+    const updated = builtInTemplates.map(t => t.id === preset.id ? updatedPreset : t);
+    setBuiltInTemplates(updated);
+    // Persist admin overrides to _system settings
+    const overrides: Record<string, DashboardLayout> = {};
+    for (const t of updated) {
+      const def = DEFAULT_BUILT_IN_TEMPLATES.find(d => d.id === t.id);
+      if (def && JSON.stringify(def.layout) !== JSON.stringify(t.layout)) {
+        overrides[t.id] = t.layout;
+      }
+    }
+    fetch('/api/admin/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_default_templates: JSON.stringify(overrides) }),
+    });
+  }, [layout, builtInTemplates]);
+
   const allTemplates = useMemo(() => [
-    ...BUILT_IN_TEMPLATES,
+    ...builtInTemplates,
     ...templates,
-  ], [templates]);
+  ], [builtInTemplates, templates]);
 
   // ── Filtered closed trades ──────────────────────────────────────────
   const closed = useMemo(() => {
@@ -1101,7 +1133,9 @@ export default function DashboardShell() {
                     onLoad={handleLoadTemplate}
                     onDelete={handleDeleteTemplate}
                     onSaveAs={handleSaveAsCopy}
+                    onEditBuiltIn={handleEditBuiltIn}
                     isGuest={!!me?.guest}
+                    isAdmin={!!me?.isAdmin}
                   />
                 </>
               )}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser, isGuest } from "@/lib/auth";
-import { ibkrFetch, getIbkrSettings } from "@/lib/ibkr-client";
+import { getIBClient, waitForConnection, getIbkrSettings, getManagedAccounts, disconnectIB } from "@/lib/ibkr-client";
 
 export async function GET(req: NextRequest) {
   const user = await getSessionUser(req);
@@ -9,23 +9,25 @@ export async function GET(req: NextRequest) {
   if (isGuest(req)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const db = getDb();
-  const { gatewayUrl, sslVerify } = getIbkrSettings(db, user.id);
+  const { host, port, clientId } = getIbkrSettings(db, user.id);
 
-  if (!gatewayUrl) {
-    return NextResponse.json({ connected: false, error: "No gateway URL configured" });
+  if (!host || !port) {
+    return NextResponse.json({ connected: false, error: "No connection configured" });
   }
 
   try {
-    const res = await ibkrFetch(gatewayUrl, "/iserver/accounts", sslVerify);
-    if (!res.ok) {
-      return NextResponse.json({
-        connected: false,
-        error: `Gateway returned ${res.status}`,
-      });
+    const ib = getIBClient(host, port, clientId);
+    const connected = await waitForConnection(ib, 5000);
+
+    if (!connected) {
+      disconnectIB();
+      return NextResponse.json({ connected: false, error: "Could not connect to TWS/IB Gateway. Check that it is running and API connections are enabled." });
     }
-    const data = (await res.json()) as { accounts?: string[] };
-    return NextResponse.json({ connected: true, accounts: data.accounts ?? [] });
+
+    const accounts = await getManagedAccounts(ib);
+    return NextResponse.json({ connected: true, accounts });
   } catch (err: unknown) {
+    disconnectIB();
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ connected: false, error: message });
   }

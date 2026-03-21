@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["better-sqlite3", "nodemailer", "bcryptjs", "openai"],
+  serverExternalPackages: ["better-sqlite3", "nodemailer", "bcryptjs", "@stoqey/ib"],
   output: "standalone",
   async headers() {
     return [

@@ -14,6 +14,7 @@ const SYSTEM_KEYS = [
   "app_url",
   "fmp_api_key",
   "openai_api_key",
+  "admin_default_templates",
 ];
 
 const SENSITIVE_KEYS = ["smtp_pass", "fmp_api_key", "openai_api_key"];

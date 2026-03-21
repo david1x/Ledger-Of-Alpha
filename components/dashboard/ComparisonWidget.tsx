@@ -102,11 +102,11 @@ export default function ComparisonWidget({
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-2">
+    <div className="flex flex-col overflow-hidden" style={{ maxHeight: 420 }}>
+      <div className="flex items-center justify-between mb-2 shrink-0">
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] dark:text-slate-500 text-slate-400">Performance by Strategy</h3>
       </div>
-      <div className="flex-1 min-h-[180px] sm:min-h-[220px]">
+      <div className="min-h-[180px] sm:min-h-[220px]" style={{ height: 220 }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={strategyData} layout="vertical" margin={{ top: 5, right: 30, bottom: 5, left: 10 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} horizontal={false} />

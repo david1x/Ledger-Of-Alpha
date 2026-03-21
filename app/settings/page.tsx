@@ -28,6 +28,7 @@ function SettingsContent() {
   );
   const [isAdmin, setIsAdmin] = useState(false);
   const [hasAdmin, setHasAdmin] = useState(true);
+  const [dirtyTabs, setDirtyTabs] = useState<Set<Category>>(new Set());
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -37,6 +38,32 @@ function SettingsContent() {
         setHasAdmin(!!data.hasAdmin);
       })
       .catch(() => {});
+  }, []);
+
+  // Listen for dirty/clean events from tab components
+  useEffect(() => {
+    const onDirty = (e: Event) => {
+      const tab = (e as CustomEvent).detail as Category;
+      setDirtyTabs((prev) => {
+        const next = new Set(prev);
+        next.add(tab);
+        return next;
+      });
+    };
+    const onClean = (e: Event) => {
+      const tab = (e as CustomEvent).detail as Category;
+      setDirtyTabs((prev) => {
+        const next = new Set(prev);
+        next.delete(tab);
+        return next;
+      });
+    };
+    window.addEventListener("settings-dirty", onDirty);
+    window.addEventListener("settings-clean", onClean);
+    return () => {
+      window.removeEventListener("settings-dirty", onDirty);
+      window.removeEventListener("settings-clean", onClean);
+    };
   }, []);
 
   const active = activeCategory;
@@ -58,6 +85,9 @@ function SettingsContent() {
           >
             <Icon className="w-4 h-4 shrink-0" />
             {label}
+            {dirtyTabs.has(id) && (
+              <span className="ml-auto w-2 h-2 rounded-full bg-amber-400 shrink-0" title="Unsaved changes" />
+            )}
           </button>
         ))}
         {isAdmin && (
@@ -80,6 +110,9 @@ function SettingsContent() {
               >
                 <Icon className="w-4 h-4 shrink-0" />
                 {label}
+                {dirtyTabs.has(id) && (
+                  <span className="ml-auto w-2 h-2 rounded-full bg-amber-400 shrink-0" title="Unsaved changes" />
+                )}
               </button>
             ))}
           </>
@@ -110,12 +143,15 @@ function SettingsContent() {
           >
             <Icon className="w-3.5 h-3.5" />
             {label}
+            {dirtyTabs.has(id) && (
+              <span className="ml-1 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Unsaved changes" />
+            )}
           </button>
         ))}
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0 space-y-6 min-h-[80vh]">
+      <div className="flex-1 min-w-0 space-y-6 min-h-[80vh] max-w-5xl">
         <div>
           <h1 className="text-2xl font-bold dark:text-white text-slate-900">Settings</h1>
           <p className="text-sm dark:text-slate-400 text-slate-500 mt-0.5">

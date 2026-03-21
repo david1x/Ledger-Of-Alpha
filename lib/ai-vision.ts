@@ -1,5 +1,5 @@
-// Server-side only — OpenAI GPT-4o chart pattern analysis wrapper
-import OpenAI from "openai";
+// Server-side only — Gemini chart pattern analysis wrapper
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { readFile } from "fs/promises";
 import path from "path";
 
@@ -46,33 +46,6 @@ export const PATTERN_NAMES = [
   "None Detected",
 ] as const;
 
-// ── JSON schema for structured output ─────────────────────────────────────
-
-export const ANALYSIS_SCHEMA = {
-  type: "object",
-  properties: {
-    patterns: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          name: { type: "string", enum: [...PATTERN_NAMES] },
-          confidence: { type: "number" },
-          description: { type: "string" },
-        },
-        required: ["name", "confidence", "description"],
-        additionalProperties: false,
-      },
-      minItems: 1,
-      maxItems: 3,
-    },
-    primary_pattern: { type: "string", enum: [...PATTERN_NAMES] },
-    summary: { type: "string" },
-  },
-  required: ["patterns", "primary_pattern", "summary"],
-  additionalProperties: false,
-} as const;
-
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function getMimeType(filename: string): string {
@@ -91,52 +64,47 @@ async function toBase64(filename: string): Promise<{ base64: string; mime: strin
   };
 }
 
+const ANALYSIS_PROMPT = `You are an expert technical analyst. Analyze this trading chart screenshot and identify the top price action patterns present. For each pattern you detect, assign a confidence score from 0.0 to 1.0. Only return patterns with confidence >= 0.3. If you cannot identify any pattern with confidence >= 0.3, return a single entry with name "None Detected" and confidence 0.0. Return at most 3 patterns, sorted by confidence descending. The primary_pattern field must match patterns[0].name exactly.
+
+Pattern names must be one of: ${PATTERN_NAMES.join(", ")}
+
+Respond with ONLY valid JSON in this exact format:
+{
+  "patterns": [
+    { "name": "Pattern Name", "confidence": 0.85, "description": "Brief explanation" }
+  ],
+  "primary_pattern": "Pattern Name",
+  "summary": "One sentence overall chart context"
+}`;
+
 // ── Exported functions ─────────────────────────────────────────────────────
 
 /**
- * Analyze a chart screenshot with GPT-4o and return structured pattern results.
+ * Analyze a chart screenshot with Gemini and return structured pattern results.
  */
 export async function analyzeChartScreenshot(
   apiKey: string,
   filename: string
 ): Promise<AnalysisResult> {
-  const client = new OpenAI({ apiKey });
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const { base64, mime } = await toBase64(filename);
 
-  const response = await client.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: `You are an expert technical analyst. Analyze this trading chart screenshot and identify the top price action patterns present. For each pattern you detect, assign a confidence score from 0.0 to 1.0. Only return patterns with confidence >= 0.3. If you cannot identify any pattern with confidence >= 0.3, return a single entry with name "None Detected" and confidence 0.0. Return at most 3 patterns, sorted by confidence descending. The primary_pattern field must match patterns[0].name exactly.`,
-          },
-          {
-            type: "image_url",
-            image_url: {
-              url: `data:${mime};base64,${base64}`,
-              detail: "high",
-            },
-          },
-        ],
-      },
-    ],
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "chart_analysis",
-        strict: true,
-        schema: ANALYSIS_SCHEMA as Record<string, unknown>,
+  const result = await model.generateContent([
+    ANALYSIS_PROMPT,
+    {
+      inlineData: {
+        mimeType: mime,
+        data: base64,
       },
     },
-    max_tokens: 800,
-  });
+  ]);
 
-  const content = response.choices[0].message.content;
-  if (!content) throw new Error("Empty response from OpenAI");
-  return JSON.parse(content) as AnalysisResult;
+  const text = result.response.text();
+  // Strip markdown code fences if present
+  const cleaned = text.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+  if (!cleaned) throw new Error("Empty response from Gemini");
+  return JSON.parse(cleaned) as AnalysisResult;
 }
 
 /**
@@ -149,32 +117,21 @@ export async function askFollowUp(
   question: string,
   priorAnalysis: AnalysisResult
 ): Promise<string> {
-  const client = new OpenAI({ apiKey });
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const { base64, mime } = await toBase64(filename);
 
-  const response = await client.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "assistant",
-        content: `I analyzed this chart and detected: ${priorAnalysis.summary}. Primary pattern: ${priorAnalysis.primary_pattern}.`,
-      },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: question },
-          {
-            type: "image_url",
-            image_url: {
-              url: `data:${mime};base64,${base64}`,
-              detail: "high",
-            },
-          },
-        ],
-      },
-    ],
-    max_tokens: 500,
-  });
+  const context = `I previously analyzed this chart and detected: ${priorAnalysis.summary}. Primary pattern: ${priorAnalysis.primary_pattern}.`;
 
-  return response.choices[0].message.content ?? "";
+  const result = await model.generateContent([
+    `${context}\n\nThe user asks: ${question}\n\nProvide a concise, helpful answer about the chart.`,
+    {
+      inlineData: {
+        mimeType: mime,
+        data: base64,
+      },
+    },
+  ]);
+
+  return result.response.text() ?? "";
 }

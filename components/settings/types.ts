@@ -257,6 +257,7 @@ export const INPUT =
   "w-full px-3 py-2 rounded-lg border dark:border-slate-700 border-slate-300 dark:bg-slate-800 bg-white dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500";
 export const LABEL = "block text-sm font-medium dark:text-white text-slate-900 mb-1";
 export const HINT = "text-xs dark:text-slate-500 text-slate-400 mt-1";
+export const CARD = "rounded-xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white p-5 space-y-4";
 
 // CATEGORIES uses a Lucide icon type — imported here for the type definition
 import {

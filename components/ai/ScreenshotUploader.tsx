@@ -140,7 +140,7 @@ export default function ScreenshotUploader({ trades, onTradeLinked }: Props) {
         if (analyzeData.code === "NO_API_KEY") {
           setError("NO_API_KEY");
         } else {
-          setError(analyzeData.error ?? "Analysis failed.");
+          setError(analyzeData.details ? `${analyzeData.error}: ${analyzeData.details}` : (analyzeData.error ?? "Analysis failed."));
         }
         return;
       }
@@ -303,7 +303,7 @@ export default function ScreenshotUploader({ trades, onTradeLinked }: Props) {
       )}
       {error === "NO_API_KEY" && (
         <p className="text-xs text-amber-400">
-          OpenAI API key not configured.{" "}
+          Gemini API key not configured.{" "}
           <a href="/settings?tab=integrations" className="underline hover:text-amber-300">
             Add it in Settings
           </a>

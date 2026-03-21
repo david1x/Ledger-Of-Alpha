@@ -12,6 +12,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@google/generative-ai": "^0.24.1",
+    "@stoqey/ib": "^1.5.3",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^11.7.0",
     "clsx": "^2.1.1",
@@ -25,8 +26,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0",
-    "simple-statistics": "^7.8.9",
-    "undici": "^7.24.4"
+    "rxjs": "^7.8.2",
+    "simple-statistics": "^7.8.9"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

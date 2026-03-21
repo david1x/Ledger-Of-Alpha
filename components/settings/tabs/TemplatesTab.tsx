@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Copy, Trash2, Save, CheckCircle } from "lucide-react";
+import { useTabDirty } from "@/components/settings/types";
 
 interface TradeTemplate {
   id: string;
@@ -10,6 +11,8 @@ interface TradeTemplate {
 
 export default function TemplatesTab() {
   const [templates, setTemplates] = useState<TradeTemplate[]>([]);
+  const templatesState = { templates: templates as unknown } as Record<string, unknown>;
+  const { resetBaseline } = useTabDirty("templates", templatesState);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -42,6 +45,7 @@ export default function TemplatesTab() {
     });
     setSaving(false);
     setSaved(true);
+    resetBaseline();
     setTimeout(() => setSaved(false), 3000);
   };
 

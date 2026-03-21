@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
 import { kellyFraction } from "@/lib/calculators";
+import { Info } from "lucide-react";
 
 export default function KellyCalculator() {
   const [winRate, setWinRate] = useState(55);
@@ -23,9 +24,26 @@ export default function KellyCalculator() {
       <h2 className="text-lg font-semibold dark:text-white text-slate-900 mb-1">
         Kelly Criterion Calculator
       </h2>
-      <p className="text-sm dark:text-slate-400 text-slate-500 mb-6">
+      <p className="text-sm dark:text-slate-400 text-slate-500 mb-4">
         Calculates the optimal position size as a percentage of your account based on your edge.
       </p>
+
+      {/* Explainer */}
+      <div className="mb-6 px-4 py-3 rounded-lg dark:bg-slate-800/50 bg-slate-50 border dark:border-slate-700/50 border-slate-200 text-sm dark:text-slate-400 text-slate-500 space-y-2">
+        <div className="flex items-start gap-2">
+          <Info className="w-4 h-4 mt-0.5 shrink-0 dark:text-slate-500 text-slate-400" />
+          <div>
+            <p className="mb-1.5">
+              The <span className="dark:text-white text-slate-900 font-medium">Kelly Criterion</span> tells you what percentage of your account to risk per trade to maximize long-term growth, given your win rate and average win/loss sizes.
+            </p>
+            <ul className="space-y-1 dark:text-slate-500 text-slate-400 text-xs">
+              <li><span className="text-emerald-400 font-medium">Full Kelly</span> — theoretical maximum growth but with large drawdowns. Too aggressive for most traders.</li>
+              <li><span className="dark:text-sky-400 text-sky-500 font-medium">Half Kelly</span> — 75% of full Kelly&apos;s growth with significantly smaller drawdowns. Most commonly used.</li>
+              <li><span className="dark:text-violet-400 text-violet-500 font-medium">Quarter Kelly</span> — conservative sizing for uncertain edge estimates or volatile strategies.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
 
       {/* Inputs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

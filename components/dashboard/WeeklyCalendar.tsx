@@ -33,6 +33,15 @@ export default function WeeklyCalendar({ dailyPnl, dailyCounts, trades }: Props)
   const [popupDate, setPopupDate] = useState<string | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   // ── Click Outside Logic ──
   useEffect(() => {
@@ -47,7 +56,23 @@ export default function WeeklyCalendar({ dailyPnl, dailyCounts, trades }: Props)
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [popupDate]);
 
+  const dayCount = isMobile ? 3 : 7;
+
   const weekDays = useMemo(() => {
+    if (isMobile) {
+      // 3-day sliding window centered on today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const start = new Date(today);
+      start.setDate(today.getDate() + weekOffset * 3 - 1); // yesterday-centered by default
+      return Array.from({ length: 3 }, (_, i) => {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        const dow = d.getDay();
+        const dayIndex = dow === 0 ? 6 : dow - 1; // Mon=0 .. Sun=6
+        return { date: fmtDate(d), dayName: DAYS[dayIndex], dayNum: d.getDate(), isToday: fmtDate(d) === fmtDate(new Date()) };
+      });
+    }
     const monday = getMonday(new Date());
     monday.setDate(monday.getDate() + weekOffset * 7);
     return Array.from({ length: 7 }, (_, i) => {
@@ -55,16 +80,15 @@ export default function WeeklyCalendar({ dailyPnl, dailyCounts, trades }: Props)
       d.setDate(monday.getDate() + i);
       return { date: fmtDate(d), dayName: DAYS[i], dayNum: d.getDate(), isToday: fmtDate(d) === fmtDate(new Date()) };
     });
-  }, [weekOffset]);
+  }, [weekOffset, isMobile]);
 
   const weekTotal = useMemo(() => {
     return weekDays.reduce((sum, d) => sum + (dailyPnl.get(d.date) ?? 0), 0);
   }, [weekDays, dailyPnl]);
 
   const weekLabel = useMemo(() => {
-    const first = weekDays[0].date;
-    const last = weekDays[6].date;
-    return `${first.slice(5)} - ${last.slice(5)}`;
+    const toDM = (d: string) => { const [, m, day] = d.split("-"); return `${day}-${m}`; };
+    return `${toDM(weekDays[0].date)} - ${toDM(weekDays[weekDays.length - 1].date)}`;
   }, [weekDays]);
 
   const canGoForward = weekOffset < 0;
@@ -101,7 +125,7 @@ export default function WeeklyCalendar({ dailyPnl, dailyCounts, trades }: Props)
         </span>
       </div>
 
-      <div className="relative grid grid-cols-7 gap-1.5">
+      <div className={`relative grid gap-1.5 ${isMobile ? "grid-cols-3" : "grid-cols-7"}`}>
         {weekDays.map((d) => {
           const pnl = dailyPnl.get(d.date) ?? 0;
           const count = dailyCounts.get(d.date) ?? 0;
@@ -149,16 +173,16 @@ export default function WeeklyCalendar({ dailyPnl, dailyCounts, trades }: Props)
             onMouseLeave={() => setPopupDate(null)}
             className="absolute z-50 top-full mt-2 w-72 rounded-xl border dark:border-slate-600 border-slate-200 dark:bg-slate-800 bg-white shadow-xl p-3"
             style={{
-              left: popupDayIndex <= 3
-                ? `${(popupDayIndex / 7) * 100}%`
+              left: popupDayIndex <= Math.floor(dayCount / 2)
+                ? `${(popupDayIndex / dayCount) * 100}%`
                 : undefined,
-              right: popupDayIndex > 3
-                ? `${((6 - popupDayIndex) / 7) * 100}%`
+              right: popupDayIndex > Math.floor(dayCount / 2)
+                ? `${((dayCount - 1 - popupDayIndex) / dayCount) * 100}%`
                 : undefined,
             }}
           >
             <p className="text-xs font-semibold dark:text-slate-300 text-slate-700 mb-2">
-              {popupDate}
+              {popupDate ? popupDate.split("-").reverse().join("-") : ""}
               <span className="ml-2 font-normal dark:text-slate-500 text-slate-400">
                 {popupTrades.length} trade{popupTrades.length !== 1 ? "s" : ""}
               </span>

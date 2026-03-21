@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Key, BrainCircuit, Bell, RefreshCw, Send, Save, CheckCircle } from "lucide-react";
-import { INPUT, LABEL, HINT, INITIAL_SETTINGS } from "@/components/settings/types";
+import { INPUT, LABEL, HINT, INITIAL_SETTINGS, useTabDirty } from "@/components/settings/types";
 import type { Settings } from "@/components/settings/types";
 
 export default function IntegrationsTab() {
@@ -11,6 +11,7 @@ export default function IntegrationsTab() {
     fmp_api_key: INITIAL_SETTINGS.fmp_api_key,
     openai_api_key: INITIAL_SETTINGS.openai_api_key,
   });
+  const { resetBaseline } = useTabDirty("integrations", settings);
   const [testingChart, setTestingChart] = useState(false);
   const [testingAlert, setTestingAlert] = useState(false);
   const [chartTestMsg, setChartTestMsg] = useState<{ text: string; type: "ok" | "err" } | null>(null);
@@ -50,6 +51,7 @@ export default function IntegrationsTab() {
     });
     setSaving(false);
     setSaved(true);
+    resetBaseline();
     setTimeout(() => setSaved(false), 3000);
   };
 

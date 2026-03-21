@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { BookOpen, BookmarkPlus, Copy, Trash2, Check, X } from "lucide-react";
+import { BookOpen, BookmarkPlus, Copy, Trash2, Check, X, Pencil } from "lucide-react";
 import type { LayoutTemplate, BuiltInTemplate } from "./DashboardShell";
 
 interface TemplatePanelProps {
@@ -10,7 +10,9 @@ interface TemplatePanelProps {
   onLoad: (template: LayoutTemplate | BuiltInTemplate) => void;
   onDelete: (templateId: string) => void;
   onSaveAs: (preset: BuiltInTemplate, newName: string) => void;
+  onEditBuiltIn: (preset: BuiltInTemplate) => void;
   isGuest: boolean;
+  isAdmin: boolean;
 }
 
 export default function TemplatePanel({
@@ -19,13 +21,16 @@ export default function TemplatePanel({
   onLoad,
   onDelete,
   onSaveAs,
+  onEditBuiltIn,
   isGuest,
+  isAdmin,
 }: TemplatePanelProps) {
   const [open, setOpen] = useState(false);
   const [applyConfirm, setApplyConfirm] = useState<string | null>(null);
   const [inputName, setInputName] = useState("");
   const [copySource, setCopySource] = useState<BuiltInTemplate | null>(null);
   const [savedFeedback, setSavedFeedback] = useState(false);
+  const [editConfirm, setEditConfirm] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -137,7 +142,7 @@ export default function TemplatePanel({
                 {templates.map(template => (
                   <div key={template.id} className="px-3 py-2">
                     {applyConfirm === template.id ? (
-                      /* Inline confirmation row */
+                      /* Inline apply confirmation row */
                       <div className="flex items-center gap-2">
                         <span className="flex-1 text-xs dark:text-slate-300 text-slate-600 font-medium truncate">
                           Apply this layout?
@@ -151,6 +156,27 @@ export default function TemplatePanel({
                         </button>
                         <button
                           onClick={() => setApplyConfirm(null)}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg dark:bg-slate-700 bg-slate-200 hover:dark:bg-slate-600 hover:bg-slate-300 dark:text-slate-300 text-slate-600 text-xs font-bold transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                          No
+                        </button>
+                      </div>
+                    ) : editConfirm === template.id && isBuiltIn(template) ? (
+                      /* Inline edit confirmation row (admin only) */
+                      <div className="flex items-center gap-2">
+                        <span className="flex-1 text-xs dark:text-amber-300 text-amber-600 font-medium truncate">
+                          Save current layout as default?
+                        </span>
+                        <button
+                          onClick={() => { onEditBuiltIn(template); setEditConfirm(null); }}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition-colors"
+                        >
+                          <Check className="w-3 h-3" />
+                          Yes
+                        </button>
+                        <button
+                          onClick={() => setEditConfirm(null)}
                           className="flex items-center gap-1 px-2.5 py-1 rounded-lg dark:bg-slate-700 bg-slate-200 hover:dark:bg-slate-600 hover:bg-slate-300 dark:text-slate-300 text-slate-600 text-xs font-bold transition-colors"
                         >
                           <X className="w-3 h-3" />
@@ -176,14 +202,26 @@ export default function TemplatePanel({
                             Apply
                           </button>
                           {isBuiltIn(template) ? (
-                            <button
-                              onClick={() => handleCopyClick(template)}
-                              className="p-1.5 rounded-lg dark:bg-slate-800 bg-slate-100 hover:dark:bg-slate-700 hover:bg-slate-200 dark:text-slate-400 text-slate-500 transition-colors"
-                              title="Copy as new template"
-                              aria-label={`Copy ${template.name} as new template`}
-                            >
-                              <Copy className="w-3 h-3" />
-                            </button>
+                            <>
+                              {isAdmin && (
+                                <button
+                                  onClick={() => setEditConfirm(template.id)}
+                                  className="p-1.5 rounded-lg dark:bg-slate-800 bg-slate-100 hover:dark:bg-amber-900/40 hover:bg-amber-50 dark:text-slate-400 text-slate-500 hover:text-amber-400 transition-colors"
+                                  title="Edit default (saves current layout as this preset for all users)"
+                                  aria-label={`Edit ${template.name} default layout`}
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleCopyClick(template)}
+                                className="p-1.5 rounded-lg dark:bg-slate-800 bg-slate-100 hover:dark:bg-slate-700 hover:bg-slate-200 dark:text-slate-400 text-slate-500 transition-colors"
+                                title="Copy as new template"
+                                aria-label={`Copy ${template.name} as new template`}
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                            </>
                           ) : (
                             <button
                               onClick={() => onDelete(template.id)}

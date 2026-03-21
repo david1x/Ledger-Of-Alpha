@@ -31,44 +31,6 @@ export function kellyFraction(winRatePct: number, avgWin: number, avgLoss: numbe
 }
 
 /**
- * Calculate Fibonacci retracement and extension levels.
- * Retracement ratios: 0%, 23.6%, 38.2%, 50%, 61.8%, 78.6%, 100%
- * Extension ratios: 127.2%, 161.8%, 261.8%
- */
-export function fibonacciLevels(
-  high: number,
-  low: number
-): { label: string; price: number; isExtension: boolean }[] {
-  const range = high - low;
-
-  const retracements = [
-    { label: "0%", ratio: 0 },
-    { label: "23.6%", ratio: 0.236 },
-    { label: "38.2%", ratio: 0.382 },
-    { label: "50%", ratio: 0.5 },
-    { label: "61.8%", ratio: 0.618 },
-    { label: "78.6%", ratio: 0.786 },
-    { label: "100%", ratio: 1.0 },
-  ].map(({ label, ratio }) => ({
-    label,
-    price: high - range * ratio,
-    isExtension: false,
-  }));
-
-  const extensions = [
-    { label: "127.2%", ratio: 1.272 },
-    { label: "161.8%", ratio: 1.618 },
-    { label: "261.8%", ratio: 2.618 },
-  ].map(({ label, ratio }) => ({
-    label,
-    price: low - range * (ratio - 1),
-    isExtension: true,
-  }));
-
-  return [...retracements, ...extensions];
-}
-
-/**
  * Generate a compound growth curve over a given number of months.
  * Returns an array of { month, balance } pairs starting at month 0.
  */

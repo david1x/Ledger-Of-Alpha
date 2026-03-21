@@ -256,7 +256,7 @@ export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defa
                   )}
                 >
                   <Percent className="w-3.5 h-3.5" />
-                  % Move
+                  Move
                 </button>
               </div>
             </div>
@@ -356,7 +356,7 @@ export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defa
                   </div>
                   <label className={clsx("relative inline-flex items-center cursor-pointer", opt.disabled && "opacity-50 cursor-not-allowed")}>
                     <input type="checkbox" checked={opt.val} onChange={e => !opt.disabled && opt.set(e.target.checked)} disabled={opt.disabled} className="sr-only peer" />
-                    <div className="w-10 h-5.5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
+                    <div className="w-12 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-[22px] after:w-[22px] after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
                   </label>
                 </div>
               ))}
