@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Trades Page Overhaul
 status: completed
-stopped_at: Completed Phase 24 Plan 02 (24-02-PLAN.md)
-last_updated: "2026-03-21T21:22:10.373Z"
+stopped_at: Completed 25-01-PLAN.md
+last_updated: "2026-03-21T22:05:12.544Z"
 last_activity: "2026-03-21 — Completed Phase 23 Plan 02 (mobile CSS fixes: sticky Symbol column, horizontal filter chips, responsive stats grid)"
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 13
-  completed_plans: 13
+  total_phases: 8
+  completed_phases: 8
+  total_plans: 15
+  completed_plans: 15
   percent: 100
 ---
 
@@ -69,6 +69,10 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 - [Phase 23-sidebar-analytics-mobile-polish]: TradeFilterChips uses both [&::-webkit-scrollbar]:hidden and inline scrollbarWidth:none for cross-browser scrollbar hiding
 - [Phase 24-trades-page-ui-tightening]: Radius mapping: rounded-xl -> rounded-lg for card panels; rounded-lg -> rounded-md for buttons, inputs, and dropdown menus across all trades sub-components
 - [Phase 24-trades-page-ui-tightening]: Filter bar relocated to be first element; table card embeds toolbar (SavedViews + cog) inside card with border-b separator; sidebar uses items-stretch for full-height border
+- [Phase 25]: symbols array (multi-select) takes priority over legacy symbol string in applyFilter; when symbols.length > 0 the legacy string is ignored
+- [Phase 25]: Single openDropdown state key replaces 3 separate boolean showXxxMenu states in TradeFilterBar
+- [Phase 25]: Sidebar background changed from dark:bg-slate-950 bg-white to dark:bg-slate-900 bg-slate-100 — one step off-body for visible sidebar frame
+- [Phase 25]: showLabels derives from mobileOpen only — desktop sidebar permanently icon-only with no expand toggle
 
 ### Roadmap Evolution
 
@@ -85,6 +89,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-21T21:02:08.034Z
-Stopped at: Completed Phase 24 Plan 02 (24-02-PLAN.md)
+Last session: 2026-03-21T22:05:12.542Z
+Stopped at: Completed 25-01-PLAN.md
 Resume file: None

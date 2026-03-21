@@ -167,7 +167,7 @@ Plans:
 **Goal:** Lock the sidebar to permanently collapsed (icon-only) mode, redesign the trades filter bar as a row of uniform compact dropdown buttons (including multi-select symbol checklist), and unify sidebar and filter bar background colors for visual cohesion
 **Requirements**: NAV-LOCK, NAV-TOOLTIP, COLOR-SIDEBAR, FILTER-DROPDOWN, FILTER-SYMBOL-CHECKLIST, FILTER-UNIFORM-HEIGHT, FILTER-FRAME, COLOR-FILTERBAR
 **Depends on:** Phase 24
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 25-01-PLAN.md — Sidebar collapse lock, group-hover tooltips, sidebar background color change
