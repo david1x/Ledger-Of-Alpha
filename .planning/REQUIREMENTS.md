@@ -79,40 +79,40 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FILT-01 | — | Pending |
-| FILT-02 | — | Pending |
-| FILT-03 | — | Pending |
-| FILT-04 | — | Pending |
-| FILT-05 | — | Pending |
-| FILT-06 | — | Pending |
-| FILT-07 | — | Pending |
-| FILT-08 | — | Pending |
-| FILT-09 | — | Pending |
-| MIST-01 | — | Pending |
-| MIST-02 | — | Pending |
-| MIST-03 | — | Pending |
-| STAT-01 | — | Pending |
-| STAT-02 | — | Pending |
-| STAT-03 | — | Pending |
-| TABL-01 | — | Pending |
-| TABL-02 | — | Pending |
-| TABL-03 | — | Pending |
-| TABL-04 | — | Pending |
-| TABL-05 | — | Pending |
-| TABL-06 | — | Pending |
-| SIDE-01 | — | Pending |
-| SIDE-02 | — | Pending |
-| SIDE-03 | — | Pending |
-| SIDE-04 | — | Pending |
-| MOBI-01 | — | Pending |
-| MOBI-02 | — | Pending |
-| MOBI-03 | — | Pending |
+| FILT-01 | Phase 20 | Pending |
+| FILT-02 | Phase 20 | Pending |
+| FILT-03 | Phase 20 | Pending |
+| FILT-04 | Phase 20 | Pending |
+| FILT-05 | Phase 19 | Pending |
+| FILT-06 | Phase 19 | Pending |
+| FILT-07 | Phase 20 | Pending |
+| FILT-08 | Phase 20 | Pending |
+| FILT-09 | Phase 20 | Pending |
+| MIST-01 | Phase 18 | Pending |
+| MIST-02 | Phase 22 | Pending |
+| MIST-03 | Phase 22 | Pending |
+| STAT-01 | Phase 21 | Pending |
+| STAT-02 | Phase 21 | Pending |
+| STAT-03 | Phase 21 | Pending |
+| TABL-01 | Phase 22 | Pending |
+| TABL-02 | Phase 22 | Pending |
+| TABL-03 | Phase 22 | Pending |
+| TABL-04 | Phase 22 | Pending |
+| TABL-05 | Phase 22 | Pending |
+| TABL-06 | Phase 22 | Pending |
+| SIDE-01 | Phase 23 | Pending |
+| SIDE-02 | Phase 23 | Pending |
+| SIDE-03 | Phase 23 | Pending |
+| SIDE-04 | Phase 23 | Pending |
+| MOBI-01 | Phase 23 | Pending |
+| MOBI-02 | Phase 23 | Pending |
+| MOBI-03 | Phase 23 | Pending |
 
 **Coverage:**
 - v3.0 requirements: 28 total
-- Mapped to phases: 0
-- Unmapped: 28
+- Mapped to phases: 28
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after initial definition*
+*Last updated: 2026-03-21 after roadmap creation (v3.0 Phases 18-23)*

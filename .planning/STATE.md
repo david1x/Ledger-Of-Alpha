@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Trades Page Overhaul
 status: active
-stopped_at: Defining requirements
+stopped_at: Roadmap created — ready to plan Phase 18
 last_updated: "2026-03-21"
-last_activity: 2026-03-21 — Milestone v3.0 started
+last_activity: 2026-03-21 — Roadmap written for v3.0 (Phases 18-23)
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -19,10 +19,10 @@ progress:
 ## Current Position
 
 Milestone: v3.0 Trades Page Overhaul
-Phase: Not started (defining requirements)
+Phase: 18 of 23 (DB & API Foundation) — not started
 Plan: —
-Status: Defining requirements
-Last activity: 2026-03-21 — Milestone v3.0 started
+Status: Ready to plan Phase 18
+Last activity: 2026-03-21 — Roadmap written (6 phases, 28 requirements mapped)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -43,11 +43,14 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 ### Decisions
 
-(None yet — fresh milestone)
+- Phase 18 pre-condition: Audit `trades.mistakes` column with `SELECT mistakes FROM trades WHERE mistakes IS NOT NULL LIMIT 20` before writing migration 023 — existing data may be free text, not JSON.
+- Filter state: Resolve URL params vs React state + localStorage before Phase 20 planning (product decision affects FilterBar wiring).
+- Stats bar scope: Confirmed scoped to filteredTrades (STAT-03 is explicit); no ambiguity.
 
 ### Blockers/Concerns
 
-(None)
+- Phase 18: `trades.mistakes` column format in production is unknown — must audit before migration. Surface result to user if non-JSON data exists.
+- Phase 20: URL params vs React state for filter persistence is unresolved. Decide before Phase 20 is planned.
 
 ### Pending Todos
 
@@ -56,5 +59,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-21
-Stopped at: Defining requirements for v3.0
+Stopped at: Roadmap created — Phase 18 ready to plan
 Resume file: None
