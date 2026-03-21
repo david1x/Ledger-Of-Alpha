@@ -48,6 +48,7 @@ export const ALL_COLUMNS = [
   { key: "risk",       label: "Risk %",      default: false },
   { key: "date",       label: "Date",       default: true },
   { key: "notes",      label: "Notes",      default: false },
+  { key: "mistakes",   label: "Mistakes",   default: false },
 ] as const;
 
 export type ColumnKey = (typeof ALL_COLUMNS)[number]["key"];
@@ -143,6 +144,7 @@ function getSortValue(t: Trade, key: ColumnKey, quotes: QuoteMap, defaultRiskPer
     case "commission": return t.commission ?? 0;
     case "risk": return t.risk_per_trade ?? defaultRiskPercent ?? 0;
     case "date": return t.entry_date ?? t.created_at.slice(0, 10);
+    case "mistakes": return t.mistake_tag_ids ? t.mistake_tag_ids.split(",").filter(Boolean).length : 0;
     default: return 0;
   }
 }
@@ -400,12 +402,35 @@ export default function TradeTable({
                       />
                     )}
                     {show("symbol") && (
-                      <span className="flex items-center gap-1.5 font-bold text-emerald-400 cursor-pointer hover:underline" onClick={() => onEdit(t)}>
-                        {t.symbol}
-                        {t.source === "ibkr" && (
-                          <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-500/15 text-blue-400">IBKR</span>
-                        )}
-                        <ChecklistRing checklistState={t.checklist_state} size={22} />
+                      <span className="flex flex-col gap-1">
+                        <span className="flex items-center gap-1.5 font-bold text-emerald-400 cursor-pointer hover:underline" onClick={() => onEdit(t)}>
+                          {t.symbol}
+                          {t.source === "ibkr" && (
+                            <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-500/15 text-blue-400">IBKR</span>
+                          )}
+                          <ChecklistRing checklistState={t.checklist_state} size={22} />
+                        </span>
+                        {mistakeTypes && mistakeTypes.length > 0 && t.mistake_tag_ids && (() => {
+                          const mistakeIds = t.mistake_tag_ids?.split(",").filter(Boolean) ?? [];
+                          if (!mistakeIds.length) return null;
+                          return (
+                            <div className="flex flex-wrap gap-1">
+                              {mistakeIds.map(id => {
+                                const mt = mistakeTypes?.find(m => m.id === id);
+                                if (!mt) return null;
+                                return (
+                                  <span
+                                    key={id}
+                                    className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
+                                    style={{ backgroundColor: mt.color + "33", color: mt.color }}
+                                  >
+                                    {mt.name}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </span>
                     )}
                     {show("direction") && (
@@ -590,6 +615,27 @@ export default function TradeTable({
                           )}
                           <ChecklistRing checklistState={t.checklist_state} size={24} />
                         </span>
+                        {mistakeTypes && mistakeTypes.length > 0 && t.mistake_tag_ids && (() => {
+                          const mistakeIds = t.mistake_tag_ids?.split(",").filter(Boolean) ?? [];
+                          if (!mistakeIds.length) return null;
+                          return (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {mistakeIds.map(id => {
+                                const mt = mistakeTypes?.find(m => m.id === id);
+                                if (!mt) return null;
+                                return (
+                                  <span
+                                    key={id}
+                                    className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
+                                    style={{ backgroundColor: mt.color + "33", color: mt.color }}
+                                  >
+                                    {mt.name}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </td>
                     )}
                     {show("direction") && (
@@ -697,6 +743,31 @@ export default function TradeTable({
                         onMouseLeave={handleNoteLeave}
                       >
                         {t.notes || "—"}
+                      </td>
+                    )}
+                    {show("mistakes") && (
+                      <td className="px-4 py-3">
+                        {mistakeTypes && mistakeTypes.length > 0 && t.mistake_tag_ids ? (() => {
+                          const mistakeIds = t.mistake_tag_ids?.split(",").filter(Boolean) ?? [];
+                          if (!mistakeIds.length) return <span className="dark:text-slate-600 text-slate-400 text-xs">—</span>;
+                          return (
+                            <div className="flex flex-wrap gap-1">
+                              {mistakeIds.map(id => {
+                                const mt = mistakeTypes?.find(m => m.id === id);
+                                if (!mt) return null;
+                                return (
+                                  <span
+                                    key={id}
+                                    className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
+                                    style={{ backgroundColor: mt.color + "33", color: mt.color }}
+                                  >
+                                    {mt.name}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          );
+                        })() : <span className="dark:text-slate-600 text-slate-400 text-xs">—</span>}
                       </td>
                     )}
                     <td className="px-4 py-3 text-right">
