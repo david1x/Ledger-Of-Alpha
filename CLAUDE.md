@@ -79,10 +79,20 @@ All API routes live under `app/api/`. Key patterns:
 - **AccountBanner**: shared component on trades + journal pages (balance, P&L, win rate, expectancy). Now includes a privacy toggle.
 
 ### Sidebar / Navbar
-- **Collapse Toggle**: A floating button positioned on the sidebar's right border line.
+- **Permanently collapsed**: Sidebar locked to 64px icon-only mode on desktop. No expand toggle.
+- **Hover tooltips**: All nav icons show custom tooltips (dark bg, ring border, scale-in animation, 100ms delay) on hover.
 - **Account Switcher**: Dropdown between logo and nav links (Wallet icon). Shows current account name or "All Accounts". Includes "Manage Accounts" link to settings.
 - **Admin Panel**: Accessible via the User Dropdown menu (for admins).
-- **Persistence**: Sidebar expanded/collapsed state is persisted in `localStorage`.
+- **Color**: `dark:bg-slate-900 bg-slate-100` — matches the trades filter bar.
+
+### Trades Page Layout
+- **Filter bar**: Sticky navbar-style bar at top (`h-16`, bottom border only, `dark:bg-slate-900`). Contains filter dropdowns, SavedViews, Clear button, import/export (icon-only), and New Trade button.
+- **No filter chips**: Active filters indicated by colored dropdown buttons; "Clear" button appears when any filter is active.
+- **Stats cards**: Full-width row of 3 cards (Cumulative Return, P/L Ratio, Win %) with dual-color sparklines (line + fill use different colors).
+- **Table + Sidebar**: Flex row filling remaining viewport height. Table scrolls vertically and horizontally independently. No page-level scroll.
+- **Stats sidebar**: 430px wide, always visible (no collapse toggle), top aligned with trade table frame. Setups panel limited to 7 items with "Show more" expand button.
+- **Trade table**: Font size `text-sm` for data cells. Direction/status badges use `rounded-md ring-1 ring-inset` with white text. Symbol color is `text-violet-400`.
+- **Column config cog**: Floating at top-right of table, overlapping the header row.
 
 ### Multi-Account System
 - Each user can have multiple trading accounts (e.g. "Main", "Paper Trading", "Futures")
