@@ -101,7 +101,9 @@ Plans:
   1. User can see three stat cards (Cumulative Return, P/L Ratio, Win %) at the top of the trades page
   2. Each stat card displays a small sparkline chart showing the trend over time
   3. When a date filter is active, all three stats reflect only the filtered date range; removing the filter updates stats to show all trades
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 21-01-PLAN.md — SummaryStatsBar component with sparklines, replaces AccountBanner on trades page
 
 ### Phase 22: Enhanced Trade Table & Mistakes
 **Goal**: The trade table surfaces richer per-trade data including badges, return metrics, cost basis, and user-applied mistake tags — with column order persisted between sessions
@@ -139,7 +141,7 @@ Plans:
 | 18. DB & API Foundation | 2/2 | Complete    | 2026-03-21 | - |
 | 19. TradesShell Refactor | 2/2 | Complete    | 2026-03-21 | - |
 | 20. Filter System & Saved Views | 2/2 | Complete    | 2026-03-21 | - |
-| 21. Summary Stats Bar | v3.0 | 0/TBD | Not started | - |
+| 21. Summary Stats Bar | v3.0 | 0/1 | Not started | - |
 | 22. Enhanced Trade Table & Mistakes | v3.0 | 0/TBD | Not started | - |
 | 23. Sidebar Analytics & Mobile Polish | v3.0 | 0/TBD | Not started | - |
 
