@@ -1,35 +1,37 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.1
-milestone_name: Settings & Polish
-status: completed
-stopped_at: Milestone v2.1 archived
+milestone: v3.0
+milestone_name: Trades Page Overhaul
+status: active
+stopped_at: Defining requirements
 last_updated: "2026-03-21"
-last_activity: 2026-03-21 — Milestone v2.1 Settings & Polish shipped
+last_activity: 2026-03-21 — Milestone v3.0 started
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 10
-  completed_plans: 10
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State: Ledger Of Alpha
 
 ## Current Position
 
-Milestone: v2.1 Settings & Polish — SHIPPED
-Status: Planning next milestone
-Last activity: 2026-03-21 — Milestone v2.1 archived
+Milestone: v3.0 Trades Page Overhaul
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-21 — Milestone v3.0 started
 
-Progress: [##########] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Traders can track, analyze, and improve their trading through structured journaling and actionable analytics.
-**Current focus:** Planning next milestone
+**Current focus:** Trades Page Overhaul — filters, saved views, mistakes system, sidebar analytics
 
 ## Performance Metrics
 
@@ -41,11 +43,11 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 ### Decisions
 
-(Cleared at milestone boundary — full log in PROJECT.md Key Decisions table)
+(None yet — fresh milestone)
 
 ### Blockers/Concerns
 
-(None — fresh milestone)
+(None)
 
 ### Pending Todos
 
@@ -54,5 +56,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-21
-Stopped at: Milestone v2.1 archived, ready for /gsd:new-milestone
+Stopped at: Defining requirements for v3.0
 Resume file: None

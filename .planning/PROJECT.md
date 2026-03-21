@@ -34,9 +34,27 @@ Traders can track, analyze, and improve their trading through structured journal
 - ✓ Dashboard layout templates (saveable presets with built-in defaults) — v2.1
 - ✓ Strategy enhancements (built-in defaults, per-trade checklist editing, ad-hoc checklists, ChecklistRing) — v2.1
 
+## Current Milestone: v3.0 Trades Page Overhaul
+
+**Goal:** Transform the trades page into a powerful, filterable workspace with summary analytics, a mistakes system, and saved views.
+
+**Target features:**
+- Custom filter system (Symbol, Setup, Side, Mistake, Status, Account, Date Range, Custom Tags)
+- Active filter chips with clear, quick filter presets, saved named views
+- Summary stats bar (Cumulative Return, P/L Ratio, Win %) with sparklines
+- Enhanced trade table with status/side badges, mistakes column, column config
+- Mistakes tagging system (user-defined mistake types, per-trade tagging)
+- Right sidebar analytics (Account Performance, Setups P&L breakdown, Mistakes P&L breakdown)
+
 ### Active
 
-(None — planning next milestone)
+- [ ] Custom filter system with dropdown filters and active filter chips
+- [ ] Quick filter chips (Winners, Losers, This Week, This Month)
+- [ ] Saved named filter presets (save/load/delete)
+- [ ] Summary stats bar with sparklines (scoped to all trades unless date-filtered)
+- [ ] Enhanced trade table (status/side badges, net return $/%, cost, column config)
+- [ ] Mistakes tagging system with user-defined mistake types
+- [ ] Right sidebar with account performance, setups breakdown, mistakes breakdown
 
 ### Out of Scope
 
@@ -92,4 +110,4 @@ Traders can track, analyze, and improve their trading through structured journal
 | getBaseUrl 5-level priority chain | Must work across npm dev, Docker, Cloudflare Tunnel | ✓ Good — zero-config in all environments |
 
 ---
-*Last updated: 2026-03-21 after v2.1 milestone*
+*Last updated: 2026-03-21 after v3.0 milestone started*
