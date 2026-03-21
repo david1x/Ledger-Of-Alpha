@@ -1,12 +1,16 @@
 "use client";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Trade, QuoteMap } from "@/lib/types";
-import { Pencil, Trash2, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, LineChart, ExternalLink, Bell, Star } from "lucide-react";
+import { Trade, QuoteMap, MistakeType } from "@/lib/types";
+import { Pencil, Trash2, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, LineChart, ExternalLink, Bell, Star, GripVertical } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { calcRRAchieved, calcPercentReturn, formatHoldDuration } from "@/lib/trade-utils";
 import clsx from "clsx";
 import ChecklistRing from "@/components/ChecklistRing";
+import { usePrivacy } from "@/lib/privacy-context";
+import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 function buildChartUrl(t: Trade): string {
   const params = new URLSearchParams({ symbol: t.symbol });
@@ -33,7 +37,8 @@ export const ALL_COLUMNS = [
   { key: "shares",     label: "Shares",     default: true },
   { key: "pnl",        label: "P&L",        default: true },
   { key: "rr_achieved", label: "R:R",       default: false },
-  { key: "pct_return", label: "% Return",   default: false },
+  { key: "pct_return", label: "% Return",   default: true },
+  { key: "cost_basis", label: "Cost Basis", default: false },
   { key: "hold_duration", label: "Hold",    default: false },
   { key: "rating",     label: "Rating",     default: false },
   { key: "market_ctx", label: "Context",    default: false },
@@ -66,13 +71,24 @@ interface Props {
   onSelectAll?: (ids: number[]) => void;
   allSelected?: boolean;
   selectable?: boolean;
+  // Footer / Plan 02 scaffold
+  totalCount?: number;
+  mistakeTypes?: MistakeType[];
+  // Column reorder callback
+  onReorderColumns?: (cols: ColumnKey[]) => void;
 }
 
-const STATUS_STYLE: Record<string, string> = {
-  planned: "bg-blue-500/20 text-blue-400",
-  open: "bg-yellow-500/20 text-yellow-400",
-  closed: "bg-slate-500/20 dark:text-slate-400 text-slate-500",
-};
+function getStatusBadge(t: Trade): { label: string; className: string } {
+  if (t.status === "open") return { label: "Open", className: "bg-yellow-500/20 text-yellow-400" };
+  if (t.status === "planned") return { label: "Planned", className: "bg-blue-500/20 text-blue-400" };
+  if (t.status === "closed") {
+    const pnl = t.pnl ?? 0;
+    if (pnl > 0) return { label: "Win", className: "bg-emerald-500/20 text-emerald-400" };
+    if (pnl < 0) return { label: "Loss", className: "bg-red-500/20 text-red-400" };
+    return { label: "BE", className: "bg-slate-500/20 dark:text-slate-400 text-slate-500" };
+  }
+  return { label: t.status, className: "bg-slate-500/20 dark:text-slate-400 text-slate-500" };
+}
 
 function calcPotentialPnl(t: Trade) {
   if (t.status === "closed") return null;
@@ -106,6 +122,7 @@ function getSortValue(t: Trade, key: ColumnKey, quotes: QuoteMap, defaultRiskPer
     case "pnl": return t.pnl ?? -Infinity;
     case "rr_achieved": return calcRRAchieved(t) ?? -Infinity;
     case "pct_return": return calcPercentReturn(t, accountSize ?? 10000) ?? -Infinity;
+    case "cost_basis": return (t.entry_price ?? 0) * (t.shares ?? 0);
     case "hold_duration": {
       if (!t.entry_date) return -Infinity;
       const end = t.exit_date ? new Date(t.exit_date) : new Date();
@@ -130,6 +147,55 @@ function getSortValue(t: Trade, key: ColumnKey, quotes: QuoteMap, defaultRiskPer
   }
 }
 
+function SortableHeader({
+  colKey,
+  label,
+  sortKey,
+  sortDir,
+  onSort,
+  showGrip,
+}: {
+  colKey: ColumnKey;
+  label: string;
+  sortKey: ColumnKey | null;
+  sortDir: "asc" | "desc";
+  onSort: (k: ColumnKey) => void;
+  showGrip?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: colKey });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  return (
+    <th
+      ref={setNodeRef}
+      style={style}
+      className="px-4 py-3 text-left text-xs font-bold dark:text-slate-500 text-slate-400 uppercase tracking-wider whitespace-nowrap"
+    >
+      <div className="flex items-center gap-1">
+        {showGrip && (
+          <span
+            {...attributes}
+            {...listeners}
+            className="p-0.5 rounded cursor-grab active:cursor-grabbing hover:dark:bg-slate-700 hover:bg-slate-200"
+          >
+            <GripVertical className="w-3 h-3 dark:text-slate-500 text-slate-400" />
+          </span>
+        )}
+        <button
+          onClick={() => onSort(colKey)}
+          className="flex items-center gap-1 hover:dark:text-slate-200 hover:text-slate-700 transition-colors cursor-pointer select-none"
+        >
+          {label}
+          {sortKey === colKey && (
+            sortDir === "asc"
+              ? <ChevronUp className="w-3.5 h-3.5" />
+              : <ChevronDown className="w-3.5 h-3.5" />
+          )}
+        </button>
+      </div>
+    </th>
+  );
+}
+
 export default function TradeTable({
   trades,
   onEdit,
@@ -145,11 +211,15 @@ export default function TradeTable({
   onToggleSelect,
   onSelectAll,
   allSelected,
-  selectable: selectableProp
+  selectable: selectableProp,
+  totalCount,
+  mistakeTypes,
+  onReorderColumns,
 }: Props) {
   const router = useRouter();
+  const { hidden } = usePrivacy();
   const baseRows = limit ? trades.slice(0, limit) : trades;
-  
+
   // Use external selected state if provided, otherwise use internal
   const [internalSelected, setInternalSelected] = useState<Set<number>>(new Set());
   const selected = selectedIds ?? internalSelected;
@@ -198,7 +268,7 @@ export default function TradeTable({
   const toggleAll = () => {
     const allIds = rows.map(t => t.id);
     const currentlyAllSelected = allIds.every(id => selected.has(id));
-    
+
     if (onSelectAll) {
       onSelectAll(currentlyAllSelected ? [] : allIds);
     } else {
@@ -238,6 +308,22 @@ export default function TradeTable({
     setHoverNote(null);
   }, []);
 
+  // DnD sensors for column reordering
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  const handleColumnDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id && visibleColumns) {
+      const cols = visibleColumns ?? DEFAULT_COLUMNS;
+      const oldIdx = cols.indexOf(active.id as ColumnKey);
+      const newIdx = cols.indexOf(over.id as ColumnKey);
+      onReorderColumns?.(arrayMove(cols, oldIdx, newIdx));
+    }
+  };
+
   if (rows.length === 0) {
     return (
       <div className="rounded-2xl dark:bg-slate-800/50 bg-slate-50 p-8 text-center shadow-sm border dark:border-slate-800/50 border-slate-100/50">
@@ -246,10 +332,17 @@ export default function TradeTable({
     );
   }
 
-  // Build visible header list for desktop
-  const headers: { key: ColumnKey; label: string }[] = ALL_COLUMNS
-    .filter(c => show(c.key))
-    .map(c => ({ key: c.key, label: c.label }));
+  // Build visible header list for desktop (respecting visibleColumns order)
+  const headers: { key: ColumnKey; label: string }[] = (visibleColumns ?? DEFAULT_COLUMNS)
+    .filter(k => visible.has(k))
+    .map(k => {
+      const col = ALL_COLUMNS.find(c => c.key === k)!;
+      return { key: col.key, label: col.label };
+    });
+
+  // Footer totals
+  const totalPnl = rows.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
+  const footerColSpan = headers.length + 1 + (selectable ? 1 : 0);
 
   return (
     <div>
@@ -291,6 +384,7 @@ export default function TradeTable({
             const liveColor = livePnl !== null ? (livePnl > 0 ? "text-emerald-400" : livePnl < 0 ? "text-red-400" : "dark:text-slate-400 text-slate-500") : "dark:text-slate-400 text-slate-500";
             const isSelected = selected.has(t.id);
             const pot = calcPotentialPnl(t);
+            const statusBadge = getStatusBadge(t);
             return (
               <div key={t.id} className={clsx("p-3 dark:bg-slate-900 bg-white space-y-2", isSelected && "dark:bg-emerald-500/5 bg-emerald-50")}>
                 {/* Row 1: checkbox + symbol + direction + status + actions */}
@@ -316,12 +410,12 @@ export default function TradeTable({
                     )}
                     {show("direction") && (
                       t.direction === "long"
-                        ? <span className="flex items-center gap-0.5 text-xs text-emerald-400"><ArrowUpRight className="w-3 h-3" />Long</span>
-                        : <span className="flex items-center gap-0.5 text-xs text-red-400"><ArrowDownRight className="w-3 h-3" />Short</span>
+                        ? <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400">Long</span>
+                        : <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-400">Short</span>
                     )}
                     {show("status") && (
-                      <span className={clsx("px-2 py-0.5 rounded-full text-xs font-medium capitalize", STATUS_STYLE[t.status])}>
-                        {t.status}
+                      <span className={clsx("px-2 py-0.5 rounded-full text-xs font-medium", statusBadge.className)}>
+                        {statusBadge.label}
                       </span>
                     )}
                   </div>
@@ -375,7 +469,7 @@ export default function TradeTable({
                   <div className="flex items-center gap-3">
                     {show("pnl") && (
                       <span className={clsx("font-medium", closedPnlColor)}>
-                        P&L: {t.pnl !== null ? `${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}` : "—"}
+                        P&L: {hidden ? "••••" : (t.pnl !== null ? `${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}` : "—")}
                       </span>
                     )}
                     {show("potential") && pot && (
@@ -388,7 +482,7 @@ export default function TradeTable({
                     {show("unrealized") && livePnl !== null && (
                       <span className={clsx("flex items-center gap-1 font-medium", liveColor)}>
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        {`${livePnl >= 0 ? "+" : ""}$${livePnl.toFixed(2)}`}
+                        {hidden ? "••••" : `${livePnl >= 0 ? "+" : ""}$${livePnl.toFixed(2)}`}
                       </span>
                     )}
                   </div>
@@ -423,35 +517,35 @@ export default function TradeTable({
         <div className="hidden sm:block overflow-x-auto p-1">
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="border-b dark:border-slate-700/50 border-slate-100">
-                {selectable && (
-                  <th className="px-4 py-3 w-8">
-                    <input
-                      type="checkbox"
-                      checked={rows.length > 0 && selected.size === rows.length}
-                      onChange={toggleAll}
-                      className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
-                    />
-                  </th>
-                )}
-                {headers.map((h) => (
-                  <th key={h.key} className="px-4 py-3 text-left text-xs font-bold dark:text-slate-500 text-slate-400 uppercase tracking-wider whitespace-nowrap">
-                    <button
-                      onClick={() => handleSort(h.key)}
-                      className="flex items-center gap-1 hover:dark:text-slate-200 hover:text-slate-700 transition-colors cursor-pointer select-none"
-                    >
-                      {h.label}
-                      {sortKey === h.key && (
-                        sortDir === "asc"
-                          ? <ChevronUp className="w-3.5 h-3.5" />
-                          : <ChevronDown className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                  </th>
-                ))}
-                {/* Actions column (always visible) */}
-                <th className="px-4 py-3 text-left text-xs font-bold dark:text-slate-500 text-slate-400 uppercase tracking-wider whitespace-nowrap text-right">Actions</th>
-              </tr>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleColumnDragEnd}>
+                <SortableContext items={headers.map(h => h.key)} strategy={horizontalListSortingStrategy}>
+                  <tr className="border-b dark:border-slate-700/50 border-slate-100">
+                    {selectable && (
+                      <th className="px-4 py-3 w-8">
+                        <input
+                          type="checkbox"
+                          checked={rows.length > 0 && selected.size === rows.length}
+                          onChange={toggleAll}
+                          className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                        />
+                      </th>
+                    )}
+                    {headers.map((h) => (
+                      <SortableHeader
+                        key={h.key}
+                        colKey={h.key}
+                        label={h.label}
+                        sortKey={sortKey}
+                        sortDir={sortDir}
+                        onSort={handleSort}
+                        showGrip={!!onReorderColumns}
+                      />
+                    ))}
+                    {/* Actions column (always visible) */}
+                    <th className="px-4 py-3 text-left text-xs font-bold dark:text-slate-500 text-slate-400 uppercase tracking-wider whitespace-nowrap text-right">Actions</th>
+                  </tr>
+                </SortableContext>
+              </DndContext>
             </thead>
             <tbody className="divide-y dark:divide-slate-700/50 divide-slate-100">
               {rows.map((t) => {
@@ -463,6 +557,10 @@ export default function TradeTable({
                 const liveColor = livePnl !== null ? (livePnl > 0 ? "text-emerald-400" : livePnl < 0 ? "text-red-400" : "dark:text-slate-400 text-slate-500") : "dark:text-slate-400 text-slate-500";
                 const isSelected = selected.has(t.id);
                 const pot = calcPotentialPnl(t);
+                const statusBadge = getStatusBadge(t);
+                const costBasis = t.entry_price != null && t.shares != null
+                  ? `$${(t.entry_price * t.shares).toFixed(2)}`
+                  : null;
                 return (
                   <tr key={t.id} className={clsx("hover:dark:bg-slate-800/30 hover:bg-slate-50/50 transition-colors group", isSelected && "dark:bg-emerald-500/5 bg-emerald-50/50")}>
                     {selectable && (
@@ -497,15 +595,15 @@ export default function TradeTable({
                     {show("direction") && (
                       <td className="px-4 py-3">
                         {t.direction === "long"
-                          ? <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-emerald-400"><ArrowUpRight className="w-3 h-3" />Long</span>
-                          : <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-red-400"><ArrowDownRight className="w-3 h-3" />Short</span>
+                          ? <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400">Long</span>
+                          : <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-400">Short</span>
                         }
                       </td>
                     )}
                     {show("status") && (
                       <td className="px-4 py-3">
-                        <span className={clsx("px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter", STATUS_STYLE[t.status])}>
-                          {t.status}
+                        <span className={clsx("px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter", statusBadge.className)}>
+                          {statusBadge.label}
                         </span>
                       </td>
                     )}
@@ -516,7 +614,7 @@ export default function TradeTable({
                     {show("shares") && <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs font-medium">{t.shares ?? "—"}</td>}
                     {show("pnl") && (
                       <td className={clsx("px-4 py-3 font-semibold text-xs", closedPnlColor)}>
-                        {t.pnl !== null ? `${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}` : "—"}
+                        {hidden ? "••••" : (t.pnl !== null ? `${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}` : "—")}
                       </td>
                     )}
                     {show("rr_achieved") && (() => {
@@ -529,6 +627,11 @@ export default function TradeTable({
                       const color = pct === null ? "" : pct >= 0 ? "text-emerald-400" : "text-red-400";
                       return <td className={clsx("px-4 py-3 text-xs font-semibold", color)}>{pct !== null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%` : "—"}</td>;
                     })()}
+                    {show("cost_basis") && (
+                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs font-medium">
+                        {hidden ? "••••" : (costBasis ?? "—")}
+                      </td>
+                    )}
                     {show("hold_duration") && (
                       <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs">
                         {formatHoldDuration(t.entry_date, t.exit_date) ?? "—"}
@@ -564,7 +667,7 @@ export default function TradeTable({
                       <td className={clsx("px-4 py-3 font-semibold text-xs", liveColor)}>
                         <span className="flex items-center gap-1.5">
                           {livePnl !== null && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
-                          {livePnl !== null ? `${livePnl >= 0 ? "+" : ""}$${livePnl.toFixed(2)}` : "—"}
+                          {hidden ? "••••" : (livePnl !== null ? `${livePnl >= 0 ? "+" : ""}$${livePnl.toFixed(2)}` : "—")}
                         </span>
                       </td>
                     )}
@@ -588,7 +691,7 @@ export default function TradeTable({
                       </td>
                     )}
                     {show("notes") && (
-                      <td 
+                      <td
                         className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs max-w-[150px] truncate cursor-help"
                         onMouseEnter={(e) => handleNoteEnter(e, t.notes || "")}
                         onMouseLeave={handleNoteLeave}
@@ -650,6 +753,23 @@ export default function TradeTable({
                 );
               })}
             </tbody>
+            <tfoot>
+              <tr className="border-t dark:border-slate-700/50 border-slate-100">
+                <td colSpan={footerColSpan} className="px-4 py-2 text-xs dark:text-slate-500 text-slate-400">
+                  <div className="flex items-center justify-between">
+                    <span>
+                      {rows.length} trade{rows.length !== 1 ? "s" : ""}
+                      {totalCount !== undefined && totalCount !== rows.length && (
+                        <span className="ml-1">(filtered from {totalCount})</span>
+                      )}
+                    </span>
+                    <span className={clsx("font-semibold", totalPnl >= 0 ? "text-emerald-400" : "text-red-400")}>
+                      Total: {hidden ? "••••" : `${totalPnl >= 0 ? "+" : ""}$${totalPnl.toFixed(2)}`}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
@@ -658,10 +778,10 @@ export default function TradeTable({
       {mounted && hoverNote && createPortal(
         <div
           className="fixed z-[60] rounded-xl dark:bg-slate-900 bg-white shadow-2xl border dark:border-slate-700 border-slate-200 p-4 overflow-hidden"
-          style={{ 
-            top: notePos.top, 
-            left: Math.min(notePos.left, typeof window !== "undefined" ? window.innerWidth - 340 : notePos.left), 
-            width: 320 
+          style={{
+            top: notePos.top,
+            left: Math.min(notePos.left, typeof window !== "undefined" ? window.innerWidth - 340 : notePos.left),
+            width: 320
           }}
           onMouseEnter={() => clearTimeout(noteTimeout.current)}
           onMouseLeave={handleNoteLeave}

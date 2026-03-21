@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, useMemo } from "react";
-import { TradeFilterState, DEFAULT_FILTER, Trade, QuoteMap, SavedView } from "@/lib/types";
+import { TradeFilterState, DEFAULT_FILTER, Trade, QuoteMap, SavedView, MistakeType } from "@/lib/types";
 import TradeTable, { ALL_COLUMNS, DEFAULT_COLUMNS, ColumnKey } from "@/components/TradeTable";
 import TradeModal from "@/components/TradeModal";
 import { Plus, SlidersHorizontal } from "lucide-react";
@@ -52,6 +52,7 @@ export default function TradesShell() {
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertDefaults, setAlertDefaults] = useState<{ symbol?: string; price?: number }>({});
+  const [mistakeTypes, setMistakeTypes] = useState<MistakeType[]>([]);
 
   // Filter state with sessionStorage persistence
   const [filter, setFilter] = useState<TradeFilterState>(() => {
@@ -130,6 +131,16 @@ export default function TradesShell() {
     const id = setInterval(() => loadQuotes(allTrades), 60_000);
     return () => clearInterval(id);
   }, [allTrades]);
+
+  // Fetch mistake types once on mount (non-guests only)
+  useEffect(() => {
+    if (me && !me.guest) {
+      fetch("/api/mistakes")
+        .then(res => res.ok ? res.json() : [])
+        .then(data => { if (Array.isArray(data)) setMistakeTypes(data); })
+        .catch(() => { /* silent */ });
+    }
+  }, [me]);
 
   // Close column menu on outside click
   useEffect(() => {
@@ -315,6 +326,9 @@ export default function TradesShell() {
             defaultRiskPercent={riskPercent}
             accountSize={accountSize}
             onSetAlert={(symbol, price) => { setAlertDefaults({ symbol, price }); setShowAlertModal(true); }}
+            totalCount={allTrades.length}
+            mistakeTypes={mistakeTypes}
+            onReorderColumns={saveColumns}
           />
         </div>
       )}
