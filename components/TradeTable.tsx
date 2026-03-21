@@ -542,9 +542,9 @@ export default function TradeTable({
 
         {/* ── Desktop table (sm+) ── */}
         <div className="hidden sm:block overflow-x-auto p-1">
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleColumnDragEnd}>
           <table className="w-full text-sm border-collapse">
             <thead>
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleColumnDragEnd}>
                 <SortableContext items={headers.map(h => h.key)} strategy={horizontalListSortingStrategy}>
                   <tr className="border-b dark:border-slate-700/50 border-slate-100">
                     {selectable && (
@@ -573,7 +573,6 @@ export default function TradeTable({
                     <th className="px-4 py-3 text-left text-xs font-bold dark:text-slate-500 text-slate-400 uppercase tracking-wider whitespace-nowrap text-right">Actions</th>
                   </tr>
                 </SortableContext>
-              </DndContext>
             </thead>
             <tbody className="divide-y dark:divide-slate-700/50 divide-slate-100">
               {rows.map((t) => {
@@ -845,6 +844,7 @@ export default function TradeTable({
               </tr>
             </tfoot>
           </table>
+          </DndContext>
         </div>
       </div>
 
