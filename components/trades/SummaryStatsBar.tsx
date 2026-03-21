@@ -151,9 +151,9 @@ export default function SummaryStatsBar({ filteredTrades, allTrades, accountSize
 
   return (
     <div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {/* Cumulative Return */}
-        <div className="dark:bg-slate-800 bg-white rounded-xl shadow p-4 flex flex-col gap-1">
+        <div className="dark:bg-slate-800 bg-white rounded-lg shadow p-3 flex flex-col gap-1">
           <span className="text-xs uppercase tracking-wide dark:text-slate-400 text-slate-500 font-medium">
             Cumulative Return
           </span>
@@ -161,7 +161,7 @@ export default function SummaryStatsBar({ filteredTrades, allTrades, accountSize
             {cumulativeHeadline}
           </span>
           <span className="text-xs dark:text-slate-500 text-slate-400">{cumulativeSubtitle}</span>
-          <div className="h-12 mt-auto pt-2">
+          <div className="h-10 mt-auto pt-1">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={sparklines.cumulative} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <defs>
@@ -186,7 +186,7 @@ export default function SummaryStatsBar({ filteredTrades, allTrades, accountSize
         </div>
 
         {/* P/L Ratio */}
-        <div className="dark:bg-slate-800 bg-white rounded-xl shadow p-4 flex flex-col gap-1">
+        <div className="dark:bg-slate-800 bg-white rounded-lg shadow p-3 flex flex-col gap-1">
           <span className="text-xs uppercase tracking-wide dark:text-slate-400 text-slate-500 font-medium">
             P/L Ratio
           </span>
@@ -194,7 +194,7 @@ export default function SummaryStatsBar({ filteredTrades, allTrades, accountSize
             {plRatioHeadline}
           </span>
           <span className="text-xs dark:text-slate-500 text-slate-400">{plRatioSubtitle}</span>
-          <div className="h-12 mt-auto pt-2">
+          <div className="h-10 mt-auto pt-1">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={sparklines.plRatio} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <defs>
@@ -219,7 +219,7 @@ export default function SummaryStatsBar({ filteredTrades, allTrades, accountSize
         </div>
 
         {/* Win % */}
-        <div className="dark:bg-slate-800 bg-white rounded-xl shadow p-4 flex flex-col gap-1">
+        <div className="dark:bg-slate-800 bg-white rounded-lg shadow p-3 flex flex-col gap-1">
           <span className="text-xs uppercase tracking-wide dark:text-slate-400 text-slate-500 font-medium">
             Win %
           </span>
@@ -227,7 +227,7 @@ export default function SummaryStatsBar({ filteredTrades, allTrades, accountSize
             {winPctHeadline}
           </span>
           <span className="text-xs dark:text-slate-500 text-slate-400">{winPctSubtitle}</span>
-          <div className="h-12 mt-auto pt-2">
+          <div className="h-10 mt-auto pt-1">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={sparklines.winPct} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <defs>
