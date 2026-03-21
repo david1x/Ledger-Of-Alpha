@@ -49,9 +49,9 @@ Requirements for Trades Page Overhaul. Each maps to roadmap phases.
 
 ### Mobile
 
-- [ ] **MOBI-01**: Trade table scrolls horizontally with sticky symbol column on small viewports
-- [ ] **MOBI-02**: Filter bar wraps responsively; filter chips scroll horizontally
-- [ ] **MOBI-03**: Summary stats bar uses 2-column grid on small screens
+- [x] **MOBI-01**: Trade table scrolls horizontally with sticky symbol column on small viewports
+- [x] **MOBI-02**: Filter bar wraps responsively; filter chips scroll horizontally
+- [x] **MOBI-03**: Summary stats bar uses 2-column grid on small screens
 
 ## Future Requirements
 
@@ -104,9 +104,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SIDE-02 | Phase 23 | Pending |
 | SIDE-03 | Phase 23 | Pending |
 | SIDE-04 | Phase 23 | Pending |
-| MOBI-01 | Phase 23 | Pending |
-| MOBI-02 | Phase 23 | Pending |
-| MOBI-03 | Phase 23 | Pending |
+| MOBI-01 | Phase 23 | Complete |
+| MOBI-02 | Phase 23 | Complete |
+| MOBI-03 | Phase 23 | Complete |
 
 **Coverage:**
 - v3.0 requirements: 28 total
