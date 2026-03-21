@@ -33,12 +33,12 @@ Requirements for Trades Page Overhaul. Each maps to roadmap phases.
 
 ### Trade Table
 
-- [ ] **TABL-01**: User can see color-coded status badges (Win/Loss/Open) on each row
-- [ ] **TABL-02**: User can see color-coded side badges (Long/Short) on each row
-- [ ] **TABL-03**: User can see net return $ and net return % columns
-- [ ] **TABL-04**: User can see cost basis column (entry price x size)
-- [ ] **TABL-05**: User can drag-to-reorder table columns with order persisted
-- [ ] **TABL-06**: User can see footer with filtered count / total count and total return
+- [x] **TABL-01**: User can see color-coded status badges (Win/Loss/Open) on each row
+- [x] **TABL-02**: User can see color-coded side badges (Long/Short) on each row
+- [x] **TABL-03**: User can see net return $ and net return % columns
+- [x] **TABL-04**: User can see cost basis column (entry price x size)
+- [x] **TABL-05**: User can drag-to-reorder table columns with order persisted
+- [x] **TABL-06**: User can see footer with filtered count / total count and total return
 
 ### Sidebar Analytics
 
@@ -94,12 +94,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STAT-01 | Phase 21 | Complete |
 | STAT-02 | Phase 21 | Complete |
 | STAT-03 | Phase 21 | Complete |
-| TABL-01 | Phase 22 | Pending |
-| TABL-02 | Phase 22 | Pending |
-| TABL-03 | Phase 22 | Pending |
-| TABL-04 | Phase 22 | Pending |
-| TABL-05 | Phase 22 | Pending |
-| TABL-06 | Phase 22 | Pending |
+| TABL-01 | Phase 22 | Complete |
+| TABL-02 | Phase 22 | Complete |
+| TABL-03 | Phase 22 | Complete |
+| TABL-04 | Phase 22 | Complete |
+| TABL-05 | Phase 22 | Complete |
+| TABL-06 | Phase 22 | Complete |
 | SIDE-01 | Phase 23 | Pending |
 | SIDE-02 | Phase 23 | Pending |
 | SIDE-03 | Phase 23 | Pending |

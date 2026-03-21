@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Trades Page Overhaul
 status: completed
-stopped_at: Completed 21-01-PLAN.md (SummaryStatsBar)
-last_updated: "2026-03-21T15:59:18.923Z"
+stopped_at: Completed 22-01-PLAN.md (Enhanced Trade Table)
+last_updated: "2026-03-21T16:45:09.689Z"
 last_activity: 2026-03-21 — Completed Phase 19 (TradesShell Refactor, 2 plans)
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 9
+  completed_plans: 8
   percent: 100
 ---
 
@@ -60,6 +60,8 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 - [Phase 20-filter-system-saved-views]: SavedViewsDropdown placed alongside Columns button in filter toolbar for visual proximity to filter controls
 - [Phase 21-summary-stats-bar]: SummaryStatsBar calls usePrivacy() internally — TradesShell no longer needs the usePrivacy import
 - [Phase 21-summary-stats-bar]: P/L Ratio sparkline uses neutral blue (#3b82f6) to avoid confusing color flips as rolling ratio crosses 1.0
+- [Phase 22-enhanced-trade-table-mistakes]: SortableHeader grip handle pattern: GripVertical gets dnd listeners, sort button gets onClick — prevents drag from stealing sort clicks
+- [Phase 22-enhanced-trade-table-mistakes]: headers array built from visibleColumns order (not ALL_COLUMNS order) so drag reorder is reflected immediately in the DOM
 
 ### Blockers/Concerns
 
@@ -72,6 +74,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-21T15:56:59.284Z
-Stopped at: Completed 21-01-PLAN.md (SummaryStatsBar)
+Last session: 2026-03-21T16:45:04.252Z
+Stopped at: Completed 22-01-PLAN.md (Enhanced Trade Table)
 Resume file: None
