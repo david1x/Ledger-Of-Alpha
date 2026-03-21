@@ -6,6 +6,7 @@ interface Props {
   filter: TradeFilterState;
   onClear: (field: keyof TradeFilterState) => void;
   onClearAll: () => void;
+  accounts?: { id: string; name: string }[];
 }
 
 function capitalize(s: string): string {
@@ -17,7 +18,7 @@ interface Chip {
   field: keyof TradeFilterState;
 }
 
-export default function TradeFilterChips({ filter, onClear, onClearAll }: Props) {
+export default function TradeFilterChips({ filter, onClear, onClearAll, accounts }: Props) {
   const chips: Chip[] = [];
 
   if (filter.symbol !== DEFAULT_FILTER.symbol) {
@@ -45,7 +46,14 @@ export default function TradeFilterChips({ filter, onClear, onClearAll }: Props)
     chips.push({ label: "Mistake filter", field: "mistakeId" });
   }
   if (filter.tags.length > 0) {
-    chips.push({ label: `Tags: ${filter.tags.length} selected`, field: "tags" });
+    const label = filter.tags.length <= 3
+      ? `Tags: ${filter.tags.join(", ")}`
+      : `Tags: ${filter.tags.length} selected`;
+    chips.push({ label, field: "tags" });
+  }
+  if (filter.accountId) {
+    const acctName = accounts?.find(a => a.id === filter.accountId)?.name ?? "Account";
+    chips.push({ label: `Account: ${acctName}`, field: "accountId" });
   }
 
   if (chips.length === 0) return null;

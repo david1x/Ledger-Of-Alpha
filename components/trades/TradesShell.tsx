@@ -3,13 +3,14 @@ import { useEffect, useState, useRef } from "react";
 import { TradeFilterState, DEFAULT_FILTER, Trade, QuoteMap } from "@/lib/types";
 import TradeTable, { ALL_COLUMNS, DEFAULT_COLUMNS, ColumnKey } from "@/components/TradeTable";
 import TradeModal from "@/components/TradeModal";
-import { Plus, Search, Filter, SlidersHorizontal } from "lucide-react";
+import { Plus, SlidersHorizontal } from "lucide-react";
 import AccountBanner from "@/components/AccountBanner";
 import AlertModal from "@/components/AlertModal";
 import { useAccounts } from "@/lib/account-context";
 import { usePrivacy } from "@/lib/privacy-context";
 import TradeImportExport from "./TradeImportExport";
 import TradeFilterChips from "./TradeFilterChips";
+import TradeFilterBar from "./TradeFilterBar";
 
 function applyFilter(trades: Trade[], filter: TradeFilterState): Trade[] {
   return trades.filter(t => {
@@ -20,6 +21,13 @@ function applyFilter(trades: Trade[], filter: TradeFilterState): Trade[] {
     if (filter.pnlFilter === "losers" && (t.pnl ?? 0) >= 0) return false;
     if (filter.dateFrom && t.exit_date && t.exit_date < filter.dateFrom) return false;
     if (filter.dateTo && t.exit_date && t.exit_date > filter.dateTo) return false;
+    // Tags filter (OR semantics — trade matches if it has ANY selected tag)
+    if (filter.tags.length > 0) {
+      const tradeTags = t.tags ? t.tags.split(",").map(s => s.trim()) : [];
+      if (!filter.tags.some(ft => tradeTags.includes(ft))) return false;
+    }
+    // Account filter (client-side, only used in All Accounts mode)
+    if (filter.accountId && t.account_id !== filter.accountId) return false;
     return true;
   });
 }
@@ -78,9 +86,10 @@ export default function TradesShell() {
         fetch("/api/auth/me"),
       ]);
       const tradesData = await tradesRes.json();
-      const settingsData = await settingsRes.json();
+      const loadedSettings = await settingsRes.json();
       const meData = await meRes.json();
       setMe(meData);
+      setSettingsData(loadedSettings);
 
       if (Array.isArray(tradesData)) {
         setAllTrades(tradesData);
@@ -92,15 +101,15 @@ export default function TradesShell() {
         setRiskPercent(activeAccount.risk_per_trade);
       } else if (accounts.length > 0) {
         setAccountSize(accounts.reduce((sum, a) => sum + a.starting_balance, 0));
-        if (settingsData.risk_per_trade) setRiskPercent(parseFloat(settingsData.risk_per_trade));
+        if (loadedSettings.risk_per_trade) setRiskPercent(parseFloat(loadedSettings.risk_per_trade));
       } else {
-        if (settingsData.account_size) setAccountSize(parseFloat(settingsData.account_size));
-        if (settingsData.risk_per_trade) setRiskPercent(parseFloat(settingsData.risk_per_trade));
+        if (loadedSettings.account_size) setAccountSize(parseFloat(loadedSettings.account_size));
+        if (loadedSettings.risk_per_trade) setRiskPercent(parseFloat(loadedSettings.risk_per_trade));
       }
 
-      if (settingsData.trade_table_columns) {
+      if (loadedSettings.trade_table_columns) {
         try {
-          const saved = JSON.parse(settingsData.trade_table_columns) as ColumnKey[];
+          const saved = JSON.parse(loadedSettings.trade_table_columns) as ColumnKey[];
           if (Array.isArray(saved) && saved.length > 0) setVisibleColumns(saved);
         } catch { /* use defaults */ }
       }
@@ -185,6 +194,9 @@ export default function TradesShell() {
         : "dark:text-slate-400 text-slate-600 hover:dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-800/50 bg-slate-100/50"
     }`;
 
+  // settingsData prep for Plan 02 (SavedViewsDropdown)
+  const [settingsData, setSettingsData] = useState<any>({});
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -217,39 +229,17 @@ export default function TradesShell() {
       />
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Symbol search */}
-        <div className="relative w-full sm:w-auto">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 dark:text-slate-400 text-slate-500" />
-          <input
-            type="text"
-            value={filter.symbol}
-            onChange={(e) => updateFilter({ symbol: e.target.value.toUpperCase() })}
-            placeholder="Filter by symbol"
-            className="w-full pl-9 pr-3 py-1.5 h-9 text-sm rounded-lg dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
-        </div>
+      <TradeFilterBar
+        filter={filter}
+        onFilterChange={updateFilter}
+        allTrades={allTrades}
+        accounts={accounts}
+        activeAccountId={activeAccountId}
+        isGuest={me?.guest ?? true}
+      />
 
-        {/* Status filter */}
-        <div className="flex items-center gap-1.5 h-9">
-          <Filter className="w-4 h-4 dark:text-slate-500 text-slate-400" />
-          {(["all", "planned", "open", "closed"] as TradeFilterState["status"][]).map((s) => (
-            <button key={s} onClick={() => updateFilter({ status: s })} className={FILTER_BTN(filter.status === s)}>
-              {s.charAt(0).toUpperCase() + s.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        {/* Direction filter */}
-        <div className="flex items-center gap-1.5 h-9">
-          {(["all", "long", "short"] as TradeFilterState["direction"][]).map((d) => (
-            <button key={d} onClick={() => updateFilter({ direction: d })} className={FILTER_BTN(filter.direction === d)}>
-              {d.charAt(0).toUpperCase() + d.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        {/* Column toggle */}
+      {/* Column toggle (display setting, not a filter) */}
+      <div className="flex items-center">
         <div className="relative" ref={columnMenuRef}>
           <button
             onClick={() => setShowColumnMenu(prev => !prev)}
@@ -290,7 +280,7 @@ export default function TradesShell() {
       </div>
 
       {/* Filter chips */}
-      <TradeFilterChips filter={filter} onClear={clearFilter} onClearAll={clearAllFilters} />
+      <TradeFilterChips filter={filter} onClear={clearFilter} onClearAll={clearAllFilters} accounts={accounts} />
 
       {loading ? (
         <div className="text-center py-12 dark:text-slate-400 text-slate-500">Loading...</div>
