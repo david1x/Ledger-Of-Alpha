@@ -151,5 +151,15 @@ Plans:
 | 22. Enhanced Trade Table & Mistakes | 2/2 | Complete    | 2026-03-21 | - |
 | 23. Sidebar Analytics & Mobile Polish | 2/2 | Complete    | 2026-03-21 | - |
 
+### Phase 24: Trades page UI tightening — wider sidebar, compact cards, grid layout polish, filter relocation
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 23
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 24 to break down)
+
 ---
 *Phase numbering continues across milestones. Next phase after v3.0: 24.*

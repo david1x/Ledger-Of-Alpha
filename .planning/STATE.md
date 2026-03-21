@@ -68,6 +68,10 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 - [Phase 23-sidebar-analytics-mobile-polish]: Symbol td uses group-hover background overrides matching tr hover colors to prevent visible seam during row highlight
 - [Phase 23-sidebar-analytics-mobile-polish]: TradeFilterChips uses both [&::-webkit-scrollbar]:hidden and inline scrollbarWidth:none for cross-browser scrollbar hiding
 
+### Roadmap Evolution
+
+- Phase 24 added: Trades page UI tightening — wider sidebar, compact cards, grid layout polish, filter relocation
+
 ### Blockers/Concerns
 
 - Phase 18: `trades.mistakes` column format in production is unknown — must audit before migration. Surface result to user if non-JSON data exists.
