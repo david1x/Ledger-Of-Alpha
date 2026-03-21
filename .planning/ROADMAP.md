@@ -73,7 +73,10 @@ Plans:
   1. The trades page loads and all existing behavior works exactly as before the refactor
   2. Switching accounts reloads trade data without resetting any active filter state
   3. The TradeFilterState type exists in lib/types.ts and is consumed by TradesShell
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 19-01-PLAN.md — PrivacyContext provider creation + migrate DashboardShell and journal page
+- [ ] 19-02-PLAN.md — TradesShell orchestrator, TradeImportExport extraction, TradeFilterChips (FILT-05/06)
 
 ### Phase 20: Filter System & Saved Views
 **Goal**: Users can slice the trades list by any combination of date, setup, side, mistake, and account — and save those combinations as named views for one-click recall
@@ -131,7 +134,7 @@ Plans:
 | 8-11  | v2.0      | 12/12          | Complete | 2026-03-19 |
 | 12-17 | v2.1      | 10/10          | Complete | 2026-03-21 |
 | 18. DB & API Foundation | 2/2 | Complete    | 2026-03-21 | - |
-| 19. TradesShell Refactor | v3.0 | 0/TBD | Not started | - |
+| 19. TradesShell Refactor | v3.0 | 0/2 | Not started | - |
 | 20. Filter System & Saved Views | v3.0 | 0/TBD | Not started | - |
 | 21. Summary Stats Bar | v3.0 | 0/TBD | Not started | - |
 | 22. Enhanced Trade Table & Mistakes | v3.0 | 0/TBD | Not started | - |
