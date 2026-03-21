@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
-import { TradeFilterState, DEFAULT_FILTER, Trade, QuoteMap } from "@/lib/types";
+import { useEffect, useState, useRef, useMemo } from "react";
+import { TradeFilterState, DEFAULT_FILTER, Trade, QuoteMap, SavedView } from "@/lib/types";
 import TradeTable, { ALL_COLUMNS, DEFAULT_COLUMNS, ColumnKey } from "@/components/TradeTable";
 import TradeModal from "@/components/TradeModal";
 import { Plus, SlidersHorizontal } from "lucide-react";
@@ -11,6 +11,7 @@ import { usePrivacy } from "@/lib/privacy-context";
 import TradeImportExport from "./TradeImportExport";
 import TradeFilterChips from "./TradeFilterChips";
 import TradeFilterBar from "./TradeFilterBar";
+import SavedViewsDropdown from "./SavedViewsDropdown";
 
 function applyFilter(trades: Trade[], filter: TradeFilterState): Trade[] {
   return trades.filter(t => {
@@ -176,6 +177,8 @@ export default function TradesShell() {
     saveColumns(DEFAULT_COLUMNS);
   };
 
+  const [settingsData, setSettingsData] = useState<any>({});
+
   // Filter helpers
   const updateFilter = (partial: Partial<TradeFilterState>) => {
     setFilter(prev => ({ ...prev, ...partial }));
@@ -185,6 +188,18 @@ export default function TradesShell() {
   };
   const clearAllFilters = () => setFilter(DEFAULT_FILTER);
 
+  // Saved views (Plan 02)
+  const initialViews = useMemo<SavedView[]>(() => {
+    if (settingsData.saved_filter_views) {
+      try { return JSON.parse(settingsData.saved_filter_views); } catch { return []; }
+    }
+    return [];
+  }, [settingsData.saved_filter_views]);
+
+  const loadView = (viewFilter: TradeFilterState) => {
+    setFilter(viewFilter);
+  };
+
   const filteredTrades = applyFilter(allTrades, filter);
 
   const FILTER_BTN = (active: boolean) =>
@@ -193,9 +208,6 @@ export default function TradesShell() {
         ? "bg-emerald-500/20 text-emerald-400"
         : "dark:text-slate-400 text-slate-600 hover:dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-800/50 bg-slate-100/50"
     }`;
-
-  // settingsData prep for Plan 02 (SavedViewsDropdown)
-  const [settingsData, setSettingsData] = useState<any>({});
 
   return (
     <div className="space-y-6">
@@ -238,8 +250,14 @@ export default function TradesShell() {
         isGuest={me?.guest ?? true}
       />
 
-      {/* Column toggle (display setting, not a filter) */}
-      <div className="flex items-center">
+      {/* Column toggle + Saved Views */}
+      <div className="flex items-center gap-2">
+        <SavedViewsDropdown
+          currentFilter={filter}
+          onLoadView={loadView}
+          isGuest={me?.guest ?? true}
+          initialViews={initialViews}
+        />
         <div className="relative" ref={columnMenuRef}>
           <button
             onClick={() => setShowColumnMenu(prev => !prev)}
