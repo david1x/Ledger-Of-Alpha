@@ -115,7 +115,10 @@ Plans:
   3. User can tag a trade with one or more mistake types in TradeModal; the tags appear as colored pills in the table row
   4. User can drag table columns into a custom order and that order persists on page refresh
   5. The table footer shows the count of filtered vs. total trades and the total return for the visible set
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 22-01-PLAN.md — TradeTable badges, computed columns, drag-to-reorder headers, footer row
+- [ ] 22-02-PLAN.md — Mistake tagging in TradeModal, mistake pills in TradeTable rows
 
 ### Phase 23: Sidebar Analytics & Mobile Polish
 **Goal**: Users can open a right sidebar showing performance, setup, and mistake breakdowns derived from the current filtered trades — and the full page is usable on small screens
@@ -142,7 +145,7 @@ Plans:
 | 19. TradesShell Refactor | 2/2 | Complete    | 2026-03-21 | - |
 | 20. Filter System & Saved Views | 2/2 | Complete    | 2026-03-21 | - |
 | 21. Summary Stats Bar | 1/1 | Complete    | 2026-03-21 | - |
-| 22. Enhanced Trade Table & Mistakes | v3.0 | 0/TBD | Not started | - |
+| 22. Enhanced Trade Table & Mistakes | v3.0 | 0/2 | Not started | - |
 | 23. Sidebar Analytics & Mobile Polish | v3.0 | 0/TBD | Not started | - |
 
 ---
