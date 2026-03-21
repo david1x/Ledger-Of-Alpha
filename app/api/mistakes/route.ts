@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser, isGuest } from "@/lib/auth";
+import { DEMO_MISTAKE_TYPES } from "@/lib/demo-data";
 
 export async function GET(req: NextRequest) {
   if (isGuest(req)) {
-    return NextResponse.json([]);
+    return NextResponse.json(DEMO_MISTAKE_TYPES);
   }
 
   const user = await getSessionUser(req);

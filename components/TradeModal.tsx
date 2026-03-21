@@ -540,7 +540,10 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
                           </button>
                         );
                       })}
-                      <MistakeCreator onCreated={(mt) => setMistakeTypes(prev => [...prev, mt])} />
+                      <MistakeCreator
+                        onCreated={(mt) => setMistakeTypes(prev => [...prev, mt])}
+                        existingNames={new Set(mistakeTypes.map(m => m.name.toLowerCase()))}
+                      />
                     </div>
                   </section>
 
@@ -640,27 +643,46 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
 
 const MISTAKE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4"];
 
-function MistakeCreator({ onCreated }: { onCreated: (mt: MistakeType) => void }) {
+const COMMON_MISTAKES = [
+  { name: "Entered Too Early", color: "#f97316" },
+  { name: "Exited Too Early", color: "#eab308" },
+  { name: "Exited Too Late", color: "#eab308" },
+  { name: "Moved Stop Loss", color: "#ef4444" },
+  { name: "Oversized Position", color: "#ec4899" },
+  { name: "No Stop Loss", color: "#ef4444" },
+  { name: "Chased The Trade", color: "#8b5cf6" },
+  { name: "Revenge Trade", color: "#ef4444" },
+  { name: "Ignored Plan", color: "#3b82f6" },
+  { name: "FOMO Entry", color: "#06b6d4" },
+  { name: "Didn't Take Profit", color: "#f97316" },
+  { name: "Wrong Position Size", color: "#ec4899" },
+];
+
+function MistakeCreator({ onCreated, existingNames }: { onCreated: (mt: MistakeType) => void; existingNames: Set<string> }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [color, setColor] = useState(MISTAKE_COLORS[0]);
   const [saving, setSaving] = useState(false);
+  const availablePresets = COMMON_MISTAKES.filter(p => !existingNames.has(p.name.toLowerCase()));
+  const [showPresets, setShowPresets] = useState(existingNames.size === 0);
 
-  const handleCreate = async () => {
-    if (!name.trim() || saving) return;
+  const handleCreate = async (n?: string, c?: string) => {
+    const finalName = (n ?? name).trim();
+    const finalColor = c ?? color;
+    if (!finalName || saving) return;
     setSaving(true);
     try {
       const res = await fetch("/api/mistakes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), color }),
+        body: JSON.stringify({ name: finalName, color: finalColor }),
       });
       if (res.ok) {
         const created = await res.json();
         onCreated(created);
         setName("");
         setColor(MISTAKE_COLORS[0]);
-        setOpen(false);
+        setShowPresets(false);
       }
     } catch { /* silent */ }
     finally { setSaving(false); }
@@ -679,42 +701,72 @@ function MistakeCreator({ onCreated }: { onCreated: (mt: MistakeType) => void })
   }
 
   return (
-    <div className="flex items-center gap-2 w-full mt-2">
-      <input
-        autoFocus
-        type="text"
-        value={name}
-        onChange={e => setName(e.target.value)}
-        onKeyDown={e => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") setOpen(false); }}
-        placeholder="Mistake name..."
-        className="flex-1 px-3 py-2 text-xs rounded-xl dark:bg-slate-800 bg-slate-50 border dark:border-slate-700 border-slate-300 dark:text-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-      />
-      <div className="flex items-center gap-1">
-        {MISTAKE_COLORS.map(c => (
+    <div className="w-full mt-2 space-y-2">
+      {/* Preset suggestions */}
+      {availablePresets.length > 0 && (
+        <div>
           <button
-            key={c}
             type="button"
-            onClick={() => setColor(c)}
-            className={clsx("w-5 h-5 rounded-full transition-all", color === c ? "ring-2 ring-offset-1 dark:ring-offset-slate-900 ring-white scale-110" : "opacity-60 hover:opacity-100")}
-            style={{ backgroundColor: c }}
-          />
-        ))}
+            onClick={() => setShowPresets(v => !v)}
+            className="text-[10px] font-bold uppercase tracking-widest dark:text-slate-500 text-slate-400 hover:dark:text-slate-300 hover:text-slate-600 transition-colors mb-1.5"
+          >
+            {showPresets ? "Hide presets" : "Common mistakes"}
+          </button>
+          {showPresets && (
+            <div className="flex flex-wrap gap-1.5">
+              {availablePresets.map(p => (
+                <button
+                  key={p.name}
+                  type="button"
+                  disabled={saving}
+                  onClick={() => handleCreate(p.name, p.color)}
+                  className="px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider border dark:border-slate-700 border-slate-300 dark:text-slate-400 text-slate-500 hover:dark:border-emerald-500 hover:dark:text-emerald-400 hover:border-emerald-500 hover:text-emerald-600 transition-all disabled:opacity-50"
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {/* Custom input */}
+      <div className="flex items-center gap-2">
+        <input
+          autoFocus
+          type="text"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") { setOpen(false); setShowPresets(false); } }}
+          placeholder="Custom mistake name..."
+          className="flex-1 px-3 py-2 text-xs rounded-xl dark:bg-slate-800 bg-slate-50 border dark:border-slate-700 border-slate-300 dark:text-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        />
+        <div className="flex items-center gap-1">
+          {MISTAKE_COLORS.map(c => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setColor(c)}
+              className={clsx("w-5 h-5 rounded-full transition-all", color === c ? "ring-2 ring-offset-1 dark:ring-offset-slate-900 ring-white scale-110" : "opacity-60 hover:opacity-100")}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => handleCreate()}
+          disabled={!name.trim() || saving}
+          className="p-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50 transition-colors"
+        >
+          <Check className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => { setOpen(false); setName(""); setShowPresets(false); }}
+          className="p-2 rounded-xl dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={handleCreate}
-        disabled={!name.trim() || saving}
-        className="p-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50 transition-colors"
-      >
-        <Check className="w-3.5 h-3.5" />
-      </button>
-      <button
-        type="button"
-        onClick={() => { setOpen(false); setName(""); }}
-        className="p-2 rounded-xl dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
-      >
-        <X className="w-3.5 h-3.5" />
-      </button>
     </div>
   );
 }

@@ -412,27 +412,6 @@ export default function TradeTable({
                           )}
                           <ChecklistRing checklistState={t.checklist_state} size={22} />
                         </span>
-                        {mistakeTypes && mistakeTypes.length > 0 && t.mistake_tag_ids && (() => {
-                          const mistakeIds = t.mistake_tag_ids?.split(",").filter(Boolean) ?? [];
-                          if (!mistakeIds.length) return null;
-                          return (
-                            <div className="flex flex-wrap gap-1">
-                              {mistakeIds.map(id => {
-                                const mt = mistakeTypes?.find(m => m.id === id);
-                                if (!mt) return null;
-                                return (
-                                  <span
-                                    key={id}
-                                    className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
-                                    style={{ backgroundColor: mt.color + "33", color: mt.color }}
-                                  >
-                                    {mt.name}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          );
-                        })()}
                       </span>
                     )}
                     {show("direction") && (
@@ -617,27 +596,6 @@ export default function TradeTable({
                           )}
                           <ChecklistRing checklistState={t.checklist_state} size={24} />
                         </span>
-                        {mistakeTypes && mistakeTypes.length > 0 && t.mistake_tag_ids && (() => {
-                          const mistakeIds = t.mistake_tag_ids?.split(",").filter(Boolean) ?? [];
-                          if (!mistakeIds.length) return null;
-                          return (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {mistakeIds.map(id => {
-                                const mt = mistakeTypes?.find(m => m.id === id);
-                                if (!mt) return null;
-                                return (
-                                  <span
-                                    key={id}
-                                    className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
-                                    style={{ backgroundColor: mt.color + "33", color: mt.color }}
-                                  >
-                                    {mt.name}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          );
-                        })()}
                       </td>
                     )}
                     {show("direction") && (
