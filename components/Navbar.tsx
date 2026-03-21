@@ -9,7 +9,7 @@ import AlertModal from "./AlertModal";
 import {
   BookOpen, LineChart, Settings as SettingsIcon, TrendingUp, Layout, ChevronDown,
   LogOut, User, ShieldCheck, Menu, X, ExternalLink, Bell, Trash2,
-  Power, Clock, Pencil, ChevronsLeft, ChevronsRight, Eye, EyeOff, Wallet, BarChart3, Wrench,
+  Power, Clock, Pencil, Eye, EyeOff, Wallet, BarChart3, Wrench,
 } from "lucide-react";
 import clsx from "clsx";
 import type { Alert } from "@/lib/types";
@@ -77,7 +77,6 @@ export default function Navbar() {
   const isAuthPage = AUTH_PATHS.includes(pathname);
 
   // ── Sidebar state ──
-  const [expanded, setExpanded] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // ── Alert state ──
@@ -98,15 +97,8 @@ export default function Navbar() {
 
   // ── Persistence & Initialization ──
   useEffect(() => {
-    const saved = localStorage.getItem("sidebar_expanded");
-    if (saved === "true") setExpanded(true);
     setMounted(true);
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem("sidebar_expanded", String(expanded));
-    document.documentElement.setAttribute("data-sidebar", expanded ? "expanded" : "collapsed");
-  }, [expanded]);
 
   useEffect(() => {
     if (isAuthPage) return;
@@ -286,7 +278,7 @@ export default function Navbar() {
     return diff < 3600_000;
   }).length;
 
-  const showLabels = expanded || mobileOpen;
+  const showLabels = mobileOpen;
   const initials = me?.name ? me.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() : "?";
 
   const sidebarLinks = (
@@ -296,7 +288,7 @@ export default function Navbar() {
         return (
           <Link key={href} href={href} onClick={() => setMobileOpen(false)}
             className={clsx(
-              "flex items-center py-3 text-sm font-medium transition-colors whitespace-nowrap",
+              "relative group flex items-center py-3 text-sm font-medium transition-colors whitespace-nowrap",
               showLabels ? "gap-3 pl-5 pr-4" : "justify-center px-0",
               active
                 ? "bg-emerald-500/10 text-emerald-400 border-r-2 border-emerald-400"
@@ -306,6 +298,11 @@ export default function Navbar() {
           >
             <Icon className="w-5 h-5 shrink-0" />
             {showLabels && <span>{label}</span>}
+            {!showLabels && (
+              <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 text-xs font-medium rounded-md dark:bg-slate-800 bg-white dark:text-white text-slate-900 shadow-lg border dark:border-slate-700 border-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                {label}
+              </span>
+            )}
           </Link>
         );
       })}
@@ -313,7 +310,7 @@ export default function Navbar() {
       {me && !me.guest && (
         <Link href="/alerts" onClick={() => setMobileOpen(false)}
           className={clsx(
-            "flex items-center py-3 text-sm font-medium transition-colors whitespace-nowrap w-full relative",
+            "relative group flex items-center py-3 text-sm font-medium transition-colors whitespace-nowrap w-full",
             showLabels ? "gap-3 pl-5 pr-4" : "justify-center px-0",
             pathname === "/alerts"
               ? "bg-emerald-500/10 text-emerald-400 border-r-2 border-emerald-400"
@@ -323,6 +320,11 @@ export default function Navbar() {
         >
           <Bell className="w-5 h-5 shrink-0" />
           {showLabels && <span>Alerts</span>}
+          {!showLabels && (
+            <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 text-xs font-medium rounded-md dark:bg-slate-800 bg-white dark:text-white text-slate-900 shadow-lg border dark:border-slate-700 border-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+              Alerts
+            </span>
+          )}
           {unreadCount > 0 && (
             <span className={clsx(
               "absolute rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center",
@@ -336,7 +338,7 @@ export default function Navbar() {
 
       <Link href="/settings" onClick={() => setMobileOpen(false)}
         className={clsx(
-          "flex items-center py-3 text-sm font-medium transition-colors whitespace-nowrap",
+          "relative group flex items-center py-3 text-sm font-medium transition-colors whitespace-nowrap",
           showLabels ? "gap-3 pl-5 pr-4" : "justify-center px-0",
           pathname === "/settings"
             ? "bg-emerald-500/10 text-emerald-400 border-r-2 border-emerald-400"
@@ -346,6 +348,11 @@ export default function Navbar() {
       >
         <SettingsIcon className="w-5 h-5 shrink-0" />
         {showLabels && <span>Settings</span>}
+        {!showLabels && (
+          <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 text-xs font-medium rounded-md dark:bg-slate-800 bg-white dark:text-white text-slate-900 shadow-lg border dark:border-slate-700 border-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+            Settings
+          </span>
+        )}
       </Link>
     </nav>
   );
@@ -362,16 +369,9 @@ export default function Navbar() {
       {mobileOpen && <div className="sm:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setMobileOpen(false)} />}
 
       <aside className={clsx(
-        "fixed top-0 left-0 bottom-0 z-40 flex flex-col border-r dark:border-slate-800 border-slate-200 dark:bg-slate-950 bg-white transition-all duration-300",
+        "fixed top-0 left-0 bottom-0 z-40 flex flex-col border-r dark:border-slate-800 border-slate-200 dark:bg-slate-900 bg-slate-100 transition-all duration-300 sm:w-16",
         mobileOpen ? "max-sm:translate-x-0 w-64" : "max-sm:-translate-x-full w-64",
-        expanded ? "sm:w-64" : "sm:w-16",
       )}>
-        <button onClick={() => setExpanded(v => !v)}
-          className="hidden sm:flex absolute top-6 -right-3 z-50 w-6 h-6 items-center justify-center rounded-full border dark:border-slate-800 border-slate-200 dark:bg-slate-900 bg-white dark:text-slate-400 text-slate-500 hover:dark:text-white hover:text-slate-900 shadow-md transition-colors"
-          title={expanded ? "Collapse sidebar" : "Expand sidebar"}
-          aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}>
-          {expanded ? <ChevronsLeft className="w-3.5 h-3.5" /> : <ChevronsRight className="w-3.5 h-3.5" />}
-        </button>
 
         <div className="flex flex-col h-full w-full">
           <div className={clsx("h-16 flex items-center shrink-0 border-b dark:border-slate-800/50 border-slate-100/50 overflow-hidden", showLabels ? "px-5" : "justify-center px-0")}>
@@ -388,12 +388,17 @@ export default function Navbar() {
                 <button
                   onClick={() => setAcctDropOpen(v => !v)}
                   className={clsx(
-                    "flex items-center w-full rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors",
+                    "relative group flex items-center w-full rounded-lg hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors",
                     showLabels ? "gap-2.5 px-3 py-2" : "justify-center py-2 px-0"
                   )}
                   title={!showLabels ? (activeAccount?.name ?? "All Accounts") : undefined}
                 >
                   <Wallet className="w-4.5 h-4.5 shrink-0 text-emerald-400" />
+                  {!showLabels && (
+                    <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 text-xs font-medium rounded-md dark:bg-slate-800 bg-white dark:text-white text-slate-900 shadow-lg border dark:border-slate-700 border-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                      {activeAccount?.name ?? "All Accounts"}
+                    </span>
+                  )}
                   {showLabels && (
                     <>
                       <span className="flex-1 text-left text-xs font-semibold dark:text-white text-slate-900 truncate">
@@ -460,10 +465,15 @@ export default function Navbar() {
 
           <div className="border-t dark:border-slate-800/50 border-slate-100/50 py-1">
             <a href="https://www.tradingview.com/chart/" target="_blank" rel="noopener noreferrer"
-              className={clsx("flex items-center py-3 text-sm font-medium dark:text-slate-400 text-slate-600 hover:dark:text-white hover:text-slate-900 hover:dark:bg-slate-800/50 hover:bg-slate-100 transition-colors whitespace-nowrap", showLabels ? "gap-3 pl-5 pr-4" : "justify-center px-0")}
+              className={clsx("relative group flex items-center py-3 text-sm font-medium dark:text-slate-400 text-slate-600 hover:dark:text-white hover:text-slate-900 hover:dark:bg-slate-800/50 hover:bg-slate-100 transition-colors whitespace-nowrap", showLabels ? "gap-3 pl-5 pr-4" : "justify-center px-0")}
               title={!showLabels ? "TradingView Chart" : undefined}>
               <ExternalLink className="w-5 h-5 shrink-0" />
               {showLabels && <span>TradingView</span>}
+              {!showLabels && (
+                <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 text-xs font-medium rounded-md dark:bg-slate-800 bg-white dark:text-white text-slate-900 shadow-lg border dark:border-slate-700 border-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                  TradingView
+                </span>
+              )}
             </a>
           </div>
 
@@ -471,10 +481,15 @@ export default function Navbar() {
             {me?.name ? (
               <div className="relative px-2 py-3" ref={menuRef}>
                 <button onClick={() => setMenuOpen(v => !v)}
-                  className={clsx("flex items-center w-full p-2 rounded-xl hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors", showLabels ? "gap-3" : "justify-center")}>
+                  className={clsx("relative group flex items-center w-full p-2 rounded-xl hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors", showLabels ? "gap-3" : "justify-center")}>
                   <div className={clsx("w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0", me.guest ? "bg-slate-500" : "bg-emerald-600")}>
                     {initials}
                   </div>
+                  {!showLabels && (
+                    <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 text-xs font-medium rounded-md dark:bg-slate-800 bg-white dark:text-white text-slate-900 shadow-lg border dark:border-slate-700 border-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                      {me.name}
+                    </span>
+                  )}
                   {showLabels && (
                     <div className="flex-1 text-left min-w-0">
                       <p className="text-sm font-semibold dark:text-white text-slate-900 truncate">{me.name}</p>
