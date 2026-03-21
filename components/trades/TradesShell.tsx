@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { TradeFilterState, DEFAULT_FILTER, Trade, QuoteMap, SavedView, MistakeType } from "@/lib/types";
 import TradeTable, { ALL_COLUMNS, DEFAULT_COLUMNS, ColumnKey } from "@/components/TradeTable";
 import TradeModal from "@/components/TradeModal";
-import { Plus, SlidersHorizontal } from "lucide-react";
+import { Plus, SlidersHorizontal, PanelRightClose, PanelRightOpen } from "lucide-react";
 import SummaryStatsBar from "./SummaryStatsBar";
 import AlertModal from "@/components/AlertModal";
 import { useAccounts } from "@/lib/account-context";
@@ -11,6 +11,7 @@ import TradeImportExport from "./TradeImportExport";
 import TradeFilterChips from "./TradeFilterChips";
 import TradeFilterBar from "./TradeFilterBar";
 import SavedViewsDropdown from "./SavedViewsDropdown";
+import TradesSidebar from "./TradesSidebar";
 
 function applyFilter(trades: Trade[], filter: TradeFilterState): Trade[] {
   return trades.filter(t => {
@@ -53,6 +54,8 @@ export default function TradesShell() {
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertDefaults, setAlertDefaults] = useState<{ symbol?: string; price?: number }>({});
   const [mistakeTypes, setMistakeTypes] = useState<MistakeType[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+  const [mobileTab, setMobileTab] = useState<"Table" | "Analytics">("Table");
 
   // Filter state with sessionStorage persistence
   const [filter, setFilter] = useState<TradeFilterState>(() => {
@@ -95,6 +98,10 @@ export default function TradesShell() {
       const meData = await meRes.json();
       setMe(meData);
       setSettingsData(loadedSettings);
+
+      if (loadedSettings.trades_sidebar_open !== undefined) {
+        setSidebarOpen(loadedSettings.trades_sidebar_open === "true");
+      }
 
       if (Array.isArray(tradesData)) {
         setAllTrades(tradesData);
@@ -202,6 +209,18 @@ export default function TradesShell() {
   };
   const clearAllFilters = () => setFilter(DEFAULT_FILTER);
 
+  const toggleSidebar = async () => {
+    const next = !sidebarOpen;
+    setSidebarOpen(next);
+    if (me && !me.guest) {
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trades_sidebar_open: String(next) }),
+      });
+    }
+  };
+
   // Saved views (Plan 02)
   const initialViews = useMemo<SavedView[]>(() => {
     if (settingsData.saved_filter_views) {
@@ -224,115 +243,181 @@ export default function TradesShell() {
     }`;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold dark:text-white text-slate-900">Trade Log</h1>
-          <p className="text-sm dark:text-slate-400 text-slate-500 mt-0.5">{filteredTrades.length} trades</p>
+    <>
+      <div className="flex gap-0 items-start">
+        {/* Main content column */}
+        <div className="flex-1 min-w-0 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold dark:text-white text-slate-900">Trade Log</h1>
+              <p className="text-sm dark:text-slate-400 text-slate-500 mt-0.5">{filteredTrades.length} trades</p>
+            </div>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <TradeImportExport activeAccountId={activeAccountId} onTradesChanged={load} />
+
+              {/* New Trade button */}
+              <button
+                onClick={() => { setEditTrade(null); setShowModal(true); }}
+                className="flex items-center gap-1.5 h-8 sm:h-9 px-3 sm:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] sm:text-sm font-bold transition-all shadow-lg shadow-emerald-600/10 active:scale-95"
+              >
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden xs:inline">New Trade</span>
+                <span className="xs:hidden">New</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Summary Stats */}
+          <SummaryStatsBar
+            filteredTrades={filteredTrades}
+            allTrades={allTrades}
+            accountSize={accountSize}
+          />
+
+          {/* Filters */}
+          <TradeFilterBar
+            filter={filter}
+            onFilterChange={updateFilter}
+            allTrades={allTrades}
+            accounts={accounts}
+            activeAccountId={activeAccountId}
+            isGuest={me?.guest ?? true}
+          />
+
+          {/* Column toggle + Saved Views */}
+          <div className="flex items-center gap-2">
+            <SavedViewsDropdown
+              currentFilter={filter}
+              onLoadView={loadView}
+              isGuest={me?.guest ?? true}
+              initialViews={initialViews}
+            />
+            <div className="relative" ref={columnMenuRef}>
+              <button
+                onClick={() => setShowColumnMenu(prev => !prev)}
+                className={FILTER_BTN(showColumnMenu)}
+              >
+                <span className="flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-4 h-4" />
+                  Columns
+                </span>
+              </button>
+              {showColumnMenu && (
+                <div className="absolute right-0 top-full mt-2 z-50 w-52 rounded-lg dark:bg-slate-800 bg-white shadow-xl py-2">
+                  {ALL_COLUMNS.map((col) => (
+                    <label
+                      key={col.key}
+                      className="flex items-center gap-2.5 px-3 py-1.5 hover:dark:bg-slate-700/50 hover:bg-slate-50 cursor-pointer text-sm dark:text-slate-300 text-slate-700"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={visibleColumns.includes(col.key)}
+                        onChange={() => toggleColumn(col.key)}
+                        className="w-3.5 h-3.5 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500"
+                      />
+                      {col.label}
+                    </label>
+                  ))}
+                  <div className="border-t dark:border-slate-700 border-slate-200 mt-1.5 pt-1.5 px-3">
+                    <button
+                      onClick={resetColumns}
+                      className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                    >
+                      Reset to default
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Filter chips */}
+          <TradeFilterChips filter={filter} onClear={clearFilter} onClearAll={clearAllFilters} accounts={accounts} />
+
+          {/* Mobile tab toggle — only visible below lg */}
+          <div className="flex lg:hidden border-b dark:border-slate-700 border-slate-200">
+            {(["Table", "Analytics"] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setMobileTab(tab)}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  mobileTab === tab
+                    ? "border-b-2 border-emerald-400 text-emerald-400"
+                    : "dark:text-slate-400 text-slate-600 hover:dark:text-slate-200 hover:text-slate-800"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {/* Table — visible on desktop always; on mobile only when Table tab active */}
+          <div className={mobileTab === "Table" ? "block" : "hidden lg:block"}>
+            {loading ? (
+              <div className="text-center py-12 dark:text-slate-400 text-slate-500">Loading...</div>
+            ) : (
+              <div className="rounded-xl dark:bg-slate-800/50 bg-white p-4">
+                <TradeTable
+                  trades={filteredTrades}
+                  onEdit={(t) => { setEditTrade(t); setShowModal(true); }}
+                  onDelete={handleDelete}
+                  onBulkDelete={handleBulkDelete}
+                  quotes={quotes}
+                  visibleColumns={visibleColumns}
+                  defaultRiskPercent={riskPercent}
+                  accountSize={accountSize}
+                  onSetAlert={(symbol, price) => { setAlertDefaults({ symbol, price }); setShowAlertModal(true); }}
+                  totalCount={allTrades.length}
+                  mistakeTypes={mistakeTypes}
+                  onReorderColumns={saveColumns}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Analytics tab content — only on mobile when Analytics tab active */}
+          <div className={mobileTab === "Analytics" ? "block lg:hidden" : "hidden"}>
+            <TradesSidebar
+              filteredTrades={filteredTrades}
+              mistakeTypes={mistakeTypes}
+              onFilterChange={updateFilter}
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <TradeImportExport activeAccountId={activeAccountId} onTradesChanged={load} />
 
-          {/* New Trade button */}
-          <button
-            onClick={() => { setEditTrade(null); setShowModal(true); }}
-            className="flex items-center gap-1.5 h-8 sm:h-9 px-3 sm:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] sm:text-sm font-bold transition-all shadow-lg shadow-emerald-600/10 active:scale-95"
-          >
-            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden xs:inline">New Trade</span>
-            <span className="xs:hidden">New</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Summary Stats */}
-      <SummaryStatsBar
-        filteredTrades={filteredTrades}
-        allTrades={allTrades}
-        accountSize={accountSize}
-      />
-
-      {/* Filters */}
-      <TradeFilterBar
-        filter={filter}
-        onFilterChange={updateFilter}
-        allTrades={allTrades}
-        accounts={accounts}
-        activeAccountId={activeAccountId}
-        isGuest={me?.guest ?? true}
-      />
-
-      {/* Column toggle + Saved Views */}
-      <div className="flex items-center gap-2">
-        <SavedViewsDropdown
-          currentFilter={filter}
-          onLoadView={loadView}
-          isGuest={me?.guest ?? true}
-          initialViews={initialViews}
-        />
-        <div className="relative" ref={columnMenuRef}>
-          <button
-            onClick={() => setShowColumnMenu(prev => !prev)}
-            className={FILTER_BTN(showColumnMenu)}
-          >
-            <span className="flex items-center gap-1.5">
-              <SlidersHorizontal className="w-4 h-4" />
-              Columns
-            </span>
-          </button>
-          {showColumnMenu && (
-            <div className="absolute right-0 top-full mt-2 z-50 w-52 rounded-lg dark:bg-slate-800 bg-white shadow-xl py-2">
-              {ALL_COLUMNS.map((col) => (
-                <label
-                  key={col.key}
-                  className="flex items-center gap-2.5 px-3 py-1.5 hover:dark:bg-slate-700/50 hover:bg-slate-50 cursor-pointer text-sm dark:text-slate-300 text-slate-700"
-                >
-                  <input
-                    type="checkbox"
-                    checked={visibleColumns.includes(col.key)}
-                    onChange={() => toggleColumn(col.key)}
-                    className="w-3.5 h-3.5 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500"
-                  />
-                  {col.label}
-                </label>
-              ))}
-              <div className="border-t dark:border-slate-700 border-slate-200 mt-1.5 pt-1.5 px-3">
+        {/* Desktop sidebar — hidden below lg */}
+        <aside className="hidden lg:flex flex-col shrink-0 border-l dark:border-slate-700 border-slate-200 ml-4">
+          {sidebarOpen ? (
+            <div className="w-72 overflow-y-auto p-3 space-y-4" style={{ maxHeight: "calc(100vh - 80px)" }}>
+              {/* Collapse button at top */}
+              <div className="flex justify-end">
                 <button
-                  onClick={resetColumns}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                  onClick={toggleSidebar}
+                  className="p-1.5 rounded-lg hover:dark:bg-slate-700 hover:bg-slate-100 transition-colors dark:text-slate-400 text-slate-500"
+                  title="Collapse sidebar"
                 >
-                  Reset to default
+                  <PanelRightClose className="w-4 h-4" />
                 </button>
               </div>
+              <TradesSidebar
+                filteredTrades={filteredTrades}
+                mistakeTypes={mistakeTypes}
+                onFilterChange={updateFilter}
+              />
+            </div>
+          ) : (
+            <div
+              className="w-10 flex flex-col items-center pt-4 dark:bg-slate-900/60 bg-slate-50 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              onClick={toggleSidebar}
+              title="Expand sidebar"
+            >
+              <PanelRightOpen className="w-4 h-4 dark:text-slate-400 text-slate-500" />
             </div>
           )}
-        </div>
+        </aside>
       </div>
 
-      {/* Filter chips */}
-      <TradeFilterChips filter={filter} onClear={clearFilter} onClearAll={clearAllFilters} accounts={accounts} />
-
-      {loading ? (
-        <div className="text-center py-12 dark:text-slate-400 text-slate-500">Loading...</div>
-      ) : (
-        <div className="rounded-xl dark:bg-slate-800/50 bg-white p-4">
-          <TradeTable
-            trades={filteredTrades}
-            onEdit={(t) => { setEditTrade(t); setShowModal(true); }}
-            onDelete={handleDelete}
-            onBulkDelete={handleBulkDelete}
-            quotes={quotes}
-            visibleColumns={visibleColumns}
-            defaultRiskPercent={riskPercent}
-            accountSize={accountSize}
-            onSetAlert={(symbol, price) => { setAlertDefaults({ symbol, price }); setShowAlertModal(true); }}
-            totalCount={allTrades.length}
-            mistakeTypes={mistakeTypes}
-            onReorderColumns={saveColumns}
-          />
-        </div>
-      )}
-
+      {/* Modals — outside flex layout (portals/fixed positioned) */}
       {showModal && (
         <TradeModal
           trade={editTrade}
@@ -349,6 +434,6 @@ export default function TradesShell() {
         defaultSymbol={alertDefaults.symbol}
         defaultPrice={alertDefaults.price}
       />
-    </div>
+    </>
   );
 }
