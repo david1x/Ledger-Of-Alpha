@@ -164,13 +164,14 @@ Plans:
 
 ### Phase 25: Navbar collapse lock, filter bar redesign with dropdown buttons, sidebar-filter color cohesion
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Lock the sidebar to permanently collapsed (icon-only) mode, redesign the trades filter bar as a row of uniform compact dropdown buttons (including multi-select symbol checklist), and unify sidebar and filter bar background colors for visual cohesion
+**Requirements**: NAV-LOCK, NAV-TOOLTIP, COLOR-SIDEBAR, FILTER-DROPDOWN, FILTER-SYMBOL-CHECKLIST, FILTER-UNIFORM-HEIGHT, FILTER-FRAME, COLOR-FILTERBAR
 **Depends on:** Phase 24
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 25 to break down)
+- [ ] 25-01-PLAN.md — Sidebar collapse lock, group-hover tooltips, sidebar background color change
+- [ ] 25-02-PLAN.md — TradeFilterBar rewrite as uniform dropdown buttons, multi-select symbol checklist, framed wrapper
 
 ---
 *Phase numbering continues across milestones. Next phase after v3.0: 25.*
