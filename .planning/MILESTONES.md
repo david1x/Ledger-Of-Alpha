@@ -1,5 +1,16 @@
 # Milestones
 
+## v2.3 Verify URL Hotfix (Shipped: 2026-03-21)
+
+**Fix:** Email verification redirect used `req.url` (Docker internal hostname) instead of configured public URL.
+
+**Changes:**
+- `app/api/auth/verify-email/route.ts` — redirects use `getBaseUrl(req)` for correct public URL
+- `lib/request-url.ts` — static import replaces dynamic `require("./db")` for standalone build reliability
+- `lib/email.ts` — same static import fix for SMTP/URL config
+
+---
+
 ## v2.1 Settings & Polish (Shipped: 2026-03-21)
 
 **Phases completed:** 6 phases (12-17), 10 plans

@@ -5,6 +5,7 @@
 - [v1.0.0 (SHIPPED)](.planning/milestones/v1.0.0-ROADMAP.md) — Core Architecture, Journaling, & Analytics (2026-03-14)
 - [v2.0 (SHIPPED)](.planning/milestones/v2.0-ROADMAP.md) — Intelligence & Automation (2026-03-19)
 - [v2.1 (SHIPPED)](.planning/milestones/v2.1-ROADMAP.md) — Settings & Polish (2026-03-21)
+- **v2.3 (SHIPPED)** — Verify URL Hotfix (2026-03-21)
 
 ## Phases
 
