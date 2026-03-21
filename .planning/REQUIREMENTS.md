@@ -21,7 +21,7 @@ Requirements for Trades Page Overhaul. Each maps to roadmap phases.
 
 ### Mistakes
 
-- [ ] **MIST-01**: User can create, edit, and delete custom mistake types (name + color)
+- [x] **MIST-01**: User can create, edit, and delete custom mistake types (name + color)
 - [ ] **MIST-02**: User can tag trades with one or more mistake types in TradeModal
 - [ ] **MIST-03**: User can see mistake tags as pills in the trade table
 
@@ -88,7 +88,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FILT-07 | Phase 20 | Pending |
 | FILT-08 | Phase 20 | Pending |
 | FILT-09 | Phase 20 | Pending |
-| MIST-01 | Phase 18 | Pending |
+| MIST-01 | Phase 18 | Complete |
 | MIST-02 | Phase 22 | Pending |
 | MIST-03 | Phase 22 | Pending |
 | STAT-01 | Phase 21 | Pending |
