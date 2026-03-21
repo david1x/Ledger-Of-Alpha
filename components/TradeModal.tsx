@@ -543,6 +543,7 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
                       <MistakeCreator
                         onCreated={(mt) => setMistakeTypes(prev => [...prev, mt])}
                         existingNames={new Set(mistakeTypes.map(m => m.name.toLowerCase()))}
+                        userDefaults={defaultMistakes}
                       />
                     </div>
                   </section>
@@ -658,12 +659,35 @@ const COMMON_MISTAKES = [
   { name: "Wrong Position Size", color: "#ec4899" },
 ];
 
-function MistakeCreator({ onCreated, existingNames }: { onCreated: (mt: MistakeType) => void; existingNames: Set<string> }) {
+function MistakeCreator({ onCreated, existingNames, userDefaults }: { onCreated: (mt: MistakeType) => void; existingNames: Set<string>; userDefaults: string[] }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [color, setColor] = useState(MISTAKE_COLORS[0]);
   const [saving, setSaving] = useState(false);
-  const availablePresets = COMMON_MISTAKES.filter(p => !existingNames.has(p.name.toLowerCase()));
+
+  // Merge user-configured defaults with common presets, deduplicate
+  const allPresets = useMemo(() => {
+    const seen = new Set<string>();
+    const result: { name: string; color: string }[] = [];
+    // User defaults first
+    for (const d of userDefaults) {
+      const key = d.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const match = COMMON_MISTAKES.find(c => c.name.toLowerCase() === key);
+      result.push({ name: d, color: match?.color ?? MISTAKE_COLORS[result.length % MISTAKE_COLORS.length] });
+    }
+    // Then common presets
+    for (const c of COMMON_MISTAKES) {
+      if (!seen.has(c.name.toLowerCase())) {
+        seen.add(c.name.toLowerCase());
+        result.push(c);
+      }
+    }
+    return result;
+  }, [userDefaults]);
+
+  const availablePresets = allPresets.filter(p => !existingNames.has(p.name.toLowerCase()));
   const [showPresets, setShowPresets] = useState(existingNames.size === 0);
 
   const handleCreate = async (n?: string, c?: string) => {
