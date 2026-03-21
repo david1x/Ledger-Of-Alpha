@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Trade, TradeStrategy, TradeTemplate, ChecklistItem } from "@/lib/types";
+import { Trade, TradeStrategy, TradeTemplate, ChecklistItem, MistakeType } from "@/lib/types";
 import { DEFAULT_STRATEGIES } from "@/lib/strategies";
 import SymbolSearch from "./SymbolSearch";
 import RiskCalculator from "./RiskCalculator";
@@ -66,6 +66,12 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
   const [showTemplateSave, setShowTemplateSave] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [chartInterval, setChartInterval] = useState(trade?.chart_tf ?? "1D");
+
+  // Mistake tagging state
+  const [mistakeTypes, setMistakeTypes] = useState<MistakeType[]>([]);
+  const [selectedMistakeIds, setSelectedMistakeIds] = useState<Set<string>>(
+    () => new Set((trade?.mistake_tag_ids ?? "").split(",").filter(Boolean))
+  );
 
   // Monte Carlo state
   const [mcTrades, setMcTrades] = useState<{ pnl_percent: number; strategy_id?: string | null }[]>([]);
@@ -179,6 +185,19 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
       .catch(() => setMcTrades([]));
   }, [selectedAccountId]);
 
+  // Fetch mistake types on mount
+  useEffect(() => {
+    fetch("/api/mistakes")
+      .then(r => r.ok ? r.json() : [])
+      .then(data => { if (Array.isArray(data)) setMistakeTypes(data); })
+      .catch(() => {});
+  }, []);
+
+  // Re-initialize selectedMistakeIds when trade prop changes
+  useEffect(() => {
+    setSelectedMistakeIds(new Set((trade?.mistake_tag_ids ?? "").split(",").filter(Boolean)));
+  }, [trade]);
+
   const saveSetting = (key: string, value: unknown) => {
     fetch("/api/settings", {
       method: "PUT",
@@ -222,8 +241,39 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (res.ok) { onSaved(); onClose(); }
-      else { const d = await res.json(); setError(d.error ?? "Failed to save"); }
+      if (res.ok) {
+        const savedTrade = await res.json();
+        const tradeId = savedTrade.id;
+
+        // Sync mistake tags (diff-based POST/DELETE)
+        const originalIds = new Set((trade?.mistake_tag_ids ?? "").split(",").filter(Boolean));
+        const toAdd = [...selectedMistakeIds].filter(id => !originalIds.has(id));
+        const toRemove = [...originalIds].filter(id => !selectedMistakeIds.has(id));
+
+        try {
+          await Promise.all([
+            ...toAdd.map(id =>
+              fetch(`/api/trades/${tradeId}/mistakes`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mistake_id: id }),
+              })
+            ),
+            ...toRemove.map(id =>
+              fetch(`/api/trades/${tradeId}/mistakes`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mistake_id: id }),
+              })
+            ),
+          ]);
+        } catch (tagErr) {
+          console.error("Mistake tag sync error (non-blocking):", tagErr);
+        }
+
+        onSaved();
+        onClose();
+      } else { const d = await res.json(); setError(d.error ?? "Failed to save"); }
     } finally { setSaving(false); }
   };
 
@@ -455,6 +505,45 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
                       <EmotionsInput value={form.emotions ?? ""} onChange={(v: string) => set("emotions", v)} />
                     </div>
                   </section>
+
+                  {mistakeTypes.length > 0 && (
+                    <section className="pt-6 border-t dark:border-slate-800 border-slate-200">
+                      <SectionHeader icon={Tag} title="Mistakes" sub="Tag mistake patterns" />
+                      <div className="flex flex-wrap gap-2">
+                        {mistakeTypes.map(mt => {
+                          const isSelected = selectedMistakeIds.has(mt.id);
+                          return (
+                            <button
+                              key={mt.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedMistakeIds(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(mt.id)) next.delete(mt.id);
+                                  else next.add(mt.id);
+                                  return next;
+                                });
+                              }}
+                              className={clsx(
+                                "px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all",
+                                isSelected
+                                  ? "shadow-xl"
+                                  : "dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 dark:text-slate-500 text-slate-500 hover:border-slate-400"
+                              )}
+                              style={isSelected ? {
+                                backgroundColor: mt.color + "33",
+                                color: mt.color,
+                                border: `1px solid ${mt.color}`,
+                                fontWeight: "bold",
+                              } : undefined}
+                            >
+                              {mt.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
 
                   <section className="pt-6 border-t dark:border-slate-800 border-slate-200">
                     <SectionHeader icon={BookOpen} title="Lessons & Notes" sub="Final journaling" />
