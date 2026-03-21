@@ -43,7 +43,7 @@ See [v2.1 Roadmap Archive](.planning/milestones/v2.1-ROADMAP.md) for details.
 **Milestone Goal:** Transform the trades page into a powerful, filterable analytical workspace with a mistakes system, saved views, summary analytics, and sidebar breakdowns.
 
 - [x] **Phase 18: DB & API Foundation** - Mistakes tables, CRUD API routes, extended trades query params (completed 2026-03-21)
-- [ ] **Phase 19: TradesShell Refactor** - Extract trades page into component tree; define unified filter state type
+- [x] **Phase 19: TradesShell Refactor** - Extract trades page into component tree; define unified filter state type (completed 2026-03-21)
 - [ ] **Phase 20: Filter System & Saved Views** - All filter controls, active chips, quick presets, named saved views
 - [ ] **Phase 21: Summary Stats Bar** - Cumulative return, P/L ratio, win % with sparklines scoped to filtered trades
 - [ ] **Phase 22: Enhanced Trade Table & Mistakes** - Badges, new columns, column reorder, mistakes tagging
@@ -73,7 +73,7 @@ Plans:
   1. The trades page loads and all existing behavior works exactly as before the refactor
   2. Switching accounts reloads trade data without resetting any active filter state
   3. The TradeFilterState type exists in lib/types.ts and is consumed by TradesShell
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 19-01-PLAN.md — PrivacyContext provider creation + migrate DashboardShell and journal page
 - [ ] 19-02-PLAN.md — TradesShell orchestrator, TradeImportExport extraction, TradeFilterChips (FILT-05/06)
@@ -134,7 +134,7 @@ Plans:
 | 8-11  | v2.0      | 12/12          | Complete | 2026-03-19 |
 | 12-17 | v2.1      | 10/10          | Complete | 2026-03-21 |
 | 18. DB & API Foundation | 2/2 | Complete    | 2026-03-21 | - |
-| 19. TradesShell Refactor | 1/2 | In Progress|  | - |
+| 19. TradesShell Refactor | 2/2 | Complete   | 2026-03-21 | - |
 | 20. Filter System & Saved Views | v3.0 | 0/TBD | Not started | - |
 | 21. Summary Stats Bar | v3.0 | 0/TBD | Not started | - |
 | 22. Enhanced Trade Table & Mistakes | v3.0 | 0/TBD | Not started | - |

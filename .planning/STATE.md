@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Trades Page Overhaul
 status: completed
-stopped_at: Completed 19-01-PLAN.md
-last_updated: "2026-03-21T14:06:35.461Z"
+stopped_at: Completed 19-02-PLAN.md
+last_updated: "2026-03-21T14:19:34.451Z"
 last_activity: 2026-03-21 — Completed Phase 18 (DB & API Foundation, 2 plans)
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
   percent: 7
 ---
 
@@ -19,12 +19,12 @@ progress:
 ## Current Position
 
 Milestone: v3.0 Trades Page Overhaul
-Phase: 18 of 23 (DB & API Foundation) — complete
+Phase: 19 of 23 (TradesShell Refactor) — complete
 Plan: 02 of 02 — complete
-Status: Phase 18 complete, ready for Phase 19
-Last activity: 2026-03-21 — Completed Phase 18 (DB & API Foundation, 2 plans)
+Status: Phase 19 complete, ready for Phase 20
+Last activity: 2026-03-21 — Completed Phase 19 (TradesShell Refactor, 2 plans)
 
-Progress: [█░░░░░░░░░] 7%
+Progress: [██████████] 100%
 
 ## Project Reference
 
@@ -52,6 +52,8 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 - [Phase 18-db-api-foundation]: Date filtering uses exit_date (not entry_date) — open trades correctly excluded from date-filtered results
 - [Phase 19-tradesshell-refactor]: PrivacyProvider uses lazy useState initializer to read localStorage synchronously — prevents flash of unmasked content on page load
 - [Phase 19-tradesshell-refactor]: Settings API fallback centralized in PrivacyProvider (not per-consumer) — removes duplicate /api/settings fetches across pages
+- [Phase 19-tradesshell-refactor]: sessionStorage (not localStorage) for filter persistence: resets on tab close, correct UX for filter state
+- [Phase 19-tradesshell-refactor]: applyFilter() pure function defined outside component body in TradesShell: easy to extend in Phase 20 without touching component logic
 
 ### Blockers/Concerns
 
@@ -64,6 +66,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-21T14:06:28.696Z
-Stopped at: Completed 19-01-PLAN.md
+Last session: 2026-03-21T14:19:34.449Z
+Stopped at: Completed 19-02-PLAN.md
 Resume file: None
