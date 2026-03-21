@@ -44,7 +44,7 @@ See [v2.1 Roadmap Archive](.planning/milestones/v2.1-ROADMAP.md) for details.
 
 - [x] **Phase 18: DB & API Foundation** - Mistakes tables, CRUD API routes, extended trades query params (completed 2026-03-21)
 - [x] **Phase 19: TradesShell Refactor** - Extract trades page into component tree; define unified filter state type (completed 2026-03-21)
-- [ ] **Phase 20: Filter System & Saved Views** - All filter controls, active chips, quick presets, named saved views
+- [x] **Phase 20: Filter System & Saved Views** - All filter controls, active chips, quick presets, named saved views (completed 2026-03-21)
 - [ ] **Phase 21: Summary Stats Bar** - Cumulative return, P/L ratio, win % with sparklines scoped to filtered trades
 - [ ] **Phase 22: Enhanced Trade Table & Mistakes** - Badges, new columns, column reorder, mistakes tagging
 - [ ] **Phase 23: Sidebar Analytics & Mobile Polish** - Right sidebar panels, collapse toggle, responsive layouts
@@ -88,7 +88,7 @@ Plans:
   3. User can apply a "Winners" quick filter and see only profitable trades; "This Week" shows only trades from the current week
   4. User can save the current filter state as "FOMO Review", load it later, and the same filters are re-applied
   5. User can clear all active filters at once with a single button and the full trade list returns
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 20-01-PLAN.md — TradeFilterBar extraction with date range, tags, account, mistake, quick presets; applyFilter completion
 - [ ] 20-02-PLAN.md — SavedViewsDropdown for save/load/delete named filter views
@@ -138,7 +138,7 @@ Plans:
 | 12-17 | v2.1      | 10/10          | Complete | 2026-03-21 |
 | 18. DB & API Foundation | 2/2 | Complete    | 2026-03-21 | - |
 | 19. TradesShell Refactor | 2/2 | Complete    | 2026-03-21 | - |
-| 20. Filter System & Saved Views | 1/2 | In Progress|  | - |
+| 20. Filter System & Saved Views | 2/2 | Complete   | 2026-03-21 | - |
 | 21. Summary Stats Bar | v3.0 | 0/TBD | Not started | - |
 | 22. Enhanced Trade Table & Mistakes | v3.0 | 0/TBD | Not started | - |
 | 23. Sidebar Analytics & Mobile Polish | v3.0 | 0/TBD | Not started | - |

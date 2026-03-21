@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Trades Page Overhaul
 status: completed
-stopped_at: Completed 20-01-PLAN.md
-last_updated: "2026-03-21T14:47:20.728Z"
+stopped_at: Completed 20-02-PLAN.md
+last_updated: "2026-03-21T14:58:29.574Z"
 last_activity: 2026-03-21 — Completed Phase 19 (TradesShell Refactor, 2 plans)
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
   percent: 100
 ---
 
@@ -56,6 +56,8 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 - [Phase 19-tradesshell-refactor]: applyFilter() pure function defined outside component body in TradesShell: easy to extend in Phase 20 without touching component logic
 - [Phase 20-filter-system-saved-views]: Tags OR semantics: trade matches if it has ANY selected tag
 - [Phase 20-filter-system-saved-views]: Mistake type dropdown sets filter.mistakeId but applyFilter logic deferred to Phase 22 (trade-mistake junction data not in trades fetch yet)
+- [Phase 20-filter-system-saved-views]: settingsData state must be declared before useMemo that reads it to avoid TS2448 block-scoped variable before declaration
+- [Phase 20-filter-system-saved-views]: SavedViewsDropdown placed alongside Columns button in filter toolbar for visual proximity to filter controls
 
 ### Blockers/Concerns
 
@@ -68,6 +70,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-21T14:47:20.726Z
-Stopped at: Completed 20-01-PLAN.md
+Last session: 2026-03-21T14:58:29.572Z
+Stopped at: Completed 20-02-PLAN.md
 Resume file: None

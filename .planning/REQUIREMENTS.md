@@ -16,8 +16,8 @@ Requirements for Trades Page Overhaul. Each maps to roadmap phases.
 - [x] **FILT-05**: User can see active filters as dismissible chips with individual clear
 - [x] **FILT-06**: User can clear all active filters at once
 - [x] **FILT-07**: User can apply quick filter presets (Winners, Losers, This Week, This Month)
-- [ ] **FILT-08**: User can save current filter state as a named view
-- [ ] **FILT-09**: User can load and delete saved filter views
+- [x] **FILT-08**: User can save current filter state as a named view
+- [x] **FILT-09**: User can load and delete saved filter views
 
 ### Mistakes
 
@@ -86,8 +86,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FILT-05 | Phase 19 | Complete |
 | FILT-06 | Phase 19 | Complete |
 | FILT-07 | Phase 20 | Complete |
-| FILT-08 | Phase 20 | Pending |
-| FILT-09 | Phase 20 | Pending |
+| FILT-08 | Phase 20 | Complete |
+| FILT-09 | Phase 20 | Complete |
 | MIST-01 | Phase 18 | Complete |
 | MIST-02 | Phase 22 | Pending |
 | MIST-03 | Phase 22 | Pending |
