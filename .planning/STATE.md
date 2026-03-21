@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Trades Page Overhaul
 status: completed
-stopped_at: Phase 19 context gathered
-last_updated: "2026-03-21T13:37:18.479Z"
+stopped_at: Completed 19-01-PLAN.md
+last_updated: "2026-03-21T14:06:35.461Z"
 last_activity: 2026-03-21 — Completed Phase 18 (DB & API Foundation, 2 plans)
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 4
+  completed_plans: 3
   percent: 7
 ---
 
@@ -50,6 +50,8 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 - [Phase 18-db-api-foundation]: Guest GET /api/mistakes returns [] (not 403) for seamless UI; mutating ops return 403 for guests
 - [Phase 18-db-api-foundation]: DELETE /api/trades/[id]/mistakes skips mistake_type ownership check — trade ownership sufficient since junction row delete has no cross-user risk
 - [Phase 18-db-api-foundation]: Date filtering uses exit_date (not entry_date) — open trades correctly excluded from date-filtered results
+- [Phase 19-tradesshell-refactor]: PrivacyProvider uses lazy useState initializer to read localStorage synchronously — prevents flash of unmasked content on page load
+- [Phase 19-tradesshell-refactor]: Settings API fallback centralized in PrivacyProvider (not per-consumer) — removes duplicate /api/settings fetches across pages
 
 ### Blockers/Concerns
 
@@ -62,6 +64,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-21T13:37:18.477Z
-Stopped at: Phase 19 context gathered
-Resume file: .planning/phases/19-tradesshell-refactor/19-CONTEXT.md
+Last session: 2026-03-21T14:06:28.696Z
+Stopped at: Completed 19-01-PLAN.md
+Resume file: None
