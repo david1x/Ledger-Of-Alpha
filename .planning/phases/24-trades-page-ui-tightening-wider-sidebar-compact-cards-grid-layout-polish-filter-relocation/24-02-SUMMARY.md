@@ -96,6 +96,16 @@ None - plan executed exactly as written.
 - The tight grid aesthetic is complete across TradesShell + all sub-components
 - Phase 24 polish is complete
 
+## Self-Check: PASSED
+
+- FOUND: components/trades/SummaryStatsBar.tsx (modified)
+- FOUND: components/trades/TradeFilterBar.tsx (modified)
+- FOUND: components/trades/SavedViewsDropdown.tsx (modified)
+- FOUND: components/trades/TradesSidebar.tsx (modified)
+- FOUND: commit 75d1b31 (Task 1 - SummaryStatsBar)
+- FOUND: commit fc1f95a (Task 2 - TradeFilterBar, SavedViewsDropdown, TradesSidebar)
+- FOUND: commit 9043087 (docs - SUMMARY, STATE, ROADMAP)
+
 ---
 *Phase: 24-trades-page-ui-tightening*
 *Completed: 2026-03-21*
