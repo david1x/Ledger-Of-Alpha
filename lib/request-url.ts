@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { getDb } from "./db";
 
 /**
  * Derives the public base URL from the incoming request, following this priority chain:
@@ -14,7 +15,6 @@ import type { NextRequest } from "next/server";
 export function getBaseUrl(req: NextRequest): string {
   // Priority 1: Admin DB override
   try {
-    const { getDb } = require("./db");
     const db = getDb();
     const row = db
       .prepare("SELECT value FROM settings WHERE user_id = '_system' AND key = 'app_url'")

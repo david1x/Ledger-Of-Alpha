@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { getDb } from "./db";
 
 interface SmtpConfig {
   host: string;
@@ -17,7 +18,6 @@ export function isSmtpConfigured(): boolean {
 function getSmtpConfig(): SmtpConfig | null {
   // DB settings take precedence over env vars (set via admin panel)
   try {
-    const { getDb } = require("./db");
     const db = getDb();
     const get = (key: string): string =>
       (db.prepare("SELECT value FROM settings WHERE user_id = '_system' AND key = ?").get(key) as { value: string } | undefined)?.value ?? "";
@@ -51,7 +51,6 @@ function getSmtpConfig(): SmtpConfig | null {
 
 function getAppUrl(): string {
   try {
-    const { getDb } = require("./db");
     const db = getDb();
     const row = db.prepare("SELECT value FROM settings WHERE user_id = '_system' AND key = 'app_url'").get() as { value: string } | undefined;
     if (row?.value) return row.value;
