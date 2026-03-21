@@ -13,11 +13,15 @@ export async function GET(req: NextRequest) {
     const symbol = searchParams.get("symbol");
     const guestAccountId = searchParams.get("account_id");
     const guestAiPattern = searchParams.get("ai_pattern");
+    const guestDateFrom = searchParams.get("date_from");
+    const guestDateTo = searchParams.get("date_to");
     if (guestAccountId) trades = trades.filter(t => t.account_id === guestAccountId);
     if (status)    trades = trades.filter(t => t.status === status);
     if (direction) trades = trades.filter(t => t.direction === direction);
     if (symbol)    trades = trades.filter(t => t.symbol.includes(symbol.toUpperCase()));
     if (guestAiPattern) trades = trades.filter(t => t.ai_primary_pattern === guestAiPattern);
+    if (guestDateFrom) trades = trades.filter(t => t.exit_date != null && t.exit_date >= guestDateFrom);
+    if (guestDateTo)   trades = trades.filter(t => t.exit_date != null && t.exit_date <= guestDateTo);
     return NextResponse.json(trades);
   }
 
@@ -42,6 +46,11 @@ export async function GET(req: NextRequest) {
     if (direction) { query += " AND direction = ?"; params.push(direction); }
     if (symbol)    { query += " AND symbol LIKE ?"; params.push(`%${symbol.toUpperCase()}%`); }
     if (aiPattern) { query += " AND ai_primary_pattern = ?"; params.push(aiPattern); }
+
+    const dateFrom = searchParams.get("date_from");
+    const dateTo = searchParams.get("date_to");
+    if (dateFrom) { query += " AND exit_date >= ?"; params.push(dateFrom); }
+    if (dateTo)   { query += " AND exit_date <= ?"; params.push(dateTo); }
 
     query += " ORDER BY created_at DESC";
 
