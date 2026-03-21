@@ -1,8 +1,8 @@
 # Domain Pitfalls
 
-**Domain:** Settings page restructuring, email URL auto-detection, dashboard layout templates, strategy/checklist enhancements, admin panel as config source — added to existing Next.js 15 + SQLite trading journal
-**Researched:** 2026-03-19
-**Confidence:** HIGH (direct codebase analysis of the exact files being modified)
+**Domain:** Advanced filter system, saved views, mistakes tagging, summary stats with sparklines, enhanced trade table with column config, and right sidebar analytics — added to existing Next.js 15 + SQLite trading journal (v3.0 Trades Page Overhaul)
+**Researched:** 2026-03-21
+**Confidence:** HIGH (direct codebase analysis of existing trades page + targeted research on each feature area)
 
 ---
 
@@ -12,116 +12,133 @@ Mistakes that cause rewrites, data corruption, or feature failure.
 
 ---
 
-### Pitfall 1: Deleting SMTP/Email Settings During the Admin Panel Refactor
+### Pitfall 1: Client-Side Filter Architecture Cannot Scale to the Mistakes System
 
-**What goes wrong:** The `admin-settings` tab in the existing settings page renders fields for `smtp_host`, `smtp_port`, `smtp_secure`, `smtp_user`, `smtp_pass`, `smtp_from`, and `app_url`. These are stored in the `_system` user_id row of the settings table (migration 005). When the settings page is split into sub-components or tabs are reorganised, a developer who doesn't realise these fields already exist may omit them from the new structure, leaving admin email config permanently missing from the UI. The DB rows remain intact but there is no way for the admin to edit them.
+**What goes wrong:** The existing trades page already uses client-side filtering: `allTrades` is fetched once from `/api/trades`, then filtered in JavaScript with a simple `.filter()` chain (lines 162-167 of app/trades/page.tsx). The current filters are trivial — status, direction, and a symbol substring. Adding Mistake filters breaks this model entirely. The `mistakes` column on the `trades` table stores a JSON string (TEXT column added in migration 007 via `ALTER TABLE trades ADD COLUMN mistakes TEXT`). Filtering client-side requires `JSON.parse(t.mistakes)` on every row for every filter evaluation. For a trader with 500+ trades, this causes a measurable render stall, and the filter combination logic grows into an untestable nested condition chain.
 
-**Why it happens:** The settings page is 2380+ lines of interleaved state, rendering, and event handlers. During component extraction it is easy to assume "I'll wire up the admin section later" and then forget which fields live in `SystemSettings` vs `Settings` interface, or drop the `loadSysSettings` / `saveSysSettings` calls when the file is split.
+**Why it happens:** Client-side filtering is fast to write and avoids a round-trip. Developers extend it because "it worked before." Each new filter type gets appended to the `.filter()` chain without measuring cumulative cost. When the mistakes column needs to be filtered, `JSON.parse` inside a hot loop is the natural first attempt.
 
 **Consequences:**
-- Email verification, password reset, and 2FA OTP emails continue to work (lib/email.ts reads from DB) but the admin can no longer update the configuration.
-- SMTP config must be changed via raw SQLite query or by re-seeding migration 005.
-- If `app_url` disappears from the UI, email links silently fall back to `process.env.NEXT_PUBLIC_APP_URL` (line 59 of lib/email.ts) which may be wrong or unset in Docker deployments.
+- Filtering 1000 trades by three simultaneous criteria including JSON-parsed mistakes causes a 200-400ms stall on mid-range hardware — enough to make the UI feel broken on every keystroke.
+- The client holds ALL trades in memory regardless of filter. A trader with years of journal data hits browser memory pressure.
+- Adding "saved views" that trigger filter changes on load means the stall happens immediately on page open, not just when the user actively filters.
+- The summary stats bar (totals, win%, sparkline data) must recalculate over the same filtered slice on every filter change — doubling the work.
 
 **Prevention:**
-- Identify the `SystemSettings` interface (lines 92-102 of settings/page.tsx) and `loadSysSettings` / `saveSysSettings` functions before the refactor begins. These must survive the split intact.
-- The `admin-settings` tab content and the `SYSTEM_KEYS` allowlist in `app/api/admin/settings/route.ts` must match exactly — any key present in the UI form must be in `SYSTEM_KEYS` or the POST silently ignores it.
-- Write a checklist before refactor: every field in `SYS_DEFAULTS` (account_size, risk_per_trade, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, smtp_from, app_url) must appear in the extracted admin settings component.
+- Move filtering to the server. Extend `GET /api/trades` to accept all new filter params: `mistake_type`, `setup`, `tags`, `date_from`, `date_to`. Build the WHERE clause server-side using parameterised queries (the existing query-builder pattern at lines 38-44 of `app/api/trades/route.ts` is already structured for this — extend it).
+- For the `mistakes` JSON column, use SQLite's `json_each()` to filter: `EXISTS (SELECT 1 FROM json_each(t.mistakes) WHERE value = ?)`. This is supported without schema changes and performs acceptably on datasets under 10,000 rows. Add `CREATE INDEX IF NOT EXISTS idx_trades_user_id ON trades (user_id)` if not already present — the user_id filter is the first clause and the index prevents full-table scans.
+- The "mistakes" column currently stores unstructured text or JSON. Before building the filter, audit what format it actually holds in production (open DevTools and inspect a few trade records). If it is free-text, a normalised approach (separate `trade_mistakes` junction table) is required for efficient filtering. If it is already a JSON array of strings, `json_each()` works.
+- Keep client-side JavaScript filtering only for the quick filter chips (Winners/Losers/This Week) that filter an already-fetched, already-server-filtered result set — this is the correct use of client-side filtering.
 
-**Detection:** After refactor, open Settings > System tab and verify all SMTP fields and the APP URL field are present and saveable. Test round-trip: save a value, reload the page, confirm the value is still shown.
+**Detection:** Insert 500 demo trades via the import system, then enable all filter types simultaneously. Measure filter-change-to-render time with Chrome DevTools Performance tab. Any value above 100ms is unacceptable for a filter that fires on dropdown change.
 
-**Phase:** Settings overhaul phase (highest risk).
+**Phase:** Filter system phase (highest risk — affects all downstream features).
 
 ---
 
-### Pitfall 2: dashboard_layout Backwards Compatibility — Templates Must Not Overwrite User Order
+### Pitfall 2: Mistakes Tagging — JSON Column Cannot Be Indexed, Normalised Table Cannot Be Migrated Without Data Loss
 
-**What goes wrong:** The `dashboard_layout` setting stores JSON with three keys: `order` (string[]), `hidden` (string[]), and `sizes` (Record<string, WidgetSize>). The DashboardShell already has migration logic for this format (lines 360-380 of DashboardShell.tsx). Dashboard layout templates are a new feature that saves and loads named presets of this same JSON. The pitfall: if applying a template overwrites the `dashboard_layout` settings key directly, the user's current layout is gone with no undo.
+**What goes wrong:** The `mistakes` column (TEXT, stores JSON) was added in migration 007. The new mistakes system is user-defined mistake types (e.g. "Chased Entry", "Ignored Stop") that are tagged per trade. There are two approaches:
 
-**Why it happens:** The simplest implementation of "apply template" is `PUT /api/settings { dashboard_layout: templateJson }`, which is exactly what the current save mechanism does. The template feature reuses the same key — and the same save path — so applying a template is indistinguishable from a user manually reordering widgets. After a page refresh, the user's prior layout is permanently replaced.
+1. Continue storing mistakes as a JSON array in the existing `mistakes` column (e.g. `["Chased Entry", "Ignored Stop"]`).
+2. Create a normalised `trade_mistakes` junction table.
+
+The JSON column approach cannot be indexed in SQLite. `json_each()` queries require a full scan of the `mistakes` column for every matching row. The normalised table approach requires a migration that parses the existing `mistakes` JSON values and inserts them into the new table — if the existing data is a mix of text formats (some rows store free text, some store JSON arrays, some are NULL), the migration will silently drop data for rows that fail to parse.
+
+**Why it happens:** The `mistakes` column predates the structured mistakes system. It was likely a free-text field used for ad-hoc notes. A developer building the new mistakes system may assume it contains structured JSON when it does not.
 
 **Consequences:**
-- No recovery path. SQLite has no row versioning. The previous layout JSON was in the settings row that was just overwritten.
-- Users who spent time customising their 24+ widget layout will lose it entirely if they accidentally apply the wrong template.
+- Attempting `json_each()` on a row where `mistakes` is `"Rushed the trade"` (plain text, not a JSON array) returns a SQLite error or silently returns no rows — the trade disappears from mistake-filtered results without warning.
+- A migration that does `INSERT INTO trade_mistakes SELECT json_each.value FROM trades, json_each(trades.mistakes)` will fail on rows with non-JSON values, aborting the migration if not wrapped in error handling.
+- User-defined mistake type names stored only in trades JSON cannot be enumerated without scanning all trade rows — there is no `mistake_types` source of truth for the dropdown.
 
 **Prevention:**
-- Templates are stored under a **separate settings key** (`dashboard_templates`), never in `dashboard_layout`. Format: `{ templates: Array<{ id: string; name: string; layout: DashboardLayout }> }`.
-- Applying a template calls the existing `saveLayout()` path (which writes to `dashboard_layout`) — this is correct. The user is choosing to replace their layout. Add a confirmation dialog: "Apply template '[name]'? Your current layout will be replaced."
-- Offer a "Save current as template" action that reads the current layout state and appends it to `dashboard_templates` — never the reverse.
-- The DashboardShell's merge logic (lines 362-379) that handles new widgets added since the last save must also run when a template is applied, so newly added widget IDs are not lost.
+- Before writing the migration, audit actual `mistakes` column values with: `SELECT mistakes FROM trades WHERE user_id = [id] AND mistakes IS NOT NULL AND mistakes != '' LIMIT 20`. This reveals whether data is JSON or free text.
+- Add a `mistake_types` table for the user-defined catalogue: `id INTEGER PRIMARY KEY, user_id TEXT, name TEXT, color TEXT`. This becomes the source of truth for the filter dropdown and is trivially indexable.
+- Add a `trade_mistakes` junction table: `trade_id INTEGER, mistake_type_id INTEGER`. This replaces (not augments) the JSON column for new mistake assignments.
+- The migration that populates `trade_mistakes` from the old `mistakes` column must wrap each row in a try/catch (SQLite's `json_valid()` function: `WHERE json_valid(mistakes) = 1`) to skip non-JSON rows, then log skipped rows for the user to re-tag manually.
+- After migration, do NOT drop the `mistakes` column — keep it as a graveyard column (nullable, ignored by new code) for backward compatibility and potential data recovery. Mark it deprecated in a code comment.
 
-**Detection:** Apply a template, then verify (a) the dashboard reflects the template layout and (b) the user's previous layout could have been preserved as a named template if desired.
+**Detection:** Before shipping, query `SELECT COUNT(*) FROM trades WHERE mistakes IS NOT NULL AND json_valid(COALESCE(mistakes, '[]')) = 0` against a real database. If count > 0, the JSON-column filtering strategy will silently lose data.
 
-**Phase:** Dashboard layout templates phase.
+**Phase:** Mistakes tagging phase. The migration must run before the filter system is wired up — order matters.
 
 ---
 
-### Pitfall 3: Email URL Auto-Detection Using request.headers Host — Docker Networking Mismatch
+### Pitfall 3: Saved Views Stored in Settings JSON Collide with Active Filter State
 
-**What goes wrong:** The natural implementation of email URL auto-detection reads the `host` or `x-forwarded-host` header from the incoming request: `const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host')`. In a Docker Compose setup where the Next.js container is addressed as `app:3000` internally, the `host` header received by the Node process may be the Docker service name, not the externally accessible hostname. Emails sent using this detected URL contain links like `http://app:3000/verify-email?token=X` that are unreachable from the user's browser.
+**What goes wrong:** The existing settings system stores everything as key-value pairs in the `settings` table (key TEXT PRIMARY KEY, value TEXT). Saved filter views (named presets like "Winners This Month", "TSLA Only") are the natural next entry. The pitfall is that developers will also want to persist the *currently active* filter state so it survives page refreshes. If both "current active filter" and "saved views" are written to the same `trade_filter_views` settings key, loading the page overwrites the user's current session filter state with the last-saved named preset.
 
-**Why it happens:** During local development, `req.headers.get('host')` returns `localhost:3000`, which is correct. In Docker, it depends on how the reverse proxy (Nginx, Traefik, Cloudflare tunnel) sets headers. Cloudflare tunnel always provides `x-forwarded-host` with the public hostname, but only if the tunnel is configured to pass headers — a non-default behaviour.
+More subtly: if saved views are stored in `localStorage` (for speed) but the API route for fetching trades does not have the corresponding filter params, the UI shows a filter chip ("Saved: Winners Only") but the trade data behind it is unfiltered. The filter chip and the data are out of sync.
+
+**Why it happens:** There are three separate states to manage: (a) the current active filter values, (b) the list of saved named views, and (c) which saved view (if any) is "active." Developers conflate (a) and (c), or store (b) in `localStorage` without syncing to the DB, meaning views disappear when the user clears browser storage.
 
 **Consequences:**
-- Email verification links are broken in Docker deployments without extra config.
-- Cloudflare tunnel URLs work only if the tunnel is configured to forward the `Host` header, which requires an explicit rule.
-- The fallback chain in `lib/email.ts` line 59 (`process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'`) is the safety net but is ENV-based and defeats the purpose of auto-detection.
+- A user saves a view called "My Best Setups," navigates away, returns to the trades page, and finds the page has applied "My Best Setups" automatically even though they wanted no filter.
+- Saved views stored only in `localStorage` are lost if the user clears their browser or switches machines.
+- Applying a saved view does not update the URL, so sharing the page link gives an unfiltered view — the recipient sees different trades than the sender intended.
 
 **Prevention:**
-- Implement a priority chain for URL resolution, evaluated in order:
-  1. `app_url` setting in `_system` settings (admin-configured, explicit, highest priority)
-  2. `x-forwarded-host` header with scheme from `x-forwarded-proto`
-  3. `host` header with scheme inferred from TLS state
-  4. `NEXT_PUBLIC_APP_URL` env var
-  5. `http://localhost:3000` (last resort fallback)
-- Expose the detected URL in the admin settings UI so the admin can see what the system resolved and override it with the `app_url` setting key if wrong. Show: "Auto-detected: http://app:3000 — Override below if incorrect."
-- Document in the admin UI that `app_url` should always be set in Docker and Cloudflare tunnel deployments — auto-detection from headers is unreliable in those modes.
-- The `getAppUrl()` function in lib/email.ts (line 52) already implements the DB-then-env fallback. The auto-detection from request headers requires a separate helper that accepts a `NextRequest` parameter and is called from API routes (not from lib/email.ts directly, which has no request context).
+- Use three distinct storage keys: `trade_saved_views` (DB, for the named presets catalogue), `trade_active_filters` (localStorage, ephemeral session state that survives refresh but not intent), and URL search params for shareable filter state.
+- On page load priority: URL params take highest precedence, then `trade_active_filters` from localStorage, then no filter (clean state). Never auto-apply a saved view on page load.
+- Applying a saved view copies its filter values into the URL params — not into a "which view is active" flag. This way, the URL is always the truth for what filters are active. The "active view" chip label is derived by comparing current URL params against the saved views catalogue.
+- Saved views are stored in the DB via the existing `/api/settings` endpoint as: `trade_saved_views: JSON.stringify(Array<{ id: string; name: string; filters: FilterState }>)`. This ensures cross-device persistence.
+- The settings save is debounced (500ms) for active filter state — every filter change should not fire a settings API call. For saved views (explicit user action: "Save View"), the save fires immediately.
 
-**Detection:** Deploy behind a Docker Compose setup (or Cloudflare tunnel) with `app_url` unset in admin settings. Register a new user and click the verification link — it must load correctly.
+**Detection:** (1) Save a view, reload the page — active filter must be clear, saved view must appear in the presets list only. (2) Apply a saved view, copy the URL, open it in an incognito tab — the same filters must be active. (3) Clear localStorage, reload — saved views must still be present (pulled from DB).
 
-**Phase:** Email URL auto-detection phase.
+**Phase:** Saved views phase. Must be designed before the filter UI is built, since the persistence architecture affects how every filter change is wired.
 
 ---
 
-### Pitfall 4: Per-Trade Checklist Editing — Storing Completed State vs Template State
+### Pitfall 4: Summary Stats Sparklines Re-render on Every Filter Change, Blocking the Main Thread
 
-**What goes wrong:** The existing strategy system stores checklist items as `string[]` per strategy (e.g. `["Downside objective accomplished", "Activity bullish"]`). Per-trade checklists add a checked/unchecked state per item. The pitfall is storing the completion state in the same `strategies` settings key, mixed with the template definition. If a trade's checklist responses are saved back to the global strategies setting, every trade using that strategy shows the same completed items — the last trade's responses.
+**What goes wrong:** The summary stats bar will include sparklines (cumulative return, win%, P/L ratio trend). Each sparkline is a Recharts instance (or similar SVG chart). When the user changes a filter, the trade list re-renders AND the sparkline data recalculates AND three Recharts instances re-render — all synchronously on the main thread. With 500 trades, the sparkline data computation alone (sorting by date, computing cumulative series, slicing the last N points) takes 15-40ms. Three sparklines in the same render cycle = 45-120ms, which adds to the filter-change latency.
 
-**Why it happens:** The quickest approach is to add a `completed: boolean[]` parallel array to the strategy object in settings JSON. This conflates two separate concerns: the template definition (what items exist) and the per-trade state (which items were checked for a specific trade).
+**Why it happens:** Sparkline data is computed inline in the render function: `const sparkData = trades.map(t => ({ date: t.exit_date, cum: ... }))`. This recomputes from scratch on every render because trades is a new array reference after each filter. React.memo on the sparkline component doesn't help because `data` is a new array reference each time.
 
 **Consequences:**
-- Opening any trade using "Wyckoff Buying Tests" shows whatever checkboxes the last completed trade checked. Prior trades look like they're checked differently depending on which trade was opened last.
-- If the user updates a checklist template (adds/removes an item), all saved per-trade states become misaligned — indices shift.
+- Rapid filter changes (typing in a symbol search box triggers one render per keystroke) causes jank because each keystroke triggers full sparkline recomputation.
+- Memory pressure: each Recharts instance maintains its own SVG DOM tree. Three sparklines plus the main trade table in the same component tree is manageable, but if the right sidebar also contains charts, total concurrent Recharts instances can reach 8-10 on a single page.
 
 **Prevention:**
-- Per-trade checklist state is stored on the **trade record itself** (a new `checklist_state` TEXT column on the `trades` table, storing JSON). Format: `{ strategyId: string; items: Array<{ text: string; checked: boolean }> }`. The `text` field is a snapshot of the item text at the time the trade was created — this makes it immutable even if the template is later edited.
-- The global `strategies` setting remains a pure template: `{ id, name, checklist: string[] }`. No completion state ever touches it.
-- When opening the trade modal with an existing trade, load `checklist_state` from the trade record. When creating a new trade with a selected strategy, initialise `checklist_state` from the current template (snapshot the item texts at that moment).
-- Migration required: `ALTER TABLE trades ADD COLUMN checklist_state TEXT` (migration 022 or next available number).
+- Memoize sparkline data with `useMemo`: `const sparkData = useMemo(() => computeCumulative(filteredTrades), [filteredTrades])`. This ensures the expensive computation only runs when `filteredTrades` actually changes (referential equality check), not on every re-render.
+- Debounce filter application by 150ms for text inputs (symbol search) so sparklines don't recompute on every keystroke. Dropdown filter changes (Status, Direction) can apply immediately since they are discrete selections.
+- Use lightweight sparkline SVG primitives instead of full Recharts instances in the summary stats bar. Recharts' `LineChart` with `CartesianGrid`, `XAxis`, `YAxis`, `Tooltip`, and `Legend` is far heavier than needed for a 60x20px sparkline. A raw SVG `<polyline>` computed from normalised data points is sufficient and has zero re-render overhead.
+- The right sidebar analytics (Account Performance, Setups P&L, Mistakes P&L) should be lazy-loaded or deferred — they are secondary information and should not block the main table from rendering.
 
-**Detection:** Create two trades using the same strategy, check different boxes on each. Reopen both trades and verify each shows its own checklist state.
+**Detection:** Open Chrome DevTools Performance tab. Change a filter (type a single character in the symbol search box). The flame graph must show no long tasks (>50ms) in the main thread. If sparkline recalculation appears as a significant slice, memoization is not working.
 
-**Phase:** Strategy/checklist enhancements phase.
+**Phase:** Summary stats bar phase. Architecture the sparkline data pipeline before building the UI.
 
 ---
 
-### Pitfall 5: Settings Page Split — One Giant State Object Shared Across All Tabs
+### Pitfall 5: Dynamic SQLite Filter Query with User-Provided Values — SQL Injection via Tag/Mistake Filters
 
-**What goes wrong:** The entire settings page operates from a single `settings` state object of type `Settings` (the interface at lines 31-57). The `save()` function sends the entire object with `PUT /api/settings`. When the page is split into sub-components, each sub-component needs to read from and write to this shared state. Developers who pass the full `settings` object and `setSettings` setter down as props create tightly coupled components that cannot be loaded or tested independently. Developers who duplicate state per-component produce silent divergence — the "Account" tab's local copy of `account_size` drifts from the "Integrations" tab's copy, and whichever tab saves last wins.
+**What goes wrong:** The existing query builder (lines 35-47 of `app/api/trades/route.ts`) uses parameterised queries correctly: `query += " AND symbol LIKE ?"` with `params.push(...)`. The new filter types include Custom Tags and Mistake Types. Tags are stored as a JSON array in a TEXT column. The temptation is to build the `json_each()` clause by interpolating the filter value directly: `query += \` AND EXISTS (SELECT 1 FROM json_each(t.tags) WHERE value = '${tagValue}')\``. This is a classic SQL injection vector.
 
-**Why it happens:** The monolith works because everything is in one closure. Splitting it without a strategy produces the N-props antipattern or duplicated state.
+**Why it happens:** SQLite's `json_each()` is a table-valued function and the filtering pattern `WHERE json_each.value = ?` with parameterised queries is non-obvious. Developers who have never used `json_each()` before copy examples from blog posts that use string interpolation.
+
+**Consequences:**
+- A user who names a mistake type `') OR '1'='1` can craft a query that returns all users' trades.
+- Even non-malicious input (apostrophes in tag names like "Bull's Run") causes SQLite syntax errors that crash the API route.
 
 **Prevention:**
-- Before splitting, audit which settings keys belong to which tab and ensure each key appears in exactly one tab's UI. Use the existing `CATEGORIES` array as the canonical grouping.
-- Each extracted sub-component receives only the slice of settings it needs: e.g., `IntegrationsTab` receives `{ discord_webhook, alert_discord_webhook, fmp_api_key, openai_api_key }` and an `onChange` callback that merges back into parent state.
-- The parent `SettingsContent` component retains the single `settings` state and the single `save()` call. Sub-components are purely presentational — they display and emit changes, they do not own state or call the API.
-- The admin system settings (`sysSettings` state, `loadSysSettings`, `saveSysSettings`) are already separate state — keep them separate. Do not merge them into the main `settings` object.
-- The 2FA state, IBKR state, and accounts state are also already isolated — keep them in the parent or in per-section state, not in the main `settings` object.
+- Always use parameterised queries, even with `json_each()`. The correct form is:
+  ```sql
+  SELECT t.* FROM trades t
+  WHERE t.user_id = ?
+  AND EXISTS (
+    SELECT 1 FROM json_each(t.tags) jt WHERE jt.value = ?
+  )
+  ```
+  With `params.push(user.id, tagValue)`. Better-sqlite3 supports this pattern natively.
+- Validate tag and mistake values server-side: strip or reject values containing SQL metacharacters (`'`, `;`, `--`, `/*`). Since these are user-defined label strings, valid values are plain text with no SQL significance.
+- The mistake filter should filter by `mistake_type_id` (an integer from the normalised `trade_mistakes` table), not by the user-entered name string. Integer parameters are injection-safe by construction.
 
-**Detection:** Change a value in tab A, switch to tab B, switch back to tab A, click Save. The value changed in tab A must still be present in the saved payload.
+**Detection:** Set a breakpoint in the API route and inspect the `query` string. Confirm no user-provided value appears as a string literal in the query — every user value must be a `?` placeholder.
 
-**Phase:** Settings overhaul phase.
+**Phase:** Filter system phase. Must be reviewed in code review before any filter value touches the DB.
 
 ---
 
@@ -131,153 +148,160 @@ Mistakes that cause significant rework or user-visible bugs but don't require fu
 
 ---
 
-### Pitfall 6: Admin Panel as Config Source — env Vars Read at Build Time vs Runtime
+### Pitfall 6: Mobile Table Layout — Horizontal Scroll + Fixed First Column Conflict with the Right Sidebar
 
-**What goes wrong:** When migrating from `.env`-based config to DB-based config (admin panel as source of truth), some config values that used to be in `.env` may have been referenced in `next.config.ts` or used at build time. Build-time env vars are baked into the Next.js bundle at `npm run build` time. If `NEXT_PUBLIC_APP_URL` was previously used in client-side code (the `NEXT_PUBLIC_` prefix makes it client-readable), switching to a DB-sourced value requires an API call — it cannot be substituted transparently.
+**What goes wrong:** Adding a right sidebar (account performance, setups, mistakes breakdown) narrows the available width for the trade table. On a 1280px screen with a left sidebar (~220px), right sidebar (~280px), and padding, the trade table gets ~750px. The existing TradeTable renders a standard `<table>` with multiple columns. At 750px, columns overflow, causing horizontal scroll. Adding a "freeze first column" (Symbol) to anchor position while scrolling is the standard solution — but CSS `position: sticky` on a `<td>` requires the parent `<td>` and all ancestor elements to NOT have `overflow: hidden` or `overflow: auto`. The scrollable wrapper div that enables horizontal scrolling typically needs `overflow-x: auto`, which breaks sticky column positioning.
 
-**Why it happens:** `NEXT_PUBLIC_APP_URL` is referenced in lib/email.ts line 59 as a fallback. If client-side components or email templates are updated to also call an API to fetch the app URL dynamically, but the build still has the old `NEXT_PUBLIC_APP_URL` baked in, you get inconsistent behaviour between build-time and runtime resolution.
+**Why it happens:** The `position: sticky` + horizontal scroll conflict is a well-known browser quirk. Developers test sticky columns in isolation (they work), add the scrollable wrapper (sticky stops working), and spend hours debugging.
+
+**Consequences:**
+- If sticky column is implemented incorrectly, Symbol scrolls out of view with the rest of the row — the user loses context of which trade they're looking at.
+- If the developer uses `transform: translateX()` as a sticky fallback, it fires on every scroll event and can cause jank on lower-end devices.
+- The right sidebar may need to be collapsible by default on screens below 1400px to prevent the table from becoming unusable.
 
 **Prevention:**
-- `app_url` is a server-side-only value used in email link construction. It is never needed in client-side code. Do not add `NEXT_PUBLIC_` prefix to any admin-panel-sourced config values.
-- The existing `getAppUrl()` function in lib/email.ts is server-only (it calls `getDb()`). Keep all URL resolution there.
-- After the migration, `NEXT_PUBLIC_APP_URL` in `.env.example` can be marked as deprecated/optional with a comment pointing to the admin panel setting.
-- `serverExternalPackages` in `next.config.ts` does not need modification — admin panel settings are read at request time via the existing API route and DB layer.
+- Do not implement a custom sticky-column solution. Use `table-layout: fixed` with the first column having `position: sticky; left: 0; z-index: 1` and the scrollable wrapper using `overflow-x: auto`. This specific combination works in all modern browsers (Chrome 90+, Firefox 88+, Safari 14+).
+- The right sidebar must have a default-collapsed state below 1400px viewport width, controlled by a CSS breakpoint or a `useResizeObserver` hook. Store the collapsed state in `localStorage` (key: `trades_sidebar_open`) so the user's preference persists.
+- On screens below 768px, abandon the multi-column table entirely. Render trades as stacked cards (the "card view" pattern already used on the journal page). The journal page's card layout is a reference implementation.
 
-**Detection:** Run `npm run build` with `NEXT_PUBLIC_APP_URL` unset. The build should succeed. Email links should still work based on DB config alone (if `app_url` is set in admin panel) or fall back to localhost gracefully.
+**Detection:** Test the table at viewport widths of 1280px, 1024px, 768px, and 375px. At each breakpoint verify: (a) the Symbol column is visible without horizontal scrolling, or (b) the table switches to card layout. Use Chrome DevTools device emulation for the mobile tests.
 
-**Phase:** Admin panel config source phase.
+**Phase:** Enhanced trade table phase. Design the responsive strategy before building the filter UI — filter chips above the table affect available height.
 
 ---
 
-### Pitfall 7: Strategy Enhancements — Built-In Default Strategies Overwriting User Customisations
+### Pitfall 7: Column Config Persistence Conflicts with New "Mistakes" and "Net Return" Columns
 
-**What goes wrong:** The five built-in default strategies (Wyckoff Buying/Selling Tests, Momentum Breakout, Mean Reversion, EMA Pullback) are currently hardcoded as the initial value of the `settings` state in `SettingsContent` (lines 208-214 of settings/page.tsx). They are written to the DB only when the user saves settings. If a user has customised these strategies (renamed them, added items, deleted one), and a future code change re-seeds them via a database migration or `INSERT OR IGNORE` logic, the user's customisations would be overwritten.
+**What goes wrong:** Column visibility is persisted via the `trade_table_columns` settings key (a JSON string array of `ColumnKey` values). The existing `ColumnKey` union type is derived from `ALL_COLUMNS` (a `const` array in TradeTable.tsx). Adding new columns (`mistakes`, `net_return`, `cost_basis`) requires adding them to `ALL_COLUMNS`. If a user's saved `trade_table_columns` is `["symbol", "direction", "pnl", "date"]` and the new code expects `ColumnKey` to include `"mistakes"` as a valid value, the saved array is valid — new columns simply aren't shown. This is safe. The problem is the inverse: if a column key is removed (e.g., `"potential"` is renamed to `"unrealized_potential"`), saved configs containing the old key parse without error but the column renders nothing — the `ColumnKey` type guard passes because the value is still a string, but the render switch never matches.
 
-**Why it happens:** Developers adding "built-in default strategies" as a feature might implement it as a migration that `INSERT OR IGNORE`s the default strategies into the settings table. If the user has never saved their strategies settings key to the DB, the key is absent and the migration creates it — this is safe. But if the user has saved it, the migration should skip it. `INSERT OR IGNORE` handles this correctly only if the key is the same.
+**Why it happens:** The column key is a TypeScript union type enforced at compile time, but the saved JSON comes in at runtime. `JSON.parse` produces `string[]`, not `ColumnKey[]`. The type assertion `saved as ColumnKey[]` on line 150 of `app/trades/page.tsx` silently accepts stale keys.
+
+**Consequences:**
+- Users who had `potential` in their visible columns see a blank column with no header after a rename. No error, no indication that their config is stale.
+- If many columns are renamed in one milestone, users lose all their column visibility configuration silently.
 
 **Prevention:**
-- Default strategies are a **client-side fallback only** — the hardcoded initial state in `SettingsContent`. They are never written to the DB by migrations.
-- If the feature requires "restore defaults" functionality, implement it as an explicit user action (a "Reset to defaults" button), never as an automatic migration.
-- New built-in strategies added in a future version should be merged into the user's existing list (appended if their ID is not already present), not replace the entire list.
-- If a `strategies` DB row does not exist for a user, `GET /api/settings` returns no value and the client falls back to the hardcoded defaults — this is the current correct behaviour.
+- After loading saved column config, filter it against the current `ALL_COLUMNS` keys: `const validKeys = new Set(ALL_COLUMNS.map(c => c.key)); const cleaned = saved.filter(k => validKeys.has(k));`. If `cleaned.length < saved.length`, the config had stale keys — apply it anyway (users lose their preference for removed columns only) and log a warning.
+- Never rename existing column keys. Add new columns with new keys. Deprecate columns by keeping the key in `ALL_COLUMNS` but setting `default: false` — they fade from default views but don't break saved configs.
+- If a column must be renamed, add the new key and keep the old key as an alias that maps to the same render path. Remove the alias in the milestone after next.
 
-**Detection:** Save custom strategy modifications, restart the app (or run any migrations), and verify the customised strategies are still present.
+**Detection:** Save a column config, add a new column key to `ALL_COLUMNS` (simulate a new release), reload. Verify the saved config still renders correctly and includes the new column in its default-hidden state.
 
-**Phase:** Strategy enhancements phase.
+**Phase:** Enhanced trade table phase.
 
 ---
 
-### Pitfall 8: Ad-Hoc Checklists — No Strategy Selected Edge Case in Trade Modal
+### Pitfall 8: Right Sidebar Analytics Run Separate API Calls, Causing Waterfall Fetches
 
-**What goes wrong:** Strategies currently drive the Wyckoff checklist in the trade modal. The v2.1 enhancement adds ad-hoc checklists — checklist items the trader can add on a per-trade basis without selecting a named strategy. The edge case: if a trade has both a `strategy_id` pointing to a deleted strategy and ad-hoc checklist items in `checklist_state`, the rendering must handle the case where the strategy template no longer exists.
+**What goes wrong:** The right sidebar needs: (1) account performance summary (total P&L, win rate, expectancy), (2) P&L breakdown by setup/strategy, (3) P&L breakdown by mistake type. The natural implementation is three separate `useEffect` calls each fetching from a different API endpoint (or the same endpoint with different aggregation params). On page load, these three fetches happen in sequence if each depends on the previous, or in parallel but each with its own loading spinner — creating a "flickering" sidebar where sections pop in at different times.
 
-**Why it happens:** Strategies are soft data (stored as JSON in the `strategies` settings key). Deleting a strategy from settings does not cascade to trade records that referenced it. `checklist_state` stores a snapshot of item texts, so the items themselves are preserved — but the strategy name and ID are dangling references.
+**Why it happens:** Sidebar sections are built as independent components, each owning their own data fetching. This is a clean component boundary but produces a waterfall. React 18's Suspense could wrap these, but the codebase's API routes are not set up for streaming responses.
+
+**Consequences:**
+- Three spinner-then-content transitions in the sidebar create a jarring UX.
+- Three separate `/api/trades` round-trips for the same underlying dataset (just different aggregations) is wasteful — all three can be computed from the same trade records.
+- If the active account filter changes, all three sidepanel queries must re-fetch. Without careful dependency arrays, stale data from a previous account appears briefly.
 
 **Prevention:**
-- Render `checklist_state` from the trade record, not by looking up the strategy in current settings. Since `checklist_state` snapshots the item text at trade creation time, the UI can always show the checklist regardless of whether the strategy template still exists.
-- When the strategy referenced by `strategy_id` no longer exists in the `strategies` settings, label the checklist as "[Strategy Deleted]" rather than hiding it or throwing an error.
-- The `strategy_id` column on trades (or whichever field stores this link) should be treated as a display hint only, not a foreign key dependency for checklist rendering.
+- Compute sidebar analytics from the same `filteredTrades` array that drives the table, using client-side aggregation (reduce/groupBy). The sidebar shows breakdowns of the already-loaded trade data — it does not need its own API calls. This eliminates the waterfall entirely.
+- Aggregate functions: `groupBy(filteredTrades, t => t.strategy_id)` for setup breakdown; `groupBy(tradesMistakes, m => m.mistake_type_id)` for mistake breakdown. These are O(n) operations on the already-fetched array.
+- The sidebar should receive `filteredTrades` as a prop (or read from a shared context) and be a pure computation component. No `useEffect`, no fetch.
+- If the analytics require data not in the trades array (e.g., account balance history for the performance chart), fetch it once in the parent and pass it down.
 
-**Detection:** Create a trade with strategy "Wyckoff Buying Tests" and some boxes checked. Delete the strategy from settings. Reopen the trade — the checklist items must still be visible.
+**Detection:** Open the Network tab, apply a filter, observe the sidebar update. Zero new API calls should fire — the sidebar must update purely from the in-memory filtered trades.
 
-**Phase:** Strategy/checklist enhancements phase.
+**Phase:** Right sidebar analytics phase. This is a downstream consumer of the filter architecture — design the filter state propagation path to include the sidebar before building it.
 
 ---
 
-### Pitfall 9: Settings Page Full-Width Layout — Sidebar Navigation on Small Screens
+### Pitfall 9: Quick Filter Chips ("Winners", "This Week") Override Active Saved View State Inconsistently
 
-**What goes wrong:** The v2.1 settings overhaul changes from a sidebar layout to a full-width desktop layout. The existing settings page uses `?tab=` query params for navigation and a vertical sidebar of categories. If the full-width layout removes the sidebar in favour of horizontal tabs or a top nav, the existing external links that use `?tab=account`, `?tab=admin-settings`, etc. (found in Navbar.tsx, the admin claim redirect, and any in-app "go to settings" buttons) will break if the tab ID scheme changes.
+**What goes wrong:** Quick filter chips are shortcuts that apply a preset filter combination (e.g., "Winners" = `status: closed, pnl > 0`; "This Week" = `exit_date >= [start of week]`). Saved views are named presets that restore a full filter state. If a user has a saved view active ("TSLA Shorts") and clicks the "Winners" quick filter chip, the intent is ambiguous: (a) does "Winners" replace all filters? (b) does "Winners" add to the active view's filters? The UX becomes inconsistent if quick filter chips are not treated as a defined operation.
 
-**Why it happens:** Redesigning a page layout often involves renaming navigation items or restructuring tabs. If `category === "admin-settings"` becomes `section === "system"` in the new layout, any URL with `?tab=admin-settings` navigates to the wrong section silently (falling back to the first tab).
+**Why it happens:** Quick filter chips are added to the filter toolbar without a clear mental model of how they interact with the filter state. Each developer makes their own assumption about whether chips are additive or replacive.
+
+**Consequences:**
+- Users applying "This Week" after having "TSLA Shorts" active expect to see TSLA shorts from this week — but the implementation replaced all filters, so they see all trades from this week.
+- The saved view chip shows "TSLA Shorts" as active even though "This Week" overrode part of its filter — the UI lies about which view is active.
 
 **Prevention:**
-- Keep the `?tab=` query parameter scheme and the Category type values unchanged. The full-width layout is a visual restructuring, not a URL/navigation restructuring.
-- Search for all usages of `?tab=` before the refactor: `grep -r 'tab=' app/ components/ lib/` — every one must be verified still works after the change.
-- The line `const initialCategory = (searchParams.get("tab") ?? "account") as Category` (line 198) must remain unchanged in the new structure.
-- The account claim redirect on line 455 (`window.location.href = "/admin"`) assumes an `/admin` route exists. If the admin panel moves into the settings page, update this redirect.
+- Define the interaction contract before building: quick filter chips are **additive to the current filter state**, not replacive. "Winners" adds `pnl > 0` and `status: closed` on top of whatever else is active. "This Week" adds `exit_date_from` and `exit_date_to` on top of whatever else is active.
+- If a quick chip's filter value conflicts with an existing filter (e.g., current active filter already has `status: open`, and "Winners" requires `status: closed`), the chip replaces only its own fields, not the entire filter state.
+- When any quick chip or manual filter change modifies the filter state away from a saved view's exact values, the "active view" label changes to "Custom" (or clears). The saved views list remains available to re-apply.
+- Implement a `FilterState` type with well-defined fields and a pure `applyQuickFilter(current: FilterState, chip: QuickFilter): FilterState` function. This makes the merge logic testable and consistent.
 
-**Detection:** Visit `/settings?tab=admin-settings` after the refactor and confirm the System settings tab loads directly.
+**Detection:** (1) Apply a saved view. (2) Click a quick filter chip. (3) Verify the trade list shows the intersection (both filters active). (4) Verify the saved view label changes to "Custom."
 
-**Phase:** Settings overhaul phase.
+**Phase:** Filter system phase. Define `FilterState` type and the merge semantics before building any UI.
 
 ---
 
-### Pitfall 10: Dashboard Layout Templates — Template Widget IDs Referencing Removed Widgets
+### Pitfall 10: The `load()` Function Is Called on Account Switch, Discarding Active Filters
 
-**What goes wrong:** The `ALL_WIDGETS` array in DashboardShell.tsx defines the canonical set of 39 widget IDs. If a saved template references a widget ID that no longer exists (e.g., a widget is renamed or removed in a future version), loading the template produces a hidden widget that renders nothing or an order array with a dangling ID.
+**What goes wrong:** The existing `load()` function (lines 113-157 of `app/trades/page.tsx`) is triggered by `useEffect(() => { load(); }, [activeAccountId, accounts.length])`. When the account changes, `load()` fetches fresh trades but also resets all UI state that is computed from the trade response. Adding filters means filter state must survive account switches (the user may want "Winners" in both their Main and Paper Trading accounts) — but if `load()` also calls `setStatus("all"); setDirection("all"); setSymbolQ("")`, the filters reset on every account change.
 
-**Why it happens:** The existing `dashboard_layout` already has this problem — the merge logic on lines 362-379 handles it by filtering unknown IDs. Template storage introduces the same risk on a longer timescale (templates persist indefinitely).
+**Why it happens:** The single `load()` function mixes data fetching with state initialisation. When it was written, there was no filter state to preserve. Adding filter state without refactoring `load()` means either (a) filters reset on account switch (bad) or (b) stale filters from the previous account contaminate the new account's view (bad).
 
-**Prevention:**
-- Reuse the existing merge logic when applying a template: filter out any widget IDs not present in the current `ALL_WIDGETS` array before applying the template layout.
-- The template save timestamp should be stored with the template so developers can detect "stale" templates on a future widget restructure.
-- Template application uses `saveLayout()` which already writes to `dashboard_layout` — the existing new-widget-merge logic will run on next page load, adding any new widgets not in the template.
-
-**Detection:** Save a template. Remove a widget ID from `ALL_WIDGETS` (simulating a future widget removal). Apply the template — the removed widget ID must not appear in the order array and the dashboard must render without error.
-
-**Phase:** Dashboard layout templates phase.
-
----
-
-### Pitfall 11: Admin Panel Config Source — Nodemailer Transport Created Per-Request Without Caching
-
-**What goes wrong:** `lib/email.ts` calls `getSmtpConfig()` which queries the DB on every `send()` call, then creates a new `nodemailer.createTransport()` instance per email sent. This is fine for the current usage (registration, password reset, price alerts — all low frequency). But the admin panel "Test SMTP" feature, if implemented naively, may call `send()` in a loop or fire multiple rapid test emails. Each call re-queries the DB and creates a new transport — not a correctness issue, but an unnecessary overhead pattern.
+**Consequences:**
+- User sets up a "Losers" filter on their Main account, switches to Paper Trading to check something, switches back — filter is gone.
+- Alternatively: user searches for "AAPL" on their Main account, switches to Paper Trading — Paper Trading shows an "AAPL" filter even though they never set it there.
 
 **Prevention:**
-- The current pattern (DB query per send) is acceptable for this application's email volume. Do not cache the transport as a module-level singleton — the admin can change SMTP config via the panel, and a cached transport would use stale credentials.
-- For the "Test SMTP" feature, send exactly one test email and show the result. Do not provide a "send multiple" option.
-- If caching is added in future, invalidate the cache when the admin panel saves new SMTP settings.
+- Separate the filter state lifecycle from the data-fetching lifecycle. Filters belong to the UI session (persist in URL params or localStorage), not to the account. Switching accounts refetches data with the current filter applied.
+- The `load()` function must accept filter params and pass them to the API call — it must NOT reset filter state. Filter state is controlled by the filter UI components independently.
+- On initial page load, initialise filter state from URL params, then call `load()` with those filters. On account switch, call `load()` with the *current* filter state (not a reset state).
 
-**Phase:** Admin panel config source phase.
+**Detection:** Set a filter, switch accounts, switch back. The filter must still be active and the data must reflect both the filter AND the correct account.
 
----
-
-### Pitfall 12: Settings Page Split — TypeScript Type Coverage Lost During Component Extraction
-
-**What goes wrong:** The monolithic `SettingsContent` function has the full `Settings` and `SystemSettings` interfaces defined at the top of the file. When extracting sub-components into separate files, developers who copy the component code without the type interfaces get implicit `any` types on props. With `strict: false` in tsconfig or the build passing without type errors (because the interfaces are re-inferred), the type safety is silently lost.
-
-**Prevention:**
-- Move `Settings`, `SystemSettings`, `Category`, `CATEGORIES`, `AdminUser`, and `SYS_DEFAULTS` to a shared `lib/settings-types.ts` file before splitting. Import from there in both the parent page and all sub-components.
-- Run `npm run build` after each component extraction step — TypeScript errors surface immediately.
-- Do not use `any` in props types for the extracted components. Each component props interface should be explicit.
-
-**Detection:** Run `npm run build` on the split result with zero TypeScript errors.
-
-**Phase:** Settings overhaul phase.
+**Phase:** Filter system phase. Refactor `load()` before adding any filter params to it.
 
 ---
 
 ## Minor Pitfalls
 
----
-
-### Pitfall 13: Template Naming — Collision with Reserved Names
-
-**What goes wrong:** If the template storage format uses the template name as its key, two templates named the same thing silently overwrite each other.
-
-**Prevention:** Templates use `crypto.randomUUID()` as their `id` (consistent with how strategies are handled in the existing code). The `name` is display-only and can be duplicated without consequence.
-
-**Phase:** Dashboard layout templates phase.
+Mistakes that cause inconvenience or polish issues without fundamental breakage.
 
 ---
 
-### Pitfall 14: Full-Width Settings Layout — Long Category List Not Scrollable on Short Screens
+### Pitfall 11: Filter Chips Show Stale Labels When Referenced Entities Are Deleted
 
-**What goes wrong:** The current settings sidebar has 13 categories. A full-width layout that renders them as horizontal tabs may overflow on screens narrower than 1200px, hiding the rightmost tabs behind the viewport edge with no scroll affordance.
+**What goes wrong:** A filter chip might display "Setup: Wyckoff Buying" or "Mistake: Chased Entry." If the user deletes the "Wyckoff Buying" strategy or the "Chased Entry" mistake type, the filter chip still shows the label (it stored the ID or the name string). The filter may still technically work (filtering by a deleted mistake type returns zero results), but the chip label says "Mistake: Chased Entry" when that type no longer exists.
 
-**Prevention:** Horizontal tab rows for 13+ items need either (a) horizontal scroll with visible overflow, (b) a dropdown overflow for excess tabs, or (c) grouping tabs into sections. Decide on the approach in the design phase, not during implementation.
+**Prevention:**
+- Active filter chips derive their display labels from the live catalogue (strategies list, mistake types list). When deriving the label, if the ID is not found in the catalogue, show "[Deleted]" with a warning style and an X to dismiss.
+- On page load, validate active filter state against the live catalogue. Auto-remove filter values referencing deleted entities.
 
-**Phase:** Settings overhaul phase.
+**Phase:** Mistakes tagging phase / saved views phase.
 
 ---
 
-### Pitfall 15: Per-Trade Checklist — Migration Number Conflict
+### Pitfall 12: Summary Stats Bar Shows Aggregate of ALL Trades, Not Filtered Trades
 
-**What goes wrong:** The DB is through migration 021. If two phases of v2.1 both add migrations and the developer uses the same migration name or number, one migration never runs (due to the `hasMigration` guard using the name as the dedup key).
+**What goes wrong:** The project spec says the summary stats bar is "scoped to all trades unless date-filtered." This is an unusual scoping rule. If the user has a Symbol filter active ("TSLA only"), they expect the stats bar to reflect TSLA trades. If the stats bar always shows all-trades aggregates, it becomes misleading — the win rate in the bar doesn't match the trades shown in the table below it.
 
-**Prevention:** Assign migration names sequentially from 022. Use descriptive names: `022_trade_checklist_state`, `023_dashboard_templates`, etc. Check `lib/db.ts` migration list before every new migration to confirm the name is unused.
+**Why it happens:** The spec ambiguity. "Unless date-filtered" is likely meant to mean "always shows current account's all-time stats for context, and only date-filtering narrows it" — but this is not how users expect a filter bar to behave.
 
-**Phase:** Every phase adding a migration.
+**Prevention:**
+- Clarify with the project owner before building: does the stats bar reflect the filtered set or the unfiltered set? The most intuitive UX (and the pattern used by every competitor: TradesViz, TraderSync, Tradervue) is that the stats bar reflects the filtered set.
+- If the answer is "unfiltered always," label the stats bar clearly as "Account Totals" and position it above the filter bar (not between filter and table) so users understand it is a separate summary, not filter-scoped.
+- If the answer is "filtered," use the same `filteredTrades` array for stats computation — this is the simpler implementation and the expected UX.
+
+**Detection:** Apply a filter that excludes 50% of trades. If the stats bar numbers don't change, it's showing unfiltered data — which may be intended but must be labeled clearly.
+
+**Phase:** Summary stats bar phase. Clarify the spec before implementation.
+
+---
+
+### Pitfall 13: The Symbol Search Filter Fires an API Call on Every Keystroke
+
+**What goes wrong:** If the symbol filter input triggers server-side filtering (the correct architecture per Pitfall 1), each keystroke fires a `fetch()` call to `/api/trades?symbol=T`, then `/api/trades?symbol=TS`, then `/api/trades?symbol=TSL`, then `/api/trades?symbol=TSLA`. Without debouncing, four API calls fire in under 200ms. The last response is not guaranteed to be the last to arrive (network race condition) — the user may briefly see TSLA results replaced by TSL results if the `TSLA` response arrives before the `TSL` response.
+
+**Prevention:**
+- Debounce the symbol search input at 300ms. Only fire the API call after the user pauses typing.
+- Use an AbortController to cancel the previous in-flight request when a new one fires. The existing `load()` function has no cancellation — add a `useRef` for the AbortController and cancel on each new call.
+- Pattern: `const abortRef = useRef<AbortController | null>(null); const load = () => { abortRef.current?.abort(); abortRef.current = new AbortController(); fetch(url, { signal: abortRef.current.signal }); }`.
+
+**Phase:** Filter system phase.
 
 ---
 
@@ -285,25 +309,32 @@ Mistakes that cause significant rework or user-visible bugs but don't require fu
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| Settings overhaul — component split | Admin SMTP/email fields lost during extraction | Audit `SystemSettings` interface before splitting; verify all fields survive |
-| Settings overhaul — component split | Shared state diverges across sub-components | Parent owns all state; sub-components receive slices via props |
-| Settings overhaul — layout redesign | `?tab=` external links break if Category IDs change | Keep Category type values unchanged; search for all `?tab=` usages first |
-| Settings overhaul — TypeScript | Implicit `any` when types not co-located with sub-components | Extract type interfaces to `lib/settings-types.ts` before splitting |
-| Email URL auto-detection | Docker `host` header is container service name, not public hostname | Priority chain: DB app_url > x-forwarded-host > host header > env var |
-| Email URL auto-detection | Cloudflare tunnel needs explicit header forwarding config | Show detected URL in admin UI; document Docker/tunnel override |
-| Admin panel as config source | env vars read at build time vs runtime | `app_url` is server-only; never add NEXT_PUBLIC_ prefix to admin-sourced config |
-| Admin panel as config source | SYSTEM_KEYS allowlist and UI fields out of sync | Every UI field must map to a key in SYSTEM_KEYS; verify on both sides |
-| Dashboard layout templates | Applying template overwrites user layout with no undo | Separate `dashboard_templates` key; confirmation dialog before applying |
-| Dashboard layout templates | Template stores deleted widget IDs | Filter template order array against current ALL_WIDGETS on apply |
-| Dashboard layout templates | Template name collision | Use UUID as template ID; name is display-only |
-| Strategy enhancements — defaults | Built-in defaults overwrite user customisations via migration | Defaults are client-side fallback only; never seed via migration |
-| Strategy enhancements — per-trade checklist | Completion state mixed with template definition | `checklist_state` on trade record; `strategies` setting is template-only |
-| Strategy enhancements — ad-hoc checklists | Deleted strategy breaks checklist rendering | Render from `checklist_state` snapshot, not from current strategy lookup |
-| All phases — migrations | Migration number/name conflict | Assign sequentially from 022; check lib/db.ts before every new migration |
+| Filter system | Client-side JSON parse in hot loop for mistakes filter (Pitfall 1) | Move all filtering server-side; use json_each() with parameterised queries |
+| Filter system | FilterState type undefined — each filter has ad-hoc shape (Pitfall 9, 10) | Define `FilterState` type and `applyQuickFilter()` before writing any UI |
+| Filter system | SQL injection via tag/mistake name strings (Pitfall 5) | Parameterised queries only; never interpolate user values |
+| Filter system | Symbol search API call race condition (Pitfall 13) | Debounce 300ms + AbortController |
+| Mistakes tagging | Non-JSON values in existing `mistakes` column crash `json_each()` (Pitfall 2) | Audit column values before migration; use `json_valid()` guard |
+| Mistakes tagging | No source-of-truth table for mistake type names (Pitfall 2) | Add `mistake_types` table in migration |
+| Saved views | Active filter and saved views stored in same settings key (Pitfall 3) | Three separate storage mechanisms: DB for views, localStorage for session filters, URL for shareable state |
+| Saved views | Saved view auto-applies on page load (Pitfall 3) | Never auto-apply saved views; URL params are the only auto-applied state |
+| Summary stats sparklines | Recharts instances recompute on every keystroke (Pitfall 4) | `useMemo` for sparkline data; debounce text inputs; use raw SVG for sparklines |
+| Summary stats | Stats bar reflects unfiltered data without labeling (Pitfall 12) | Clarify spec; implement stats from filteredTrades |
+| Enhanced trade table | Sticky first column breaks inside overflow-x wrapper (Pitfall 6) | Use `table-layout: fixed` + `position: sticky; left: 0` pattern specifically |
+| Enhanced trade table | Column key rename silently breaks saved configs (Pitfall 7) | Never rename keys; add new keys; validate saved keys against ALL_COLUMNS at load |
+| Right sidebar | Three separate API fetches cause waterfall (Pitfall 8) | Compute all sidebar analytics from `filteredTrades` prop — no sidebar API calls |
+| Right sidebar | Sidebar too wide on 1280px screens (Pitfall 6) | Default-collapsed below 1400px; persist preference in localStorage |
+| Account switch | `load()` resets filter state on account change (Pitfall 10) | Separate filter state lifecycle from data fetch lifecycle |
+| Filter chips | Chips referencing deleted entities show stale labels (Pitfall 11) | Validate active filters against live catalogues on load |
 
 ---
 
 ## Sources
 
-- Direct codebase analysis: `app/settings/page.tsx` (lines 1-500), `lib/email.ts`, `lib/db.ts` (migrations 001-021), `app/api/admin/settings/route.ts`, `components/dashboard/DashboardShell.tsx` (lines 1-430), `app/api/auth/register/route.ts`
-- Confidence: HIGH — all pitfalls derived from reading the exact code that will be modified, not from training data assumptions
+- SQLite json_each() query patterns and indexing limitations: [SQLite JSON Functions And Operators](https://sqlite.org/json1.html), [SQLite Indexing JSON (Hacker News)](https://news.ycombinator.com/item?id=46243904), [SQLite json_each forum discussion](https://sqlite-users.sqlite.narkive.com/FoNgEqSn/sqlite-fastest-way-to-search-json-array-values)
+- Client-side vs server-side filtering tradeoffs: [DEV Community — Deciding Between Client-Side and Server-Side Filtering](https://dev.to/marmariadev/deciding-between-client-side-and-server-side-filtering-22l9), [Next.js Table with Server-Side Performance](https://medium.com/@divyanshsharma0631/the-next-js-table-tango-mastering-dynamic-data-tables-with-server-side-performance-client-side-a71ee0ec2c63)
+- Filter state URL sync pitfalls: [LogRocket — Advanced React state management using URL parameters](https://blog.logrocket.com/advanced-react-state-management-using-url-parameters/), [TanStack Table URL sync tree mismatch issue](https://github.com/TanStack/table/discussions/5002)
+- Saved view persistence pitfalls: [PrimeNG saved filter state stale data issue](https://github.com/primefaces/primeng/issues/10065), [Best Practices for Persisting State in Frontend Applications](https://blog.pixelfreestudio.com/best-practices-for-persisting-state-in-frontend-applications/)
+- Recharts performance and memoization: [Recharts Performance Guide](https://recharts.github.io/en-US/guide/performance/), [LogRocket — Best React chart libraries 2025](https://blog.logrocket.com/best-react-chart-libraries-2025/)
+- Mobile table responsive patterns: [TanStack Table responsive collapse discussion](https://github.com/TanStack/table/discussions/3259), [CSS Responsive Tables 2025](https://dev.to/satyam_gupta_0d1ff2152dcc/css-responsive-tables-complete-guide-with-code-examples-for-2025-225p)
+- SQLite dynamic filter performance: [SQLite Query Optimizer Overview](https://sqlite.org/optoverview.html), [SQLite Performance Tuning](https://phiresky.github.io/blog/2020/sqlite-performance-tuning/)
+- Normalization vs JSON column tradeoffs: [SQLite JSON and denormalization](https://maximeblanc.fr/blog/sqlite-json-and-denormalization)
