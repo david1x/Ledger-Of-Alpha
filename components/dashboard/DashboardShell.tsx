@@ -34,6 +34,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useAccounts } from "@/lib/account-context";
+import { usePrivacy } from "@/lib/privacy-context";
 import clsx from "clsx";
 
 // ── Widget definitions ──────────────────────────────────────────────────
@@ -339,22 +340,9 @@ export default function DashboardShell() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [editMode, setEditMode] = useState(false);
   const [layout, setLayout] = useState<DashboardLayout>({ order: DEFAULT_ORDER, hidden: DEFAULT_HIDDEN, sizes: { ...DEFAULT_SIZES } });
-  const [hidden, setHidden] = useState(false);
+  const { hidden, toggleHidden } = usePrivacy();
   const [templates, setTemplates] = useState<LayoutTemplate[]>([]);
   const [builtInTemplates, setBuiltInTemplates] = useState<BuiltInTemplate[]>(DEFAULT_BUILT_IN_TEMPLATES);
-
-  // ── Privacy persistence ──
-  useEffect(() => {
-    const saved = localStorage.getItem("privacy_hidden");
-    if (saved === "true") setHidden(true);
-    if (saved === "false") setHidden(false);
-
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === "privacy_hidden") setHidden(e.newValue === "true");
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -398,11 +386,6 @@ export default function DashboardShell() {
       } else {
         if (settingsData.account_size) setAccountSize(parseFloat(settingsData.account_size));
         if (settingsData.risk_per_trade) setRiskPercent(parseFloat(settingsData.risk_per_trade));
-      }
-
-      // Check privacy mode if not explicitly set in localStorage
-      if (localStorage.getItem("privacy_hidden") === null && settingsData.privacy_mode) {
-        setHidden(settingsData.privacy_mode === "hidden");
       }
 
       if (settingsData.heatmap_ranges) {
@@ -1163,11 +1146,7 @@ export default function DashboardShell() {
               </div>
 
               <button
-                onClick={() => {
-                  const next = !hidden;
-                  setHidden(next);
-                  localStorage.setItem("privacy_hidden", String(next));
-                }}
+                onClick={toggleHidden}
                 className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:dark:bg-slate-800 hover:bg-white text-slate-500 transition-colors"
                 title={hidden ? "Show numbers" : "Hide numbers"}
               >

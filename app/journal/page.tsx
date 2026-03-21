@@ -12,6 +12,7 @@ import clsx from "clsx";
 import TradeTable from "@/components/TradeTable";
 import Logo from "@/components/Logo";
 import { useAccounts } from "@/lib/account-context";
+import { usePrivacy } from "@/lib/privacy-context";
 
 type ViewMode = "cards" | "list" | "review";
 
@@ -68,24 +69,12 @@ export default function JournalPage() {
   const [selectedTradeId, setSelectedTradeId] = useState<number | null>(null);
   const [chartsVisible, setChartsVisible] = useState(true);
   const [accountSize, setAccountSize] = useState(10000);
-  const [hidden, setHidden] = useState(false);
+  const { hidden, toggleHidden } = usePrivacy();
 
   const [isEditingReview, setIsEditingReview] = useState(false);
   const [editFormData, setEditFormData] = useState<Partial<Trade>>({});
   const [savingReview, setSavingReview] = useState(false);
   const [saveError, setSaveError] = useState("");
-
-  useEffect(() => {
-    const saved = localStorage.getItem("privacy_hidden");
-    if (saved === "true") setHidden(true);
-    if (saved === "false") setHidden(false);
-
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === "privacy_hidden") setHidden(e.newValue === "true");
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -113,9 +102,6 @@ export default function JournalPage() {
         setAccountSize(parseFloat(settingsData.account_size));
       }
 
-      if (localStorage.getItem("privacy_hidden") === null && settingsData.privacy_mode) {
-        setHidden(settingsData.privacy_mode === "hidden");
-      }
     } finally {
       setLoading(false);
     }
@@ -244,7 +230,7 @@ export default function JournalPage() {
         </div>
       </div>
 
-      <AccountBanner trades={trades} accountSize={accountSize} hidden={hidden} onToggleHidden={() => { const next = !hidden; setHidden(next); localStorage.setItem("privacy_hidden", String(next)); }} />
+      <AccountBanner trades={trades} accountSize={accountSize} hidden={hidden} onToggleHidden={toggleHidden} />
 
       <div className="rounded-2xl border dark:border-slate-800 border-slate-200 dark:bg-slate-900/50 bg-white p-2 sm:p-3 space-y-3 shadow-sm">
         <div className="flex items-center flex-wrap gap-3">
