@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Trades Page Overhaul
 status: completed
-stopped_at: Completed Phase 23 Plan 02 (23-02-PLAN.md)
-last_updated: "2026-03-21T20:20:36.144Z"
+stopped_at: Completed Phase 24 Plan 02 (24-02-PLAN.md)
+last_updated: "2026-03-21T21:02:17.375Z"
 last_activity: "2026-03-21 — Completed Phase 23 Plan 02 (mobile CSS fixes: sticky Symbol column, horizontal filter chips, responsive stats grid)"
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 11
-  completed_plans: 11
+  total_phases: 7
+  completed_phases: 7
+  total_plans: 13
+  completed_plans: 13
   percent: 100
 ---
 
@@ -67,6 +67,8 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 - [Phase 23-sidebar-analytics-mobile-polish]: SortableHeader accepts optional sticky prop — cleaner than inline conditional in the headers map loop
 - [Phase 23-sidebar-analytics-mobile-polish]: Symbol td uses group-hover background overrides matching tr hover colors to prevent visible seam during row highlight
 - [Phase 23-sidebar-analytics-mobile-polish]: TradeFilterChips uses both [&::-webkit-scrollbar]:hidden and inline scrollbarWidth:none for cross-browser scrollbar hiding
+- [Phase 24-trades-page-ui-tightening]: Radius mapping: rounded-xl -> rounded-lg for card panels; rounded-lg -> rounded-md for buttons, inputs, and dropdown menus across all trades sub-components
+- [Phase 24-trades-page-ui-tightening]: Filter bar relocated to be first element; table card embeds toolbar (SavedViews + cog) inside card with border-b separator; sidebar uses items-stretch for full-height border
 
 ### Roadmap Evolution
 
@@ -83,6 +85,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-21T18:37:33Z
-Stopped at: Completed Phase 23 Plan 02 (23-02-PLAN.md)
-Resume file: .planning/phases/23-sidebar-analytics-mobile-polish/23-02-SUMMARY.md
+Last session: 2026-03-21T21:02:08.034Z
+Stopped at: Completed Phase 24 Plan 02 (24-02-PLAN.md)
+Resume file: None

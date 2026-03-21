@@ -156,7 +156,7 @@ Plans:
 **Goal:** Tighten the trades page layout into a dense, well-assembled grid: relocate filters to the top, remove the title, widen the sidebar with full-height border, reduce all card/button radii, compact stat cards, and embed the column config cog alongside saved views in the table card header
 **Requirements**: UI-LAYOUT, UI-SIDEBAR, UI-FILTER-RELOC, UI-COG, UI-CARDS, UI-BUTTONS, UI-SPACING
 **Depends on:** Phase 23
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 24-01-PLAN.md — TradesShell layout restructuring: filter relocation, title removal, sidebar fixes, cog icon, spacing/radius
