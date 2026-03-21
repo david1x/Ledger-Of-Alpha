@@ -506,44 +506,43 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
                     </div>
                   </section>
 
-                  {mistakeTypes.length > 0 && (
-                    <section className="pt-6 border-t dark:border-slate-800 border-slate-200">
-                      <SectionHeader icon={Tag} title="Mistakes" sub="Tag mistake patterns" />
-                      <div className="flex flex-wrap gap-2">
-                        {mistakeTypes.map(mt => {
-                          const isSelected = selectedMistakeIds.has(mt.id);
-                          return (
-                            <button
-                              key={mt.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedMistakeIds(prev => {
-                                  const next = new Set(prev);
-                                  if (next.has(mt.id)) next.delete(mt.id);
-                                  else next.add(mt.id);
-                                  return next;
-                                });
-                              }}
-                              className={clsx(
-                                "px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all",
-                                isSelected
-                                  ? "shadow-xl"
-                                  : "dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 dark:text-slate-500 text-slate-500 hover:border-slate-400"
-                              )}
-                              style={isSelected ? {
-                                backgroundColor: mt.color + "33",
-                                color: mt.color,
-                                border: `1px solid ${mt.color}`,
-                                fontWeight: "bold",
-                              } : undefined}
-                            >
-                              {mt.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  )}
+                  <section className="pt-6 border-t dark:border-slate-800 border-slate-200">
+                    <SectionHeader icon={Tag} title="Mistakes" sub="Tag mistake patterns" />
+                    <div className="flex flex-wrap gap-2">
+                      {mistakeTypes.map(mt => {
+                        const isSelected = selectedMistakeIds.has(mt.id);
+                        return (
+                          <button
+                            key={mt.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedMistakeIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(mt.id)) next.delete(mt.id);
+                                else next.add(mt.id);
+                                return next;
+                              });
+                            }}
+                            className={clsx(
+                              "px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all",
+                              isSelected
+                                ? "shadow-xl"
+                                : "dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 dark:text-slate-500 text-slate-500 hover:border-slate-400"
+                            )}
+                            style={isSelected ? {
+                              backgroundColor: mt.color + "33",
+                              color: mt.color,
+                              border: `1px solid ${mt.color}`,
+                              fontWeight: "bold",
+                            } : undefined}
+                          >
+                            {mt.name}
+                          </button>
+                        );
+                      })}
+                      <MistakeCreator onCreated={(mt) => setMistakeTypes(prev => [...prev, mt])} />
+                    </div>
+                  </section>
 
                   <section className="pt-6 border-t dark:border-slate-800 border-slate-200">
                     <SectionHeader icon={BookOpen} title="Lessons & Notes" sub="Final journaling" />
@@ -635,6 +634,87 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+const MISTAKE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4"];
+
+function MistakeCreator({ onCreated }: { onCreated: (mt: MistakeType) => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [color, setColor] = useState(MISTAKE_COLORS[0]);
+  const [saving, setSaving] = useState(false);
+
+  const handleCreate = async () => {
+    if (!name.trim() || saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/mistakes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), color }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        onCreated(created);
+        setName("");
+        setColor(MISTAKE_COLORS[0]);
+        setOpen(false);
+      }
+    } catch { /* silent */ }
+    finally { setSaving(false); }
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-dashed dark:border-slate-600 border-slate-300 dark:text-slate-500 text-slate-400 hover:dark:border-emerald-500 hover:dark:text-emerald-400 hover:border-emerald-500 hover:text-emerald-600 transition-all"
+      >
+        + Add
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 w-full mt-2">
+      <input
+        autoFocus
+        type="text"
+        value={name}
+        onChange={e => setName(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") setOpen(false); }}
+        placeholder="Mistake name..."
+        className="flex-1 px-3 py-2 text-xs rounded-xl dark:bg-slate-800 bg-slate-50 border dark:border-slate-700 border-slate-300 dark:text-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+      />
+      <div className="flex items-center gap-1">
+        {MISTAKE_COLORS.map(c => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => setColor(c)}
+            className={clsx("w-5 h-5 rounded-full transition-all", color === c ? "ring-2 ring-offset-1 dark:ring-offset-slate-900 ring-white scale-110" : "opacity-60 hover:opacity-100")}
+            style={{ backgroundColor: c }}
+          />
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={handleCreate}
+        disabled={!name.trim() || saving}
+        className="p-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50 transition-colors"
+      >
+        <Check className="w-3.5 h-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => { setOpen(false); setName(""); }}
+        className="p-2 rounded-xl dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
     </div>
   );
 }
