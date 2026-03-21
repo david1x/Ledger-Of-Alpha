@@ -299,7 +299,7 @@ export default function Navbar() {
             <Icon className="w-5 h-5 shrink-0" />
             {showLabels && <span>{label}</span>}
             {!showLabels && (
-              <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 text-xs font-medium rounded-md dark:bg-slate-800 bg-white dark:text-white text-slate-900 shadow-lg border dark:border-slate-700 border-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+              <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 text-xs font-semibold rounded-md bg-slate-900 text-white shadow-xl ring-1 ring-slate-700/50 whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 pointer-events-none transition-all duration-100 z-50">
                 {label}
               </span>
             )}
@@ -321,7 +321,7 @@ export default function Navbar() {
           <Bell className="w-5 h-5 shrink-0" />
           {showLabels && <span>Alerts</span>}
           {!showLabels && (
-            <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 text-xs font-medium rounded-md dark:bg-slate-800 bg-white dark:text-white text-slate-900 shadow-lg border dark:border-slate-700 border-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+            <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 text-xs font-semibold rounded-md bg-slate-900 text-white shadow-xl ring-1 ring-slate-700/50 whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 pointer-events-none transition-all duration-100 z-50">
               Alerts
             </span>
           )}
@@ -349,7 +349,7 @@ export default function Navbar() {
         <SettingsIcon className="w-5 h-5 shrink-0" />
         {showLabels && <span>Settings</span>}
         {!showLabels && (
-          <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 text-xs font-medium rounded-md dark:bg-slate-800 bg-white dark:text-white text-slate-900 shadow-lg border dark:border-slate-700 border-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+          <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 text-xs font-semibold rounded-md bg-slate-900 text-white shadow-xl ring-1 ring-slate-700/50 whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 pointer-events-none transition-all duration-100 z-50">
             Settings
           </span>
         )}
@@ -395,7 +395,7 @@ export default function Navbar() {
                 >
                   <Wallet className="w-4.5 h-4.5 shrink-0 text-emerald-400" />
                   {!showLabels && (
-                    <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 text-xs font-medium rounded-md dark:bg-slate-800 bg-white dark:text-white text-slate-900 shadow-lg border dark:border-slate-700 border-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                    <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 text-xs font-semibold rounded-md bg-slate-900 text-white shadow-xl ring-1 ring-slate-700/50 whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 pointer-events-none transition-all duration-100 z-50">
                       {activeAccount?.name ?? "All Accounts"}
                     </span>
                   )}
@@ -459,7 +459,7 @@ export default function Navbar() {
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 min-h-0">
             {sidebarLinks}
           </div>
 
@@ -470,7 +470,7 @@ export default function Navbar() {
               <ExternalLink className="w-5 h-5 shrink-0" />
               {showLabels && <span>TradingView</span>}
               {!showLabels && (
-                <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 text-xs font-medium rounded-md dark:bg-slate-800 bg-white dark:text-white text-slate-900 shadow-lg border dark:border-slate-700 border-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 text-xs font-semibold rounded-md bg-slate-900 text-white shadow-xl ring-1 ring-slate-700/50 whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 pointer-events-none transition-all duration-100 z-50">
                   TradingView
                 </span>
               )}
@@ -486,7 +486,7 @@ export default function Navbar() {
                     {initials}
                   </div>
                   {!showLabels && (
-                    <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 text-xs font-medium rounded-md dark:bg-slate-800 bg-white dark:text-white text-slate-900 shadow-lg border dark:border-slate-700 border-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                    <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 text-xs font-semibold rounded-md bg-slate-900 text-white shadow-xl ring-1 ring-slate-700/50 whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 pointer-events-none transition-all duration-100 z-50">
                       {me.name}
                     </span>
                   )}

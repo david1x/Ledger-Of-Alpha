@@ -1,5 +1,5 @@
 "use client";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ResponsiveContainer, AreaChart, Area } from "recharts";
 import { Trade, MistakeType, TradeFilterState } from "@/lib/types";
 import { usePrivacy } from "@/lib/privacy-context";
@@ -19,6 +19,53 @@ function formatCurrency(n: number): string {
 
 function formatPct(n: number): string {
   return `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
+}
+
+const SETUP_LIMIT = 7;
+
+function SetupsList({ setupRows, hidden, onFilterChange }: {
+  setupRows: { name: string; totalPnl: number; count: number; winRate: number }[];
+  hidden: boolean;
+  onFilterChange: (partial: Partial<TradeFilterState>) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? setupRows : setupRows.slice(0, SETUP_LIMIT);
+  const hasMore = setupRows.length > SETUP_LIMIT;
+
+  return (
+    <div className="mt-2 space-y-1">
+      {visible.map(row => (
+        <button
+          key={row.name}
+          className="w-full flex items-start justify-between px-2 py-1.5 rounded-md hover:dark:bg-slate-700/60 hover:bg-slate-100 cursor-pointer transition-colors text-left"
+          onClick={() => onFilterChange({ tags: [row.name] })}
+        >
+          <div>
+            <span className="text-sm dark:text-slate-200 text-slate-800 font-medium">{row.name}</span>
+            <p className="text-[11px] dark:text-slate-400 text-slate-500">
+              {hidden ? MASK : `${row.count} trade${row.count !== 1 ? "s" : ""}`}
+              {" · "}
+              {hidden ? MASK : `${row.winRate.toFixed(0)}% WR`}
+            </p>
+          </div>
+          <span
+            className="text-sm font-semibold ml-2 mt-0.5 shrink-0"
+            style={{ color: row.totalPnl >= 0 ? "#22c55e" : "#ef4444" }}
+          >
+            {hidden ? MASK : formatCurrency(row.totalPnl)}
+          </span>
+        </button>
+      ))}
+      {hasMore && (
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="w-full text-center py-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
+        >
+          {expanded ? "Show less" : `Show ${setupRows.length - SETUP_LIMIT} more`}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function TradesSidebar({ filteredTrades, mistakeTypes, onFilterChange }: TradesSidebarProps) {
@@ -67,7 +114,8 @@ export default function TradesSidebar({ filteredTrades, mistakeTypes, onFilterCh
     };
   }, [filteredTrades]);
 
-  const chartColor = perfStats.totalPnl >= 0 ? "#22c55e" : "#ef4444";
+  const chartLineColor = perfStats.totalPnl >= 0 ? "#22c55e" : "#ef4444";
+  const chartFillColor = perfStats.totalPnl >= 0 ? "#06b6d4" : "#f97316";
 
   // --- Panel 2: Setups Breakdown ---
   const setupRows = useMemo(() => {
@@ -169,14 +217,14 @@ export default function TradesSidebar({ filteredTrades, mistakeTypes, onFilterCh
             <AreaChart data={perfStats.curve} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="sidebarPerfGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={chartColor} stopOpacity={0.35} />
-                  <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
+                  <stop offset="5%" stopColor={chartFillColor} stopOpacity={0.35} />
+                  <stop offset="95%" stopColor={chartFillColor} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <Area
                 type="monotone"
                 dataKey="value"
-                stroke={chartColor}
+                stroke={chartLineColor}
                 strokeWidth={1.5}
                 fill="url(#sidebarPerfGrad)"
                 dot={false}
@@ -191,7 +239,7 @@ export default function TradesSidebar({ filteredTrades, mistakeTypes, onFilterCh
         <div className="text-center mt-1">
           <span
             className="text-xs font-medium"
-            style={{ color: chartColor }}
+            style={{ color: chartLineColor }}
           >
             {hidden ? MASK : `Cumulative: ${formatCurrency(perfStats.totalPnl)}`}
           </span>
@@ -207,30 +255,7 @@ export default function TradesSidebar({ filteredTrades, mistakeTypes, onFilterCh
         {setupRows.length === 0 ? (
           <p className="text-xs dark:text-slate-500 text-slate-400 mt-3 text-center">No setups found</p>
         ) : (
-          <div className="mt-2 space-y-1">
-            {setupRows.map(row => (
-              <button
-                key={row.name}
-                className="w-full flex items-start justify-between px-2 py-1.5 rounded-md hover:dark:bg-slate-700/60 hover:bg-slate-100 cursor-pointer transition-colors text-left"
-                onClick={() => onFilterChange({ tags: [row.name] })}
-              >
-                <div>
-                  <span className="text-sm dark:text-slate-200 text-slate-800 font-medium">{row.name}</span>
-                  <p className="text-[11px] dark:text-slate-400 text-slate-500">
-                    {hidden ? MASK : `${row.count} trade${row.count !== 1 ? "s" : ""}`}
-                    {" · "}
-                    {hidden ? MASK : `${row.winRate.toFixed(0)}% WR`}
-                  </p>
-                </div>
-                <span
-                  className="text-sm font-semibold ml-2 mt-0.5 shrink-0"
-                  style={{ color: row.totalPnl >= 0 ? "#22c55e" : "#ef4444" }}
-                >
-                  {hidden ? MASK : formatCurrency(row.totalPnl)}
-                </span>
-              </button>
-            ))}
-          </div>
+          <SetupsList setupRows={setupRows} hidden={hidden} onFilterChange={onFilterChange} />
         )}
       </div>
 

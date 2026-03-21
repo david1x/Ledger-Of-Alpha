@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { Download, Upload, ChevronDown, Cable } from "lucide-react";
+import { Download, Upload, Cable } from "lucide-react";
 import { tradesToCsv, csvToTrades, isIbkrCsv, ibkrCsvToTrades } from "@/lib/csv";
 import { TRADE_FIELDS } from "@/lib/validate-trade";
 
@@ -161,11 +161,12 @@ export default function TradeImportExport({ activeAccountId, onTradesChanged }: 
       <div className="relative" ref={exportMenuRef}>
         <button
           onClick={() => setShowExportMenu(prev => !prev)}
-          className="flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2 sm:px-3 rounded-lg dark:bg-slate-800/50 bg-slate-100/50 dark:text-slate-300 text-slate-700 text-[10px] sm:text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-200 transition-colors shadow-sm"
+          className="relative group flex items-center justify-center w-9 h-9 rounded-md dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-200 hover:dark:text-slate-200 hover:text-slate-700 transition-colors"
         >
-          <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          <span>Export</span>
-          <ChevronDown className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+          <Download className="w-4 h-4" />
+          <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 text-xs font-semibold rounded-md bg-slate-900 text-white shadow-xl ring-1 ring-slate-700/50 whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 pointer-events-none transition-all duration-100 z-50">
+            Export
+          </span>
         </button>
         {showExportMenu && (
           <div className="absolute right-0 top-full mt-1.5 z-50 w-40 rounded-xl dark:bg-slate-900 bg-white shadow-2xl py-1 border dark:border-slate-800 border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -190,11 +191,12 @@ export default function TradeImportExport({ activeAccountId, onTradesChanged }: 
         <button
           onClick={() => setShowImportMenu(v => !v)}
           disabled={importing}
-          className="flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2 sm:px-3 rounded-lg dark:bg-slate-800/50 bg-slate-100/50 dark:text-slate-300 text-slate-700 text-[10px] sm:text-sm font-medium hover:dark:bg-slate-800 hover:bg-slate-200 transition-colors disabled:opacity-50 shadow-sm"
+          className="relative group flex items-center justify-center w-9 h-9 rounded-md dark:text-slate-400 text-slate-500 hover:dark:bg-slate-800 hover:bg-slate-200 hover:dark:text-slate-200 hover:text-slate-700 transition-colors disabled:opacity-50"
         >
-          <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          <span>{importing ? "..." : "Import"}</span>
-          <ChevronDown className={`w-3 h-3 transition-transform ${showImportMenu ? "rotate-180" : ""}`} />
+          <Upload className="w-4 h-4" />
+          <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 text-xs font-semibold rounded-md bg-slate-900 text-white shadow-xl ring-1 ring-slate-700/50 whitespace-nowrap opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 pointer-events-none transition-all duration-100 z-50">
+            Import
+          </span>
         </button>
         {showImportMenu && !importing && (
           <>

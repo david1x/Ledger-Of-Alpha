@@ -198,7 +198,6 @@ export default function TradeFilterBar({
       : null;
 
   return (
-    <div className="dark:bg-slate-900/80 bg-slate-100 rounded-lg px-3 py-2 border dark:border-slate-800/60 border-slate-200/80">
       <div className="flex flex-wrap items-center gap-2">
 
         {/* Symbol multi-select dropdown */}
@@ -576,6 +575,5 @@ export default function TradeFilterBar({
         )}
 
       </div>
-    </div>
   );
 }

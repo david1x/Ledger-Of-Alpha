@@ -112,10 +112,13 @@ export default function SummaryStatsBar({ filteredTrades, allTrades, accountSize
     };
   }, [filteredTrades]);
 
-  // --- Color coding ---
-  const cumulativeColor = stats.totalPnl >= 0 ? "#22c55e" : "#ef4444";
-  const plRatioColor = "#3b82f6"; // neutral blue — avoids confusing color flips as ratio crosses 1.0
-  const winPctColor = stats.winPercent > 50 ? "#22c55e" : "#ef4444";
+  // --- Color coding — line + fill use two distinct colors ---
+  const cumulativeLineColor = stats.totalPnl >= 0 ? "#22c55e" : "#ef4444";
+  const cumulativeFillColor = stats.totalPnl >= 0 ? "#06b6d4" : "#f97316"; // cyan / orange
+  const plRatioLineColor = "#3b82f6";
+  const plRatioFillColor = "#8b5cf6"; // violet
+  const winPctLineColor = stats.winPercent > 50 ? "#22c55e" : "#ef4444";
+  const winPctFillColor = stats.winPercent > 50 ? "#06b6d4" : "#f97316"; // cyan / orange
 
   // --- Headline display ---
   const cumulativeHeadline = hidden ? MASK : formatCurrency(stats.totalPnl);
@@ -157,7 +160,7 @@ export default function SummaryStatsBar({ filteredTrades, allTrades, accountSize
           <span className="text-xs uppercase tracking-wide dark:text-slate-400 text-slate-500 font-medium">
             Cumulative Return
           </span>
-          <span className="text-2xl font-bold" style={{ color: cumulativeColor }}>
+          <span className="text-2xl font-bold" style={{ color: cumulativeLineColor }}>
             {cumulativeHeadline}
           </span>
           <span className="text-xs dark:text-slate-500 text-slate-400">{cumulativeSubtitle}</span>
@@ -166,14 +169,14 @@ export default function SummaryStatsBar({ filteredTrades, allTrades, accountSize
               <AreaChart data={sparklines.cumulative} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <defs>
                   <linearGradient id="statGradCumulative" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={cumulativeColor} stopOpacity={0.35} />
-                    <stop offset="95%" stopColor={cumulativeColor} stopOpacity={0} />
+                    <stop offset="5%" stopColor={cumulativeFillColor} stopOpacity={0.35} />
+                    <stop offset="95%" stopColor={cumulativeFillColor} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <Area
                   type="monotone"
                   dataKey="value"
-                  stroke={cumulativeColor}
+                  stroke={cumulativeLineColor}
                   strokeWidth={1.5}
                   fill="url(#statGradCumulative)"
                   dot={false}
@@ -190,7 +193,7 @@ export default function SummaryStatsBar({ filteredTrades, allTrades, accountSize
           <span className="text-xs uppercase tracking-wide dark:text-slate-400 text-slate-500 font-medium">
             P/L Ratio
           </span>
-          <span className="text-2xl font-bold" style={{ color: plRatioColor }}>
+          <span className="text-2xl font-bold" style={{ color: plRatioLineColor }}>
             {plRatioHeadline}
           </span>
           <span className="text-xs dark:text-slate-500 text-slate-400">{plRatioSubtitle}</span>
@@ -199,14 +202,14 @@ export default function SummaryStatsBar({ filteredTrades, allTrades, accountSize
               <AreaChart data={sparklines.plRatio} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <defs>
                   <linearGradient id="statGradPL" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={plRatioColor} stopOpacity={0.35} />
-                    <stop offset="95%" stopColor={plRatioColor} stopOpacity={0} />
+                    <stop offset="5%" stopColor={plRatioFillColor} stopOpacity={0.35} />
+                    <stop offset="95%" stopColor={plRatioFillColor} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <Area
                   type="monotone"
                   dataKey="value"
-                  stroke={plRatioColor}
+                  stroke={plRatioLineColor}
                   strokeWidth={1.5}
                   fill="url(#statGradPL)"
                   dot={false}
@@ -223,7 +226,7 @@ export default function SummaryStatsBar({ filteredTrades, allTrades, accountSize
           <span className="text-xs uppercase tracking-wide dark:text-slate-400 text-slate-500 font-medium">
             Win %
           </span>
-          <span className="text-2xl font-bold" style={{ color: winPctColor }}>
+          <span className="text-2xl font-bold" style={{ color: winPctLineColor }}>
             {winPctHeadline}
           </span>
           <span className="text-xs dark:text-slate-500 text-slate-400">{winPctSubtitle}</span>
@@ -232,14 +235,14 @@ export default function SummaryStatsBar({ filteredTrades, allTrades, accountSize
               <AreaChart data={sparklines.winPct} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <defs>
                   <linearGradient id="statGradWin" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={winPctColor} stopOpacity={0.35} />
-                    <stop offset="95%" stopColor={winPctColor} stopOpacity={0} />
+                    <stop offset="5%" stopColor={winPctFillColor} stopOpacity={0.35} />
+                    <stop offset="95%" stopColor={winPctFillColor} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <Area
                   type="monotone"
                   dataKey="value"
-                  stroke={winPctColor}
+                  stroke={winPctLineColor}
                   strokeWidth={1.5}
                   fill="url(#statGradWin)"
                   dot={false}
@@ -252,11 +255,6 @@ export default function SummaryStatsBar({ filteredTrades, allTrades, accountSize
         </div>
       </div>
 
-      {showFilterLabel && (
-        <p className="text-center text-xs dark:text-slate-500 text-slate-400 mt-2">
-          Based on {hidden ? "--" : filteredTrades.length} of {hidden ? "--" : allTrades.length} trades
-        </p>
-      )}
     </div>
   );
 }

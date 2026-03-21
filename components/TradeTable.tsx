@@ -80,15 +80,15 @@ interface Props {
 }
 
 function getStatusBadge(t: Trade): { label: string; className: string } {
-  if (t.status === "open") return { label: "Open", className: "bg-yellow-500/20 text-yellow-400" };
-  if (t.status === "planned") return { label: "Planned", className: "bg-blue-500/20 text-blue-400" };
+  if (t.status === "open") return { label: "Open", className: "bg-yellow-500/15 dark:text-white text-slate-900 ring-yellow-500/30" };
+  if (t.status === "planned") return { label: "Planned", className: "bg-blue-500/15 dark:text-white text-slate-900 ring-blue-500/30" };
   if (t.status === "closed") {
     const pnl = t.pnl ?? 0;
-    if (pnl > 0) return { label: "Win", className: "bg-emerald-500/20 text-emerald-400" };
-    if (pnl < 0) return { label: "Loss", className: "bg-red-500/20 text-red-400" };
-    return { label: "BE", className: "bg-slate-500/20 dark:text-slate-400 text-slate-500" };
+    if (pnl > 0) return { label: "Win", className: "bg-emerald-500/15 dark:text-white text-slate-900 ring-emerald-500/30" };
+    if (pnl < 0) return { label: "Loss", className: "bg-red-500/15 dark:text-white text-slate-900 ring-red-500/30" };
+    return { label: "BE", className: "bg-slate-500/15 dark:text-slate-300 text-slate-600 ring-slate-500/30" };
   }
-  return { label: t.status, className: "bg-slate-500/20 dark:text-slate-400 text-slate-500" };
+  return { label: t.status, className: "bg-slate-500/15 dark:text-slate-300 text-slate-600 ring-slate-500/30" };
 }
 
 function calcPotentialPnl(t: Trade) {
@@ -405,7 +405,7 @@ export default function TradeTable({
                     )}
                     {show("symbol") && (
                       <span className="flex flex-col gap-1">
-                        <span className="flex items-center gap-1.5 font-bold text-emerald-400 cursor-pointer hover:underline" onClick={() => onEdit(t)}>
+                        <span className="flex items-center gap-1.5 font-bold text-violet-400 cursor-pointer hover:underline" onClick={() => onEdit(t)}>
                           {t.symbol}
                           {t.source === "ibkr" && (
                             <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-500/15 text-blue-400">IBKR</span>
@@ -441,7 +441,7 @@ export default function TradeTable({
                         : <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-400">Short</span>
                     )}
                     {show("status") && (
-                      <span className={clsx("px-2 py-0.5 rounded-full text-xs font-medium", statusBadge.className)}>
+                      <span className={clsx("px-2 py-0.5 rounded-md text-xs font-semibold ring-1 ring-inset", statusBadge.className)}>
                         {statusBadge.label}
                       </span>
                     )}
@@ -607,7 +607,7 @@ export default function TradeTable({
                     )}
                     {show("symbol") && (
                       <td
-                        className="px-4 py-3 font-bold text-emerald-400 cursor-pointer hover:underline sticky left-0 z-10 dark:bg-slate-900 bg-white group-hover:dark:bg-slate-800/30 group-hover:bg-slate-50/50"
+                        className="px-4 py-3 font-bold text-violet-400 cursor-pointer hover:underline sticky left-0 z-10 dark:bg-slate-900 bg-white group-hover:dark:bg-slate-800/30 group-hover:bg-slate-50/50"
                         onClick={() => onEdit(t)}
                       >
                         <span className="flex items-center gap-1.5">
@@ -642,46 +642,45 @@ export default function TradeTable({
                     )}
                     {show("direction") && (
                       <td className="px-4 py-3">
-                        {t.direction === "long"
-                          ? <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400">Long</span>
-                          : <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-400">Short</span>
-                        }
+                        <span className={clsx("px-2.5 py-1 rounded-md text-xs font-semibold ring-1 ring-inset", t.direction === "long" ? "bg-emerald-500/15 dark:text-white text-slate-900 ring-emerald-500/30" : "bg-red-500/15 dark:text-white text-slate-900 ring-red-500/30")}>
+                          {t.direction === "long" ? "Long" : "Short"}
+                        </span>
                       </td>
                     )}
                     {show("status") && (
                       <td className="px-4 py-3">
-                        <span className={clsx("px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter", statusBadge.className)}>
+                        <span className={clsx("px-2.5 py-1 rounded-md text-xs font-semibold ring-1 ring-inset", statusBadge.className)}>
                           {statusBadge.label}
                         </span>
                       </td>
                     )}
-                    {show("entry") && <td className="px-4 py-3 dark:text-slate-300 text-slate-700 font-medium text-xs">{t.entry_price ? `$${t.entry_price}` : "—"}</td>}
-                    {show("stop") && <td className="px-4 py-3 text-red-400 font-medium text-xs">{t.stop_loss ? `$${t.stop_loss}` : "—"}</td>}
-                    {show("target") && <td className="px-4 py-3 text-emerald-400 font-medium text-xs">{t.take_profit ? `$${t.take_profit}` : "—"}</td>}
-                    {show("exit") && <td className="px-4 py-3 dark:text-slate-300 text-slate-700 font-medium text-xs">{t.exit_price ? `$${t.exit_price}` : "—"}</td>}
-                    {show("shares") && <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs font-medium">{t.shares ?? "—"}</td>}
+                    {show("entry") && <td className="px-4 py-3 dark:text-slate-300 text-slate-700 font-medium text-sm">{t.entry_price ? `$${t.entry_price}` : "—"}</td>}
+                    {show("stop") && <td className="px-4 py-3 text-red-400 font-medium text-sm">{t.stop_loss ? `$${t.stop_loss}` : "—"}</td>}
+                    {show("target") && <td className="px-4 py-3 text-emerald-400 font-medium text-sm">{t.take_profit ? `$${t.take_profit}` : "—"}</td>}
+                    {show("exit") && <td className="px-4 py-3 dark:text-slate-300 text-slate-700 font-medium text-sm">{t.exit_price ? `$${t.exit_price}` : "—"}</td>}
+                    {show("shares") && <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm font-medium">{t.shares ?? "—"}</td>}
                     {show("pnl") && (
-                      <td className={clsx("px-4 py-3 font-semibold text-xs", closedPnlColor)}>
+                      <td className={clsx("px-4 py-3 font-semibold text-sm", closedPnlColor)}>
                         {hidden ? "••••" : (t.pnl !== null ? `${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}` : "—")}
                       </td>
                     )}
                     {show("rr_achieved") && (() => {
                       const rr = calcRRAchieved(t);
                       const color = rr === null ? "" : rr >= 2 ? "text-emerald-400" : rr >= 1 ? "text-blue-400" : rr >= 0 ? "text-amber-400" : "text-red-400";
-                      return <td className={clsx("px-4 py-3 text-xs font-semibold", color)}>{rr !== null ? `${rr.toFixed(2)}R` : "—"}</td>;
+                      return <td className={clsx("px-4 py-3 text-sm font-semibold", color)}>{rr !== null ? `${rr.toFixed(2)}R` : "—"}</td>;
                     })()}
                     {show("pct_return") && (() => {
                       const pct = calcPercentReturn(t, accountSize ?? 10000);
                       const color = pct === null ? "" : pct >= 0 ? "text-emerald-400" : "text-red-400";
-                      return <td className={clsx("px-4 py-3 text-xs font-semibold", color)}>{pct !== null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%` : "—"}</td>;
+                      return <td className={clsx("px-4 py-3 text-sm font-semibold", color)}>{pct !== null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%` : "—"}</td>;
                     })()}
                     {show("cost_basis") && (
-                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs font-medium">
+                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm font-medium">
                         {hidden ? "••••" : (costBasis ?? "—")}
                       </td>
                     )}
                     {show("hold_duration") && (
-                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs">
+                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm">
                         {formatHoldDuration(t.entry_date, t.exit_date) ?? "—"}
                       </td>
                     )}
@@ -697,22 +696,22 @@ export default function TradeTable({
                       </td>
                     )}
                     {show("market_ctx") && (
-                      <td className="px-4 py-3 text-xs dark:text-slate-400 text-slate-500 capitalize">
+                      <td className="px-4 py-3 text-sm dark:text-slate-400 text-slate-500 capitalize">
                         {t.market_context ? t.market_context.replace("_", " ") : "—"}
                       </td>
                     )}
                     {show("potential") && (
                       <td className="px-4 py-3">
                         {pot ? (
-                          <div className="flex flex-col text-[10px] font-bold leading-tight uppercase tracking-tighter">
-                            {pot.profit != null && <span className="text-emerald-400">+${pot.profit.toFixed(2)} <span className="opacity-60">({pot.profitPct!.toFixed(1)}%)</span></span>}
-                            {pot.loss != null && <span className="text-red-400">-${Math.abs(pot.loss).toFixed(2)} <span className="opacity-60">({Math.abs(pot.lossPct!).toFixed(1)}%)</span></span>}
+                          <div className="flex items-center gap-1.5">
+                            {pot.profit != null && <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-xs font-bold">+${pot.profit.toFixed(0)}</span>}
+                            {pot.loss != null && <span className="px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 text-xs font-bold">-${Math.abs(pot.loss).toFixed(0)}</span>}
                           </div>
                         ) : "—"}
                       </td>
                     )}
                     {show("unrealized") && (
-                      <td className={clsx("px-4 py-3 font-semibold text-xs", liveColor)}>
+                      <td className={clsx("px-4 py-3 font-semibold text-sm", liveColor)}>
                         <span className="flex items-center gap-1.5">
                           {livePnl !== null && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
                           {hidden ? "••••" : (livePnl !== null ? `${livePnl >= 0 ? "+" : ""}$${livePnl.toFixed(2)}` : "—")}
@@ -720,12 +719,12 @@ export default function TradeTable({
                       </td>
                     )}
                     {show("commission") && (
-                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs">
+                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm">
                         {t.commission != null ? `$${t.commission.toFixed(2)}` : "—"}
                       </td>
                     )}
                     {show("risk") && (
-                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs">
+                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm">
                         {t.risk_per_trade != null
                           ? `${t.risk_per_trade}%`
                           : defaultRiskPercent != null
@@ -734,13 +733,13 @@ export default function TradeTable({
                       </td>
                     )}
                     {show("date") && (
-                      <td className="px-4 py-3 dark:text-slate-500 text-slate-400 text-[10px] whitespace-nowrap uppercase">
+                      <td className="px-4 py-3 dark:text-slate-500 text-slate-400 text-xs whitespace-nowrap">
                         {t.entry_date ?? t.created_at.slice(0, 10)}
                       </td>
                     )}
                     {show("notes") && (
                       <td
-                        className="px-4 py-3 dark:text-slate-400 text-slate-500 text-xs max-w-[150px] truncate cursor-help"
+                        className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm max-w-[150px] truncate cursor-help"
                         onMouseEnter={(e) => handleNoteEnter(e, t.notes || "")}
                         onMouseLeave={handleNoteLeave}
                       >
@@ -751,7 +750,7 @@ export default function TradeTable({
                       <td className="px-4 py-3">
                         {mistakeTypes && mistakeTypes.length > 0 && t.mistake_tag_ids ? (() => {
                           const mistakeIds = t.mistake_tag_ids?.split(",").filter(Boolean) ?? [];
-                          if (!mistakeIds.length) return <span className="dark:text-slate-600 text-slate-400 text-xs">—</span>;
+                          if (!mistakeIds.length) return <span className="dark:text-slate-600 text-slate-400 text-sm">—</span>;
                           return (
                             <div className="flex flex-wrap gap-1">
                               {mistakeIds.map(id => {
