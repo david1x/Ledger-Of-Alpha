@@ -46,7 +46,7 @@ See [v2.1 Roadmap Archive](.planning/milestones/v2.1-ROADMAP.md) for details.
 - [x] **Phase 19: TradesShell Refactor** - Extract trades page into component tree; define unified filter state type (completed 2026-03-21)
 - [x] **Phase 20: Filter System & Saved Views** - All filter controls, active chips, quick presets, named saved views (completed 2026-03-21)
 - [x] **Phase 21: Summary Stats Bar** - Cumulative return, P/L ratio, win % with sparklines scoped to filtered trades (completed 2026-03-21)
-- [ ] **Phase 22: Enhanced Trade Table & Mistakes** - Badges, new columns, column reorder, mistakes tagging
+- [x] **Phase 22: Enhanced Trade Table & Mistakes** - Badges, new columns, column reorder, mistakes tagging (completed 2026-03-21)
 - [ ] **Phase 23: Sidebar Analytics & Mobile Polish** - Right sidebar panels, collapse toggle, responsive layouts
 
 ## Phase Details
@@ -115,7 +115,7 @@ Plans:
   3. User can tag a trade with one or more mistake types in TradeModal; the tags appear as colored pills in the table row
   4. User can drag table columns into a custom order and that order persists on page refresh
   5. The table footer shows the count of filtered vs. total trades and the total return for the visible set
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 22-01-PLAN.md — TradeTable badges, computed columns, drag-to-reorder headers, footer row
 - [ ] 22-02-PLAN.md — Mistake tagging in TradeModal, mistake pills in TradeTable rows
@@ -145,7 +145,7 @@ Plans:
 | 19. TradesShell Refactor | 2/2 | Complete    | 2026-03-21 | - |
 | 20. Filter System & Saved Views | 2/2 | Complete    | 2026-03-21 | - |
 | 21. Summary Stats Bar | 1/1 | Complete    | 2026-03-21 | - |
-| 22. Enhanced Trade Table & Mistakes | 1/2 | In Progress|  | - |
+| 22. Enhanced Trade Table & Mistakes | 2/2 | Complete   | 2026-03-21 | - |
 | 23. Sidebar Analytics & Mobile Polish | v3.0 | 0/TBD | Not started | - |
 
 ---

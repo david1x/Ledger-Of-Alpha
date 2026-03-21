@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Trades Page Overhaul
 status: completed
-stopped_at: Completed 22-01-PLAN.md (Enhanced Trade Table)
-last_updated: "2026-03-21T16:45:09.689Z"
+stopped_at: Completed 22-02-PLAN.md (Mistake Tagging UI + Table Pills)
+last_updated: "2026-03-21T17:08:48.145Z"
 last_activity: 2026-03-21 — Completed Phase 19 (TradesShell Refactor, 2 plans)
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
   percent: 100
 ---
 
@@ -62,6 +62,8 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 - [Phase 21-summary-stats-bar]: P/L Ratio sparkline uses neutral blue (#3b82f6) to avoid confusing color flips as rolling ratio crosses 1.0
 - [Phase 22-enhanced-trade-table-mistakes]: SortableHeader grip handle pattern: GripVertical gets dnd listeners, sort button gets onClick — prevents drag from stealing sort clicks
 - [Phase 22-enhanced-trade-table-mistakes]: headers array built from visibleColumns order (not ALL_COLUMNS order) so drag reorder is reflected immediately in the DOM
+- [Phase 22-enhanced-trade-table-mistakes]: TradeModal fetches /api/mistakes independently — returns [] for guests so no guest-checking branch needed
+- [Phase 22-enhanced-trade-table-mistakes]: Mistake tag sync is best-effort: errors are console.error logged but do not block onSaved()/onClose()
 
 ### Blockers/Concerns
 
@@ -74,6 +76,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-21T16:45:04.252Z
-Stopped at: Completed 22-01-PLAN.md (Enhanced Trade Table)
+Last session: 2026-03-21T17:08:48.142Z
+Stopped at: Completed 22-02-PLAN.md (Mistake Tagging UI + Table Pills)
 Resume file: None
