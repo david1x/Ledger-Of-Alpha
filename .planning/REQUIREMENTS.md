@@ -9,13 +9,13 @@ Requirements for Trades Page Overhaul. Each maps to roadmap phases.
 
 ### Filtering
 
-- [ ] **FILT-01**: User can filter trades by date range (from/to)
-- [ ] **FILT-02**: User can filter trades by setup/tag via multi-select dropdown
-- [ ] **FILT-03**: User can filter trades by mistake type via multi-select dropdown
-- [ ] **FILT-04**: User can filter trades by account via dropdown
+- [x] **FILT-01**: User can filter trades by date range (from/to)
+- [x] **FILT-02**: User can filter trades by setup/tag via multi-select dropdown
+- [x] **FILT-03**: User can filter trades by mistake type via multi-select dropdown
+- [x] **FILT-04**: User can filter trades by account via dropdown
 - [x] **FILT-05**: User can see active filters as dismissible chips with individual clear
 - [x] **FILT-06**: User can clear all active filters at once
-- [ ] **FILT-07**: User can apply quick filter presets (Winners, Losers, This Week, This Month)
+- [x] **FILT-07**: User can apply quick filter presets (Winners, Losers, This Week, This Month)
 - [ ] **FILT-08**: User can save current filter state as a named view
 - [ ] **FILT-09**: User can load and delete saved filter views
 
@@ -79,13 +79,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FILT-01 | Phase 20 | Pending |
-| FILT-02 | Phase 20 | Pending |
-| FILT-03 | Phase 20 | Pending |
-| FILT-04 | Phase 20 | Pending |
+| FILT-01 | Phase 20 | Complete |
+| FILT-02 | Phase 20 | Complete |
+| FILT-03 | Phase 20 | Complete |
+| FILT-04 | Phase 20 | Complete |
 | FILT-05 | Phase 19 | Complete |
 | FILT-06 | Phase 19 | Complete |
-| FILT-07 | Phase 20 | Pending |
+| FILT-07 | Phase 20 | Complete |
 | FILT-08 | Phase 20 | Pending |
 | FILT-09 | Phase 20 | Pending |
 | MIST-01 | Phase 18 | Complete |

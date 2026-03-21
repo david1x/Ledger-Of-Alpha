@@ -88,7 +88,7 @@ Plans:
   3. User can apply a "Winners" quick filter and see only profitable trades; "This Week" shows only trades from the current week
   4. User can save the current filter state as "FOMO Review", load it later, and the same filters are re-applied
   5. User can clear all active filters at once with a single button and the full trade list returns
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 20-01-PLAN.md — TradeFilterBar extraction with date range, tags, account, mistake, quick presets; applyFilter completion
 - [ ] 20-02-PLAN.md — SavedViewsDropdown for save/load/delete named filter views
@@ -138,7 +138,7 @@ Plans:
 | 12-17 | v2.1      | 10/10          | Complete | 2026-03-21 |
 | 18. DB & API Foundation | 2/2 | Complete    | 2026-03-21 | - |
 | 19. TradesShell Refactor | 2/2 | Complete    | 2026-03-21 | - |
-| 20. Filter System & Saved Views | v3.0 | 0/2 | Not started | - |
+| 20. Filter System & Saved Views | 1/2 | In Progress|  | - |
 | 21. Summary Stats Bar | v3.0 | 0/TBD | Not started | - |
 | 22. Enhanced Trade Table & Mistakes | v3.0 | 0/TBD | Not started | - |
 | 23. Sidebar Analytics & Mobile Polish | v3.0 | 0/TBD | Not started | - |
