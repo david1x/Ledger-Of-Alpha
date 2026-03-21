@@ -162,5 +162,15 @@ Plans:
 - [ ] 24-01-PLAN.md — TradesShell layout restructuring: filter relocation, title removal, sidebar fixes, cog icon, spacing/radius
 - [ ] 24-02-PLAN.md — Sub-component polish: SummaryStatsBar height, TradeFilterBar/SavedViewsDropdown/TradesSidebar radius and gaps
 
+### Phase 25: Navbar collapse lock, filter bar redesign with dropdown buttons, sidebar-filter color cohesion
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 24
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 25 to break down)
+
 ---
 *Phase numbering continues across milestones. Next phase after v3.0: 25.*
