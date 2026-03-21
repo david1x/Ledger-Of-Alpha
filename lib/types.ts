@@ -164,7 +164,8 @@ export interface MistakeType {
 
 // -- Filter State (used by Phases 19-20) --
 export interface TradeFilterState {
-  symbol: string;
+  symbol: string;            // legacy single-symbol filter (backward compat with saved views)
+  symbols: string[];         // new multi-select checklist filter
   status: "all" | "planned" | "open" | "closed";
   direction: "all" | "long" | "short";
   mistakeId: string | null;
@@ -177,6 +178,7 @@ export interface TradeFilterState {
 
 export const DEFAULT_FILTER: TradeFilterState = {
   symbol: "",
+  symbols: [],
   status: "all",
   direction: "all",
   mistakeId: null,

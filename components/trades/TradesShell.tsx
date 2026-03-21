@@ -17,7 +17,14 @@ function applyFilter(trades: Trade[], filter: TradeFilterState): Trade[] {
   return trades.filter(t => {
     if (filter.status !== "all" && t.status !== filter.status) return false;
     if (filter.direction !== "all" && t.direction !== filter.direction) return false;
-    if (filter.symbol && !t.symbol.toUpperCase().includes(filter.symbol.toUpperCase())) return false;
+    // Multi-symbol filter (new checklist)
+    if (filter.symbols && filter.symbols.length > 0) {
+      if (!filter.symbols.includes(t.symbol.toUpperCase())) return false;
+    }
+    // Legacy single-symbol filter (backward compat with old saved views)
+    else if (filter.symbol && !t.symbol.toUpperCase().includes(filter.symbol.toUpperCase())) {
+      return false;
+    }
     if (filter.pnlFilter === "winners" && (t.pnl ?? 0) <= 0) return false;
     if (filter.pnlFilter === "losers" && (t.pnl ?? 0) >= 0) return false;
     if (filter.dateFrom && t.exit_date && t.exit_date < filter.dateFrom) return false;

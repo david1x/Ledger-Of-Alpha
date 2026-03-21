@@ -21,7 +21,12 @@ interface Chip {
 export default function TradeFilterChips({ filter, onClear, onClearAll, accounts }: Props) {
   const chips: Chip[] = [];
 
-  if (filter.symbol !== DEFAULT_FILTER.symbol) {
+  if (filter.symbols && filter.symbols.length > 0) {
+    const label = filter.symbols.length <= 3
+      ? `Symbols: ${filter.symbols.join(", ")}`
+      : `Symbols: ${filter.symbols.length} selected`;
+    chips.push({ label, field: "symbols" });
+  } else if (filter.symbol !== DEFAULT_FILTER.symbol) {
     chips.push({ label: `Symbol: ${filter.symbol}`, field: "symbol" });
   }
   if (filter.status !== DEFAULT_FILTER.status) {
