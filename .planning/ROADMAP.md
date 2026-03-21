@@ -60,7 +60,10 @@ See [v2.1 Roadmap Archive](.planning/milestones/v2.1-ROADMAP.md) for details.
   2. User can create a mistake type via POST /api/mistakes and retrieve it via GET (CRUD works end-to-end)
   3. A DELETE of a mistake type cascades cleanly — no orphaned trade_mistake_tags rows remain
   4. GET /api/trades?date_from=X&date_to=Y returns only trades within that range
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 18-01-PLAN.md — DB migrations (mistake_types, trade_mistake_tags), TypeScript interfaces, mistake type CRUD routes
+- [ ] 18-02-PLAN.md — Trade-mistake tagging API, date range filter on GET /api/trades
 
 ### Phase 19: TradesShell Refactor
 **Goal**: The trades page is restructured into a clean component tree with a unified TradeFilterState type, enabling all subsequent feature phases to build into known extension points
@@ -127,7 +130,7 @@ See [v2.1 Roadmap Archive](.planning/milestones/v2.1-ROADMAP.md) for details.
 | 1-7   | v1.0.0    | 11/11          | Complete | 2026-03-14 |
 | 8-11  | v2.0      | 12/12          | Complete | 2026-03-19 |
 | 12-17 | v2.1      | 10/10          | Complete | 2026-03-21 |
-| 18. DB & API Foundation | v3.0 | 0/TBD | Not started | - |
+| 18. DB & API Foundation | v3.0 | 0/2 | Not started | - |
 | 19. TradesShell Refactor | v3.0 | 0/TBD | Not started | - |
 | 20. Filter System & Saved Views | v3.0 | 0/TBD | Not started | - |
 | 21. Summary Stats Bar | v3.0 | 0/TBD | Not started | - |
