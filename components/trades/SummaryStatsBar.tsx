@@ -151,7 +151,7 @@ export default function SummaryStatsBar({ filteredTrades, allTrades, accountSize
 
   return (
     <div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         {/* Cumulative Return */}
         <div className="dark:bg-slate-800 bg-white rounded-xl shadow p-4 flex flex-col gap-1">
           <span className="text-xs uppercase tracking-wide dark:text-slate-400 text-slate-500 font-medium">

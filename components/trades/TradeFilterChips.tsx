@@ -59,7 +59,7 @@ export default function TradeFilterChips({ filter, onClear, onClearAll, accounts
   if (chips.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none" }}>
       {chips.map((chip) => (
         <span
           key={chip.field}
