@@ -13,7 +13,7 @@ interface TradeFilterBarProps {
 }
 
 const FILTER_BTN = (active: boolean) =>
-  `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+  `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
     active
       ? "bg-emerald-500/20 text-emerald-400"
       : "dark:text-slate-400 text-slate-600 hover:dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-800/50 bg-slate-100/50"
@@ -140,7 +140,7 @@ export default function TradeFilterBar({
           value={filter.symbol}
           onChange={(e) => onFilterChange({ symbol: e.target.value.toUpperCase() })}
           placeholder="Filter by symbol"
-          className="w-full pl-9 pr-3 py-1.5 h-9 text-sm rounded-lg dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="w-full pl-9 pr-3 py-1.5 h-9 text-sm rounded-md dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
       </div>
 
@@ -170,7 +170,7 @@ export default function TradeFilterBar({
           type="date"
           value={filter.dateFrom ?? ""}
           onChange={(e) => onFilterChange({ dateFrom: e.target.value || null })}
-          className="h-9 px-3 text-sm rounded-lg dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:[color-scheme:dark]"
+          className="h-9 px-3 text-sm rounded-md dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:[color-scheme:dark]"
           title="From date"
         />
         <span className="text-sm dark:text-slate-500 text-slate-400">to</span>
@@ -178,7 +178,7 @@ export default function TradeFilterBar({
           type="date"
           value={filter.dateTo ?? ""}
           onChange={(e) => onFilterChange({ dateTo: e.target.value || null })}
-          className="h-9 px-3 text-sm rounded-lg dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:[color-scheme:dark]"
+          className="h-9 px-3 text-sm rounded-md dark:bg-slate-800 bg-white dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:[color-scheme:dark]"
           title="To date"
         />
       </div>
@@ -202,7 +202,7 @@ export default function TradeFilterBar({
             </span>
           </button>
           {showTagsMenu && (
-            <div className="absolute left-0 top-full mt-2 z-50 min-w-[160px] rounded-lg dark:bg-slate-800 bg-white shadow-xl py-2">
+            <div className="absolute left-0 top-full mt-2 z-50 min-w-[160px] rounded-md dark:bg-slate-800 bg-white shadow-xl py-2">
               {allTags.map((tag) => {
                 const selected = filter.tags.includes(tag);
                 return (
@@ -251,7 +251,7 @@ export default function TradeFilterBar({
           </span>
         </button>
         {showMistakesMenu && (
-          <div className="absolute left-0 top-full mt-2 z-50 min-w-[180px] rounded-lg dark:bg-slate-800 bg-white shadow-xl py-2">
+          <div className="absolute left-0 top-full mt-2 z-50 min-w-[180px] rounded-md dark:bg-slate-800 bg-white shadow-xl py-2">
             <button
               onClick={() => { onFilterChange({ mistakeId: null }); setShowMistakesMenu(false); }}
               className="flex items-center gap-2.5 w-full px-3 py-1.5 text-sm text-left dark:text-slate-300 text-slate-700 hover:dark:bg-slate-700/50 hover:bg-slate-50"
@@ -298,7 +298,7 @@ export default function TradeFilterBar({
             </span>
           </button>
           {showAccountMenu && (
-            <div className="absolute left-0 top-full mt-2 z-50 min-w-[180px] rounded-lg dark:bg-slate-800 bg-white shadow-xl py-2">
+            <div className="absolute left-0 top-full mt-2 z-50 min-w-[180px] rounded-md dark:bg-slate-800 bg-white shadow-xl py-2">
               <button
                 onClick={() => { onFilterChange({ accountId: null }); setShowAccountMenu(false); }}
                 className="flex items-center gap-2.5 w-full px-3 py-1.5 text-sm text-left dark:text-slate-300 text-slate-700 hover:dark:bg-slate-700/50 hover:bg-slate-50"

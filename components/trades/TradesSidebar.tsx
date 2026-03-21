@@ -125,9 +125,9 @@ export default function TradesSidebar({ filteredTrades, mistakeTypes, onFilterCh
   }, [filteredTrades, mistakeTypes]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Panel 1 — Account Performance */}
-      <div className="dark:bg-slate-800 bg-white rounded-xl shadow p-4">
+      <div className="dark:bg-slate-800 bg-white rounded-lg shadow p-4">
         <span className="text-xs uppercase tracking-wide dark:text-slate-400 text-slate-500 font-medium">
           Performance
         </span>
@@ -199,7 +199,7 @@ export default function TradesSidebar({ filteredTrades, mistakeTypes, onFilterCh
       </div>
 
       {/* Panel 2 — Setups Breakdown */}
-      <div className="dark:bg-slate-800 bg-white rounded-xl shadow p-4">
+      <div className="dark:bg-slate-800 bg-white rounded-lg shadow p-4">
         <span className="text-xs uppercase tracking-wide dark:text-slate-400 text-slate-500 font-medium">
           Setups
         </span>
@@ -211,7 +211,7 @@ export default function TradesSidebar({ filteredTrades, mistakeTypes, onFilterCh
             {setupRows.map(row => (
               <button
                 key={row.name}
-                className="w-full flex items-start justify-between px-2 py-1.5 rounded-lg hover:dark:bg-slate-700/60 hover:bg-slate-100 cursor-pointer transition-colors text-left"
+                className="w-full flex items-start justify-between px-2 py-1.5 rounded-md hover:dark:bg-slate-700/60 hover:bg-slate-100 cursor-pointer transition-colors text-left"
                 onClick={() => onFilterChange({ tags: [row.name] })}
               >
                 <div>
@@ -235,7 +235,7 @@ export default function TradesSidebar({ filteredTrades, mistakeTypes, onFilterCh
       </div>
 
       {/* Panel 3 — Mistakes Breakdown */}
-      <div className="dark:bg-slate-800 bg-white rounded-xl shadow p-4">
+      <div className="dark:bg-slate-800 bg-white rounded-lg shadow p-4">
         <span className="text-xs uppercase tracking-wide dark:text-slate-400 text-slate-500 font-medium">
           Mistakes
         </span>
@@ -247,7 +247,7 @@ export default function TradesSidebar({ filteredTrades, mistakeTypes, onFilterCh
             {mistakeRows.map(row => (
               <button
                 key={row.id}
-                className="w-full flex items-start justify-between px-2 py-1.5 rounded-lg hover:dark:bg-slate-700/60 hover:bg-slate-100 cursor-pointer transition-colors text-left"
+                className="w-full flex items-start justify-between px-2 py-1.5 rounded-md hover:dark:bg-slate-700/60 hover:bg-slate-100 cursor-pointer transition-colors text-left"
                 onClick={() => onFilterChange({ mistakeId: row.id })}
               >
                 <div className="flex items-start gap-2 min-w-0">

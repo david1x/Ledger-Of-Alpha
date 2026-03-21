@@ -91,7 +91,7 @@ export default function SavedViewsDropdown({
     <div className="relative" ref={containerRef}>
       <button
         onClick={() => setShowDropdown(prev => !prev)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
           showDropdown
             ? "bg-emerald-500/20 text-emerald-400"
             : "dark:text-slate-400 text-slate-600 hover:dark:bg-slate-800 hover:bg-slate-100 dark:bg-slate-800/50 bg-slate-100/50"
@@ -107,7 +107,7 @@ export default function SavedViewsDropdown({
       </button>
 
       {showDropdown && (
-        <div className="absolute left-0 top-full mt-2 z-50 w-64 rounded-lg dark:bg-slate-800 bg-white shadow-xl py-2">
+        <div className="absolute left-0 top-full mt-2 z-50 w-64 rounded-md dark:bg-slate-800 bg-white shadow-xl py-2">
           {views.length === 0 && !showNameInput && (
             <p className="px-3 py-2 text-sm dark:text-slate-400 text-slate-500">No saved views</p>
           )}
