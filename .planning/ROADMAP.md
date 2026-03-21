@@ -145,7 +145,7 @@ Plans:
 | 19. TradesShell Refactor | 2/2 | Complete    | 2026-03-21 | - |
 | 20. Filter System & Saved Views | 2/2 | Complete    | 2026-03-21 | - |
 | 21. Summary Stats Bar | 1/1 | Complete    | 2026-03-21 | - |
-| 22. Enhanced Trade Table & Mistakes | 2/2 | Complete   | 2026-03-21 | - |
+| 22. Enhanced Trade Table & Mistakes | 2/2 | Complete    | 2026-03-21 | - |
 | 23. Sidebar Analytics & Mobile Polish | v3.0 | 0/TBD | Not started | - |
 
 ---
