@@ -42,7 +42,7 @@ See [v2.1 Roadmap Archive](.planning/milestones/v2.1-ROADMAP.md) for details.
 
 **Milestone Goal:** Transform the trades page into a powerful, filterable analytical workspace with a mistakes system, saved views, summary analytics, and sidebar breakdowns.
 
-- [ ] **Phase 18: DB & API Foundation** - Mistakes tables, CRUD API routes, extended trades query params
+- [x] **Phase 18: DB & API Foundation** - Mistakes tables, CRUD API routes, extended trades query params (completed 2026-03-21)
 - [ ] **Phase 19: TradesShell Refactor** - Extract trades page into component tree; define unified filter state type
 - [ ] **Phase 20: Filter System & Saved Views** - All filter controls, active chips, quick presets, named saved views
 - [ ] **Phase 21: Summary Stats Bar** - Cumulative return, P/L ratio, win % with sparklines scoped to filtered trades
@@ -60,7 +60,7 @@ See [v2.1 Roadmap Archive](.planning/milestones/v2.1-ROADMAP.md) for details.
   2. User can create a mistake type via POST /api/mistakes and retrieve it via GET (CRUD works end-to-end)
   3. A DELETE of a mistake type cascades cleanly — no orphaned trade_mistake_tags rows remain
   4. GET /api/trades?date_from=X&date_to=Y returns only trades within that range
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 18-01-PLAN.md — DB migrations (mistake_types, trade_mistake_tags), TypeScript interfaces, mistake type CRUD routes
 - [ ] 18-02-PLAN.md — Trade-mistake tagging API, date range filter on GET /api/trades
@@ -130,7 +130,7 @@ Plans:
 | 1-7   | v1.0.0    | 11/11          | Complete | 2026-03-14 |
 | 8-11  | v2.0      | 12/12          | Complete | 2026-03-19 |
 | 12-17 | v2.1      | 10/10          | Complete | 2026-03-21 |
-| 18. DB & API Foundation | 1/2 | In Progress|  | - |
+| 18. DB & API Foundation | 2/2 | Complete   | 2026-03-21 | - |
 | 19. TradesShell Refactor | v3.0 | 0/TBD | Not started | - |
 | 20. Filter System & Saved Views | v3.0 | 0/TBD | Not started | - |
 | 21. Summary Stats Bar | v3.0 | 0/TBD | Not started | - |

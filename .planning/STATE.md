@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Trades Page Overhaul
 status: planning
-stopped_at: Completed 18-01-PLAN.md — mistake types DB schema and CRUD API
-last_updated: "2026-03-21T13:01:42.324Z"
-last_activity: 2026-03-21 — Roadmap written (6 phases, 28 requirements mapped)
+stopped_at: Completed 18-02-PLAN.md — trade-mistake tagging API and date range filtering
+last_updated: "2026-03-21T13:12:00Z"
+last_activity: 2026-03-21 — Completed Phase 18 Plan 02 (tagging API + date filtering)
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 2
-  completed_plans: 1
-  percent: 0
+  completed_plans: 2
+  percent: 7
 ---
 
 # Project State: Ledger Of Alpha
@@ -19,12 +19,12 @@ progress:
 ## Current Position
 
 Milestone: v3.0 Trades Page Overhaul
-Phase: 18 of 23 (DB & API Foundation) — not started
-Plan: —
-Status: Ready to plan Phase 18
-Last activity: 2026-03-21 — Roadmap written (6 phases, 28 requirements mapped)
+Phase: 18 of 23 (DB & API Foundation) — complete
+Plan: 02 of 02 — complete
+Status: Phase 18 complete, ready for Phase 19
+Last activity: 2026-03-21 — Completed Phase 18 (DB & API Foundation, 2 plans)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 7%
 
 ## Project Reference
 
@@ -48,6 +48,8 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 - Stats bar scope: Confirmed scoped to filteredTrades (STAT-03 is explicit); no ambiguity.
 - [Phase 18-db-api-foundation]: trades.mistakes is freeform text — must NOT be repurposed; new mistake system uses trade_mistake_tags junction table only
 - [Phase 18-db-api-foundation]: Guest GET /api/mistakes returns [] (not 403) for seamless UI; mutating ops return 403 for guests
+- [Phase 18-db-api-foundation]: DELETE /api/trades/[id]/mistakes skips mistake_type ownership check — trade ownership sufficient since junction row delete has no cross-user risk
+- [Phase 18-db-api-foundation]: Date filtering uses exit_date (not entry_date) — open trades correctly excluded from date-filtered results
 
 ### Blockers/Concerns
 
@@ -60,6 +62,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-21T13:01:42.322Z
-Stopped at: Completed 18-01-PLAN.md — mistake types DB schema and CRUD API
+Last session: 2026-03-21T13:12:00Z
+Stopped at: Completed 18-02-PLAN.md — trade-mistake tagging API and date range filtering
 Resume file: None
