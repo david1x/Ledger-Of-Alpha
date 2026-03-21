@@ -151,3 +151,44 @@ export interface Alert {
   notify_email: number;    // 0 | 1
   notify_discord: number;  // 0 | 1
 }
+
+// -- Mistakes --
+export interface MistakeType {
+  id: string;
+  user_id: string;
+  name: string;
+  color: string;     // hex string e.g. '#ef4444'
+  created_at: string;
+}
+
+// -- Filter State (used by Phases 19-20) --
+export interface TradeFilterState {
+  symbol: string;
+  status: "all" | "planned" | "open" | "closed";
+  direction: "all" | "long" | "short";
+  mistakeId: string | null;
+  tags: string[];
+  dateFrom: string | null;   // ISO date string YYYY-MM-DD
+  dateTo: string | null;     // ISO date string YYYY-MM-DD
+  accountId: string | null;
+  pnlFilter: "all" | "winners" | "losers";
+}
+
+export const DEFAULT_FILTER: TradeFilterState = {
+  symbol: "",
+  status: "all",
+  direction: "all",
+  mistakeId: null,
+  tags: [],
+  dateFrom: null,
+  dateTo: null,
+  accountId: null,
+  pnlFilter: "all",
+};
+
+export interface SavedView {
+  id: string;        // crypto.randomUUID()
+  name: string;
+  filter: TradeFilterState;
+  created_at: string;
+}

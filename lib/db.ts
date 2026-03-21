@@ -503,6 +503,38 @@ function runMigrations(db: Database.Database) {
 
     markMigration(db, "022_checklist_state");
   }
+
+  // ── 023: mistake_types table ──────────────────────────────────────────
+  // NOTE: trades.mistakes is a freeform text field (comma-separated strings like "Chased the trade,Ignored plan").
+  // It must NOT be repurposed. The new mistake system uses trade_mistake_tags only.
+  if (!hasMigration(db, "023_mistake_types")) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS mistake_types (
+        id         TEXT PRIMARY KEY,
+        user_id    TEXT NOT NULL,
+        name       TEXT NOT NULL,
+        color      TEXT NOT NULL DEFAULT '#ef4444',
+        created_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(user_id, name)
+      );
+      CREATE INDEX IF NOT EXISTS idx_mistake_types_user ON mistake_types(user_id);
+    `);
+    markMigration(db, "023_mistake_types");
+  }
+
+  // ── 024: trade_mistake_tags junction table ────────────────────────────
+  if (!hasMigration(db, "024_trade_mistake_tags")) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS trade_mistake_tags (
+        trade_id   INTEGER NOT NULL REFERENCES trades(id) ON DELETE CASCADE,
+        mistake_id TEXT NOT NULL REFERENCES mistake_types(id) ON DELETE CASCADE,
+        PRIMARY KEY (trade_id, mistake_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_trade_mistake_tags_trade ON trade_mistake_tags(trade_id);
+      CREATE INDEX IF NOT EXISTS idx_trade_mistake_tags_mistake ON trade_mistake_tags(mistake_id);
+    `);
+    markMigration(db, "024_trade_mistake_tags");
+  }
 }
 
 // ── Seed default local admin user ────────────────────────────────────────
