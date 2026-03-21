@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A professional-grade trade journaling and performance analytics platform for solo traders. Combines deep reflection tools, risk management, AI-powered chart analysis, broker integration, and data-driven insights with an analytics dashboard, journal, chart integration, and trading tools.
+A professional-grade trade journaling and performance analytics platform for solo traders. Combines deep reflection tools, risk management, AI-powered chart analysis, broker integration, and data-driven insights with an analytics dashboard, journal, chart integration, and trading tools. Features a fully configurable admin panel, saveable dashboard layouts, and per-trade strategy checklists.
 
 ## Core Value
 
@@ -28,16 +28,15 @@ Traders can track, analyze, and improve their trading through structured journal
 - ✓ Monte Carlo integration in trade entry (ruin probability, suggested sizing) — v2.0
 - ✓ IBKR broker sync (manual import with deduplication) — v2.0
 - ✓ IBKR live positions dashboard widget — v2.0
+- ✓ Email URL auto-detection (request headers, npm/Docker/Cloudflare tunnel) — v2.1
+- ✓ Settings page overhaul (component split, full-width layout, tab reorganization) — v2.1
+- ✓ Admin panel as single source of truth for runtime config (API keys, SMTP, App URL) — v2.1
+- ✓ Dashboard layout templates (saveable presets with built-in defaults) — v2.1
+- ✓ Strategy enhancements (built-in defaults, per-trade checklist editing, ad-hoc checklists, ChecklistRing) — v2.1
 
 ### Active
 
-<!-- Current milestone: v2.1 Settings & Polish -->
-
-- [ ] Email URL auto-detection (request headers, works across npm/Docker/Cloudflare tunnel)
-- [ ] Settings page overhaul (component split, full-width layout, tab reorganization)
-- [ ] Admin panel as single source of truth for env config (APP_URL, API keys, SMTP, etc.)
-- [ ] Dashboard layout templates (saveable presets)
-- [ ] Strategy enhancements (built-in defaults, per-trade checklist editing, ad-hoc checklists)
+(None — planning next milestone)
 
 ### Out of Scope
 
@@ -50,17 +49,23 @@ Traders can track, analyze, and improve their trading through structured journal
 - Offline mode — real-time data is core value
 - Fibonacci calculator — user decision: not wanted
 - Dashboard widget height adjustment — deferred to later milestone
+- Template sharing/export — no multi-user sharing infrastructure needed yet
+- Per-strategy performance breakdown — deferred to later milestone
 
 ## Context
 
 - v1.0.0 shipped 2026-03-14 after 16 days and 7 phases
 - v2.0 shipped 2026-03-19 after 2 days and 4 phases (12 plans)
-- Codebase: ~21,540 LOC TypeScript, Next.js 15, SQLite, Recharts, lightweight-charts
+- v2.1 shipped 2026-03-21 after 2 days and 6 phases (10 plans)
+- Codebase: ~23,650 LOC TypeScript (+2,100 net from v2.1), Next.js 15, SQLite, Recharts, lightweight-charts
 - AI: Gemini 2.5 Flash via @google/generative-ai (settings key named `openai_api_key` — naming inconsistency)
 - Broker: IBKR Client Portal REST API (not TWS socket)
 - Monte Carlo: Web Worker with 1K iterations + 500ms debounce for in-modal preview
-- DB migrations through 021 (inline in lib/db.ts)
+- DB migrations through 022 (inline in lib/db.ts)
 - 25 dashboard widgets (including IBKR positions, hidden by default)
+- Settings decomposed into 13 per-tab components (was 2380-line monolith)
+- Admin panel manages system-level API keys, SMTP, App URL with sentinel masking
+- 5 built-in strategies with per-trade checklist editing and ChecklistRing badges
 
 ## Constraints
 
@@ -80,17 +85,11 @@ Traders can track, analyze, and improve their trading through structured journal
 | Sequential OHLCV fetches | Avoid Yahoo Finance throttling | ✓ Good — progress bar UX |
 | IBKR dedup via UNIQUE index | Blind inserts create duplicates | ✓ Good — INSERT OR IGNORE pattern |
 | Structured JSON AI output | Cannot retrofit without re-analyzing | ✓ Good — json_schema strict mode |
-
-## Current Milestone: v2.1 Settings & Polish
-
-**Goal:** Overhaul the settings experience, fix deployment pain points, and enhance strategy workflows
-
-**Target features:**
-- Email URL auto-detection across all deployment modes
-- Settings page restructure with full-width desktop layout
-- Admin panel as single config source (eliminate .env dependency)
-- Dashboard layout templates
-- Strategy/checklist flexibility in trade modal
+| Settings split into per-tab components | 2380-line monolith unmaintainable | ✓ Good — 13 focused tab components |
+| Sentinel masking for admin secrets | Cannot round-trip real keys through UI | ✓ Good — POST skips upsert when value equals sentinel |
+| Per-account layout storage | Users want different layouts per account | ✓ Good — scoped keys with legacy fallback |
+| checklist_state column per-trade | Global strategies immutable; per-trade edits need own storage | ✓ Good — migration 022, backward compat |
+| getBaseUrl 5-level priority chain | Must work across npm dev, Docker, Cloudflare Tunnel | ✓ Good — zero-config in all environments |
 
 ---
-*Last updated: 2026-03-19 after v2.1 milestone started*
+*Last updated: 2026-03-21 after v2.1 milestone*
