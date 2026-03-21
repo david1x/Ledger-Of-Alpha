@@ -185,13 +185,39 @@ export default function TradeModal({ trade, onClose, onSaved, accountSize: accou
       .catch(() => setMcTrades([]));
   }, [selectedAccountId]);
 
-  // Fetch mistake types on mount
+  // Fetch mistake types on mount, auto-sync from default_mistakes setting
   useEffect(() => {
-    fetch("/api/mistakes")
-      .then(r => r.ok ? r.json() : [])
-      .then(data => { if (Array.isArray(data)) setMistakeTypes(data); })
-      .catch(() => {});
-  }, []);
+    (async () => {
+      try {
+        const res = await fetch("/api/mistakes");
+        if (!res.ok) return;
+        const existing: MistakeType[] = await res.json();
+        setMistakeTypes(existing);
+
+        // Auto-create mistake_types from default_mistakes that don't exist yet
+        const existingLower = new Set(existing.map(m => m.name.toLowerCase()));
+        const toCreate = defaultMistakes.filter(name => !existingLower.has(name.toLowerCase()));
+        if (toCreate.length === 0) return;
+
+        const created: MistakeType[] = [];
+        for (const name of toCreate) {
+          const match = COMMON_MISTAKES.find(c => c.name.toLowerCase() === name.toLowerCase());
+          const color = match?.color ?? MISTAKE_COLORS[created.length % MISTAKE_COLORS.length];
+          try {
+            const r = await fetch("/api/mistakes", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name, color }),
+            });
+            if (r.ok) created.push(await r.json());
+          } catch { /* silent */ }
+        }
+        if (created.length > 0) {
+          setMistakeTypes(prev => [...prev, ...created]);
+        }
+      } catch { /* silent */ }
+    })();
+  }, [defaultMistakes]);
 
   // Re-initialize selectedMistakeIds when trade prop changes
   useEffect(() => {
