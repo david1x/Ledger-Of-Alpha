@@ -93,6 +93,14 @@ None - no external service configuration required.
 - Date range filtering ready for FilterBar consumption in Phase 19/20
 - All Phase 18 API surface now complete: mistakes CRUD + trade tagging + date filtering
 
+## Self-Check: PASSED
+
+- `app/api/trades/[id]/mistakes/route.ts` — FOUND
+- `app/api/trades/route.ts` — FOUND
+- Commit `83f8cf4` — FOUND (feat: trade-mistake tagging API route)
+- Commit `1b8fce1` — FOUND (feat: date_from/date_to filtering)
+- Commit `d0921a3` — FOUND (docs: complete plan)
+
 ---
 *Phase: 18-db-api-foundation*
 *Completed: 2026-03-21*
