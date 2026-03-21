@@ -47,7 +47,7 @@ See [v2.1 Roadmap Archive](.planning/milestones/v2.1-ROADMAP.md) for details.
 - [x] **Phase 20: Filter System & Saved Views** - All filter controls, active chips, quick presets, named saved views (completed 2026-03-21)
 - [x] **Phase 21: Summary Stats Bar** - Cumulative return, P/L ratio, win % with sparklines scoped to filtered trades (completed 2026-03-21)
 - [x] **Phase 22: Enhanced Trade Table & Mistakes** - Badges, new columns, column reorder, mistakes tagging (completed 2026-03-21)
-- [ ] **Phase 23: Sidebar Analytics & Mobile Polish** - Right sidebar panels, collapse toggle, responsive layouts
+- [x] **Phase 23: Sidebar Analytics & Mobile Polish** - Right sidebar panels, collapse toggle, responsive layouts (completed 2026-03-21)
 
 ## Phase Details
 
@@ -130,7 +130,7 @@ Plans:
   3. User can see a ranked list of mistake types by total P&L impact, quantifying the cost of each recurring error
   4. User can collapse the sidebar to a slim toggle; the preference persists on refresh and the sidebar is hidden by default on mobile
   5. On a small screen the trade table scrolls horizontally with the Symbol column remaining sticky, and filter chips scroll without wrapping the layout
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 23-01-PLAN.md — TradesSidebar component (performance chart, setups breakdown, mistakes breakdown) + TradesShell integration with collapse, settings persistence, mobile tab toggle
 - [ ] 23-02-PLAN.md — Mobile polish: sticky Symbol column, horizontal-scroll filter chips, responsive stats grid
@@ -149,7 +149,7 @@ Plans:
 | 20. Filter System & Saved Views | 2/2 | Complete    | 2026-03-21 | - |
 | 21. Summary Stats Bar | 1/1 | Complete    | 2026-03-21 | - |
 | 22. Enhanced Trade Table & Mistakes | 2/2 | Complete    | 2026-03-21 | - |
-| 23. Sidebar Analytics & Mobile Polish | 1/2 | In Progress|  | - |
+| 23. Sidebar Analytics & Mobile Polish | 2/2 | Complete   | 2026-03-21 | - |
 
 ---
 *Phase numbering continues across milestones. Next phase after v3.0: 24.*
