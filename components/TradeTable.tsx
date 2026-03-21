@@ -156,6 +156,7 @@ function SortableHeader({
   sortDir,
   onSort,
   showGrip,
+  sticky,
 }: {
   colKey: ColumnKey;
   label: string;
@@ -163,6 +164,7 @@ function SortableHeader({
   sortDir: "asc" | "desc";
   onSort: (k: ColumnKey) => void;
   showGrip?: boolean;
+  sticky?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: colKey });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
@@ -170,7 +172,7 @@ function SortableHeader({
     <th
       ref={setNodeRef}
       style={style}
-      className="px-4 py-3 text-left text-xs font-bold dark:text-slate-500 text-slate-400 uppercase tracking-wider whitespace-nowrap"
+      className={`px-4 py-3 text-left text-xs font-bold dark:text-slate-500 text-slate-400 uppercase tracking-wider whitespace-nowrap${sticky ? " sticky left-0 z-10 dark:bg-slate-900 bg-white" : ""}`}
     >
       <div className="flex items-center gap-1">
         {showGrip && (
@@ -564,6 +566,7 @@ export default function TradeTable({
                         sortDir={sortDir}
                         onSort={handleSort}
                         showGrip={!!onReorderColumns}
+                        sticky={h.key === "symbol"}
                       />
                     ))}
                     {/* Actions column (always visible) */}
@@ -605,7 +608,7 @@ export default function TradeTable({
                     )}
                     {show("symbol") && (
                       <td
-                        className="px-4 py-3 font-bold text-emerald-400 cursor-pointer hover:underline"
+                        className="px-4 py-3 font-bold text-emerald-400 cursor-pointer hover:underline sticky left-0 z-10 dark:bg-slate-900 bg-white group-hover:dark:bg-slate-800/30 group-hover:bg-slate-50/50"
                         onClick={() => onEdit(t)}
                       >
                         <span className="flex items-center gap-1.5">
