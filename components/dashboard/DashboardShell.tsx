@@ -1065,24 +1065,70 @@ export default function DashboardShell() {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-2">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black dark:text-white text-slate-900 tracking-tight">Dashboard</h1>
-          <p className="text-sm dark:text-slate-400 text-slate-500 mt-1 font-medium">Your trading performance at a glance</p>
+    <div className="flex flex-col -mx-6 -mt-6 -mb-6 overflow-hidden" style={{ height: "100vh" }}>
+      {/* Top Bar */}
+      <div className="px-6 flex items-center h-16 shrink-0 border-b dark:border-slate-800 border-slate-200 dark:bg-slate-900 bg-slate-100">
+        {/* LEFT: Account stats */}
+        <div className="flex items-center gap-4 flex-1 min-w-0 overflow-hidden">
+          {/* Balance */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">Balance</span>
+            <span className={clsx("text-sm font-bold", totalPnl >= 0 ? "text-emerald-400" : "text-red-400")}>
+              {hidden ? mask : `$${currentBalance.toFixed(2)}`}
+            </span>
+          </div>
+          <div className="hidden sm:block w-px h-5 dark:bg-slate-700 bg-slate-200" />
+          {/* P&L */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">P&L</span>
+            <span className={clsx("text-sm font-bold", totalPnl >= 0 ? "text-emerald-400" : "text-red-400")}>
+              {hidden ? mask : `${totalPnl >= 0 ? "+" : "-"}${fmt$(totalPnl)}`}
+            </span>
+            <span className={clsx("hidden xl:inline text-xs font-semibold", totalPnl >= 0 ? "text-emerald-400/70" : "text-red-400/70")}>
+              {hidden ? "" : `(${totalPnl >= 0 ? "+" : ""}${(totalPnl / accountSize * 100).toFixed(2)}%)`}
+            </span>
+          </div>
+          <div className="hidden lg:block w-px h-5 dark:bg-slate-700 bg-slate-200" />
+          {/* Today */}
+          <div className="hidden lg:flex items-center gap-2">
+            <span className="text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">Today</span>
+            <span className={clsx("text-sm font-bold", todayPnl >= 0 ? "text-emerald-400" : "text-red-400")}>
+              {hidden ? mask : `${todayPnl >= 0 ? "+" : "-"}${fmt$(todayPnl)}`}
+            </span>
+          </div>
+          <div className="hidden xl:block w-px h-5 dark:bg-slate-700 bg-slate-200" />
+          {/* Trades count */}
+          <div className="hidden xl:flex items-center gap-2">
+            <span className="text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">Trades</span>
+            <span className="text-sm font-bold dark:text-slate-300 text-slate-700">{closed.length}</span>
+          </div>
+          <div className="hidden sm:block w-px h-5 dark:bg-slate-700 bg-slate-200" />
+          {/* Win Rate */}
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">Win Rate</span>
+            {(() => {
+              const wins = closed.filter(t => (t.pnl ?? 0) > 0).length;
+              const wr = closed.length > 0 ? (wins / closed.length) * 100 : 0;
+              return (
+                <span className={clsx("text-sm font-bold", wr >= 50 ? "text-emerald-400" : "text-yellow-400")}>
+                  {hidden ? mask : `${wr.toFixed(1)}%`}
+                </span>
+              );
+            })()}
+          </div>
         </div>
-        
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
+
+        {/* RIGHT: Controls */}
+        <div className="flex items-center gap-2 shrink-0 ml-4">
           {/* Time filter */}
-          <div className="flex p-1 rounded-2xl dark:bg-slate-900 bg-slate-200/50 border dark:border-slate-800 border-slate-200 shadow-inner">
+          <div className="flex p-1 rounded-2xl dark:bg-slate-800 bg-slate-200/50 border dark:border-slate-700 border-slate-200 shadow-inner">
             {timeFilters.map(tf => (
               <button key={tf.label}
                 onClick={() => saveTimeFilter(tf.value)}
                 className={clsx(
                   "px-4 py-1.5 rounded-xl text-xs font-bold transition-all",
                   timeFilter === tf.value
-                    ? "bg-white dark:bg-slate-800 dark:text-emerald-400 text-emerald-600 shadow-sm"
+                    ? "bg-white dark:bg-slate-700 dark:text-emerald-400 text-emerald-600 shadow-sm"
                     : "dark:text-slate-500 text-slate-500 hover:dark:text-slate-300 hover:text-slate-700"
                 )}
               >
@@ -1091,216 +1137,163 @@ export default function DashboardShell() {
             ))}
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Utility group */}
-            <div className="flex items-center gap-1 p-1 rounded-2xl dark:bg-slate-900 bg-slate-200/50 border dark:border-slate-800 border-slate-200 shadow-sm">
-              <button onClick={() => setEditMode(!editMode)}
-                className={clsx(
-                  "flex items-center justify-center h-7 w-7 sm:h-8 sm:w-8 rounded-xl transition-colors",
-                  editMode ? "bg-emerald-500 text-white" : "hover:dark:bg-slate-800 hover:bg-white text-slate-500"
-                )}
-                title="Edit layout">
-                {editMode ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-              </button>
-
-              {editMode && (
-                <>
-                  <button onClick={resetLayout}
-                    className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:bg-red-500/20 text-red-400 transition-colors"
-                    title="Reset layout">
-                    <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  </button>
-                  <TemplatePanel
-                    templates={allTemplates}
-                    onSave={handleSaveTemplate}
-                    onLoad={handleLoadTemplate}
-                    onDelete={handleDeleteTemplate}
-                    onSaveAs={handleSaveAsCopy}
-                    onEditBuiltIn={handleEditBuiltIn}
-                    isGuest={!!me?.guest}
-                    isAdmin={!!me?.isAdmin}
-                  />
-                </>
+          {/* Utility group */}
+          <div className="flex items-center gap-1 p-1 rounded-2xl dark:bg-slate-800 bg-slate-200/50 border dark:border-slate-700 border-slate-200 shadow-sm">
+            <button onClick={() => setEditMode(!editMode)}
+              className={clsx(
+                "flex items-center justify-center h-7 w-7 sm:h-8 sm:w-8 rounded-xl transition-colors",
+                editMode ? "bg-emerald-500 text-white" : "hover:dark:bg-slate-700 hover:bg-white text-slate-500"
               )}
+              title="Edit layout">
+              {editMode ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+            </button>
 
-              <button onClick={load}
-                className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:dark:bg-slate-800 hover:bg-white text-slate-500 transition-colors"
-                title="Refresh">
-                <RefreshCw className={clsx("w-3.5 h-3.5 sm:w-4 sm:h-4", loading && "animate-spin")} />
-              </button>
-
-              <div className="relative">
-                <button
-                  onClick={() => setShowExportMenu(!showExportMenu)}
-                  className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:dark:bg-slate-800 hover:bg-white text-slate-500 transition-colors"
-                  title="Export data"
-                >
-                  <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            {editMode && (
+              <>
+                <button onClick={resetLayout}
+                  className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:bg-red-500/20 text-red-400 transition-colors"
+                  title="Reset layout">
+                  <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
-                {showExportMenu && (
-                  <div className="absolute right-0 mt-3 w-40 rounded-2xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                    <button onClick={() => handleExport("csv")} className="w-full px-4 py-3 text-left text-xs font-bold dark:text-slate-300 text-slate-600 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors border-b dark:border-slate-800 border-slate-100">Download CSV</button>
-                    <button onClick={() => handleExport("json")} className="w-full px-4 py-3 text-left text-xs font-bold dark:text-slate-300 text-slate-600 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors">Download JSON</button>
-                  </div>
-                )}
-              </div>
+                <TemplatePanel
+                  templates={allTemplates}
+                  onSave={handleSaveTemplate}
+                  onLoad={handleLoadTemplate}
+                  onDelete={handleDeleteTemplate}
+                  onSaveAs={handleSaveAsCopy}
+                  onEditBuiltIn={handleEditBuiltIn}
+                  isGuest={!!me?.guest}
+                  isAdmin={!!me?.isAdmin}
+                />
+              </>
+            )}
 
+            <button onClick={load}
+              className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:dark:bg-slate-700 hover:bg-white text-slate-500 transition-colors"
+              title="Refresh">
+              <RefreshCw className={clsx("w-3.5 h-3.5 sm:w-4 sm:h-4", loading && "animate-spin")} />
+            </button>
+
+            <div className="relative">
               <button
-                onClick={toggleHidden}
-                className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:dark:bg-slate-800 hover:bg-white text-slate-500 transition-colors"
-                title={hidden ? "Show numbers" : "Hide numbers"}
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:dark:bg-slate-700 hover:bg-white text-slate-500 transition-colors"
+                title="Export data"
               >
-                {hidden ? <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
+              {showExportMenu && (
+                <div className="absolute right-0 mt-3 w-40 rounded-2xl border dark:border-slate-700 border-slate-200 dark:bg-slate-900 bg-white shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                  <button onClick={() => handleExport("csv")} className="w-full px-4 py-3 text-left text-xs font-bold dark:text-slate-300 text-slate-600 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors border-b dark:border-slate-800 border-slate-100">Download CSV</button>
+                  <button onClick={() => handleExport("json")} className="w-full px-4 py-3 text-left text-xs font-bold dark:text-slate-300 text-slate-600 hover:dark:bg-slate-800 hover:bg-slate-50 transition-colors">Download JSON</button>
+                </div>
+              )}
             </div>
 
-            <button onClick={() => { setEditTrade(null); setShowModal(true); }}
-              className="flex items-center gap-2 h-10 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-[0.1em] transition-all shadow-lg shadow-emerald-600/20 active:scale-95 whitespace-nowrap">
-              <Plus className="w-4 h-4" />
-              <span>New Trade</span>
+            <button
+              onClick={toggleHidden}
+              className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-xl hover:dark:bg-slate-700 hover:bg-white text-slate-500 transition-colors"
+              title={hidden ? "Show numbers" : "Hide numbers"}
+            >
+              {hidden ? <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
             </button>
           </div>
+
+          <button onClick={() => { setEditTrade(null); setShowModal(true); }}
+            className="flex items-center gap-2 h-9 px-4 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-[0.1em] transition-all shadow-lg shadow-emerald-600/20 active:scale-95 whitespace-nowrap">
+            <Plus className="w-4 h-4" />
+            <span>New Trade</span>
+          </button>
         </div>
       </div>
 
-      {/* Account Summary Strip */}
-      <div className="rounded-2xl dark:bg-slate-900/80 bg-white border dark:border-slate-800 border-slate-200 px-4 py-3 shadow-sm">
-        <div className="grid grid-cols-2 sm:flex sm:items-center gap-y-4 gap-x-6 sm:flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] sm:text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">Balance</span>
-            <span className={`text-sm sm:text-base font-bold ${totalPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-              {hidden ? mask : `$${currentBalance.toFixed(2)}`}
-            </span>
-          </div>
-          <div className="hidden sm:block w-px h-5 dark:bg-slate-700 bg-slate-200" />
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] sm:text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">P&L</span>
-            <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-1.5">
-              <span className={`text-sm sm:text-base font-bold ${totalPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {hidden ? mask : `${totalPnl >= 0 ? "+" : "-"}${fmt$(totalPnl)}`}
-              </span>
-              <span className={`text-[10px] sm:text-xs font-semibold ${totalPnl >= 0 ? "text-emerald-400/70" : "text-red-400/70"}`}>
-                {hidden ? "" : `(${totalPnl >= 0 ? "+" : ""}${(totalPnl / accountSize * 100).toFixed(2)}%)`}
-              </span>
+      {/* Scrollable content area */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
+        {/* Daily Loss Limit Warning */}
+        {dailyLossExceeded && (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300 shadow-sm">
+            <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+              <span className="text-lg">&#9888;</span>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-red-400">Daily Loss Limit Exceeded</p>
+              <p className="text-xs text-red-400/70">
+                Today&apos;s P&L: {hidden ? "***" : `${todayPnl >= 0 ? "+" : "-"}$${Math.abs(todayPnl).toFixed(2)}`}
+                {" "}| Limit: {hidden ? "***" : dailyLossLimitType === "percent"
+                  ? `${dailyLossLimit}% ($${((dailyLossLimit! / 100) * currentBalance).toFixed(2)})`
+                  : `$${dailyLossLimit!.toFixed(2)}`}
+              </p>
             </div>
           </div>
-          <div className="hidden sm:block w-px h-5 dark:bg-slate-700 bg-slate-200" />
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] sm:text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">Today</span>
-            <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-1.5">
-              <span className={`text-sm sm:text-base font-bold ${todayPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {hidden ? mask : `${todayPnl >= 0 ? "+" : "-"}${fmt$(todayPnl)}`}
-              </span>
-              <span className={`text-[10px] sm:text-xs font-semibold ${todayPnl >= 0 ? "text-emerald-400/70" : "text-red-400/70"}`}>
-                {hidden ? "" : `(${todayPnl >= 0 ? "+" : ""}${(currentBalance > 0 ? todayPnl / currentBalance * 100 : 0).toFixed(2)}%)`}
-              </span>
-            </div>
-          </div>
-          <div className="hidden sm:block w-px h-5 dark:bg-slate-700 bg-slate-200" />
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] sm:text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">Trades</span>
-            <span className="text-sm sm:text-base font-bold dark:text-slate-300 text-slate-700">
-              {closed.length}
-            </span>
-          </div>
-          <div className="hidden sm:block w-px h-5 dark:bg-slate-700 bg-slate-200" />
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] sm:text-xs font-medium dark:text-slate-400 text-slate-500 uppercase tracking-wider">Win Rate</span>
-            {(() => {
-              const wins = closed.filter(t => (t.pnl ?? 0) > 0).length;
-              const wr = closed.length > 0 ? (wins / closed.length) * 100 : 0;
-              return <span className={`text-sm sm:text-base font-bold ${wr >= 50 ? "text-emerald-400" : "text-yellow-400"}`}>
-                {hidden ? mask : `${wr.toFixed(1)}%`}
-              </span>;
-            })()}
-          </div>
-        </div>
-      </div>
+        )}
 
-      {/* Daily Loss Limit Warning */}
-      {dailyLossExceeded && (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300 shadow-sm">
-          <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
-            <span className="text-lg">&#9888;</span>
-          </div>
-          <div>
-            <p className="text-sm font-bold text-red-400">Daily Loss Limit Exceeded</p>
-            <p className="text-xs text-red-400/70">
-              Today&apos;s P&L: {hidden ? "***" : `${todayPnl >= 0 ? "+" : "-"}$${Math.abs(todayPnl).toFixed(2)}`}
-              {" "}| Limit: {hidden ? "***" : dailyLossLimitType === "percent"
-                ? `${dailyLossLimit}% ($${((dailyLossLimit! / 100) * currentBalance).toFixed(2)})`
-                : `$${dailyLossLimit!.toFixed(2)}`}
+        {/* Weekly Calendar */}
+        <WeeklyCalendar dailyPnl={dailyPnl} dailyCounts={dailyCounts} trades={trades} />
+
+        {/* Widget Grid */}
+        {closed.length === 0 ? (
+          <div className="rounded-2xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-slate-50 p-8 text-center shadow-sm">
+            <p className="dark:text-slate-500 text-slate-400 text-sm">
+              No closed trades{timeFilter !== "all" ? ` in the last ${timeFilter} days` : ""}. Close a trade to see analytics.
             </p>
           </div>
-        </div>
-      )}
+        ) : (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={visibleWidgets} strategy={rectSortingStrategy}>
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+                {visibleWidgets.map(id => (
+                  <WidgetCard key={id} id={id}
+                    title={WIDGET_MAP.get(id)?.title ?? id}
+                    editMode={editMode}
+                    size={layout.sizes[id] ?? "large"}
+                    onHide={() => hideWidget(id)}
+                    onToggleSize={() => toggleSize(id)}
+                  >
+                    {renderWidget(id, layout.sizes[id] ?? "large")}
+                  </WidgetCard>
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
 
-      {/* Weekly Calendar */}
-      <WeeklyCalendar dailyPnl={dailyPnl} dailyCounts={dailyCounts} trades={trades} />
-
-      {/* Widget Grid */}
-      {closed.length === 0 ? (
-        <div className="rounded-2xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/50 bg-slate-50 p-8 text-center shadow-sm">
-          <p className="dark:text-slate-500 text-slate-400 text-sm">
-            No closed trades{timeFilter !== "all" ? ` in the last ${timeFilter} days` : ""}. Close a trade to see analytics.
-          </p>
-        </div>
-      ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={visibleWidgets} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-              {visibleWidgets.map(id => (
-                <WidgetCard key={id} id={id}
-                  title={WIDGET_MAP.get(id)?.title ?? id}
-                  editMode={editMode}
-                  size={layout.sizes[id] ?? "large"}
-                  onHide={() => hideWidget(id)}
-                  onToggleSize={() => toggleSize(id)}
+        {/* Hidden widgets panel (edit mode) */}
+        {editMode && hiddenWidgets.length > 0 && (
+          <div className="rounded-2xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/30 bg-slate-50 p-3 shadow-sm">
+            <p className="text-xs font-medium dark:text-slate-400 text-slate-500 mb-2">Hidden Widgets</p>
+            <div className="flex flex-wrap gap-2">
+              {hiddenWidgets.map(id => (
+                <button key={id} onClick={() => showWidget(id)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl border dark:border-slate-600 border-slate-300 dark:bg-slate-700/50 bg-white text-xs dark:text-slate-300 text-slate-600 hover:dark:bg-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
                 >
-                  {renderWidget(id, layout.sizes[id] ?? "large")}
-                </WidgetCard>
+                  <PlusIcon className="w-3 h-3" />
+                  {WIDGET_MAP.get(id)?.title ?? id}
+                </button>
               ))}
             </div>
-          </SortableContext>
-        </DndContext>
-      )}
+          </div>
+        )}
 
-      {/* Hidden widgets panel (edit mode) */}
-      {editMode && hiddenWidgets.length > 0 && (
-        <div className="rounded-2xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/30 bg-slate-50 p-3 shadow-sm">
-          <p className="text-xs font-medium dark:text-slate-400 text-slate-500 mb-2">Hidden Widgets</p>
-          <div className="flex flex-wrap gap-2">
-            {hiddenWidgets.map(id => (
-              <button key={id} onClick={() => showWidget(id)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-xl border dark:border-slate-600 border-slate-300 dark:bg-slate-700/50 bg-white text-xs dark:text-slate-300 text-slate-600 hover:dark:bg-slate-700 hover:bg-slate-100 transition-colors shadow-sm"
-              >
-                <PlusIcon className="w-3 h-3" />
-                {WIDGET_MAP.get(id)?.title ?? id}
-              </button>
-            ))}
+        {/* Open Trades */}
+        {openTrades.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold dark:text-white text-slate-900">Open Trades</h2>
+              <a href="/trades" className="text-sm text-emerald-400 hover:underline">View all trades</a>
+            </div>
+            <div className="rounded-2xl dark:bg-slate-800/50 bg-white p-4 shadow-sm border dark:border-slate-800/50 border-slate-100/50">
+              <TradeTable
+                trades={trades}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                limit={10}
+                quotes={quotes}
+                onSetAlert={(symbol, price) => { setAlertDefaults({ symbol, price }); setShowAlertModal(true); }}
+              />
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Open Trades */}
-      {openTrades.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold dark:text-white text-slate-900">Open Trades</h2>
-            <a href="/trades" className="text-sm text-emerald-400 hover:underline">View all trades</a>
-          </div>
-          <div className="rounded-2xl dark:bg-slate-800/50 bg-white p-4 shadow-sm border dark:border-slate-800/50 border-slate-100/50">
-            <TradeTable
-              trades={trades}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              limit={10}
-              quotes={quotes}
-              onSetAlert={(symbol, price) => { setAlertDefaults({ symbol, price }); setShowAlertModal(true); }}
-            />
-          </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {showModal && (
         <TradeModal
