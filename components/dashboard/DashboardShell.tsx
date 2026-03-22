@@ -24,6 +24,7 @@ import {
   Plus, RefreshCw, Pencil, Check, GripVertical, EyeOff, Eye, Plus as PlusIcon, Minimize2, Maximize2,
   RotateCcw, Download, ChevronDown as ChevronDownIcon
 } from "lucide-react";
+import { useGridResize, WidgetDims } from "./useGridResize";
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor,
   useSensor, useSensors, DragEndEvent,
@@ -104,55 +105,34 @@ const DEFAULT_ORDER = [
 ];
 const DEFAULT_HIDDEN = ["dist-weekday", "dist-hour", "dist-month", "strategy-perf", "risk-simulator", "ai-insights", "perf-hour", "ibkr-positions"] as string[];
 
-const DEFAULT_SIZES: Record<string, WidgetSize> = {
-  // Large (3 cols)
-  "cumulative-pnl": "large",
-  "cumulative-dd": "large",
-  "symbol-pnl": "large",
-  "top-mistakes": "large",
-  "risk-simulator": "large",
-  "ai-insights": "large",
-  "ibkr-positions": "large",
-  // Medium (2 cols)
-  "win-pct": "medium",
-  "avg-trade-pnl": "medium",
-  "daily-volume": "medium",
-  "perf-day-of-week": "medium",
-  "perf-month": "medium",
-  "perf-symbol": "medium",
-  "perf-duration": "medium",
-  "perf-price": "medium",
-  "tag-breakdown": "medium",
-  // Compact (1 col)
-  "fear-greed": "compact",
-  "vix": "compact",
-  "market-overview": "compact",
-  "heatmap": "compact",
-  "total-return": "compact",
-  "profit-factor": "compact",
-  "total-trades": "compact",
-  "win-vs-loss": "compact",
-  "avg-win-vs-loss": "compact",
-  "largest-gain-loss": "compact",
-  "hold-time": "compact",
-  "max-consec-wins": "compact",
-  "max-consec-losses": "compact",
-  "avg-rr": "compact",
-  "avg-rating": "compact",
-  "total-fees": "compact",
-  "avg-daily-volume": "compact",
-  "daily-loss-status": "compact",
+const DEFAULT_DIMS: Record<string, WidgetDims> = {
+  // Former "large" (3 cols) -> { w: 3, h: 1 }
+  "cumulative-pnl": { w: 3, h: 1 },
+  "cumulative-dd": { w: 3, h: 1 },
+  "symbol-pnl": { w: 3, h: 1 },
+  "top-mistakes": { w: 3, h: 1 },
+  "risk-simulator": { w: 3, h: 1 },
+  "ai-insights": { w: 3, h: 1 },
+  "ibkr-positions": { w: 3, h: 1 },
+  // Former "medium" (2 cols) -> { w: 2, h: 1 }
+  "win-pct": { w: 2, h: 1 },
+  "avg-trade-pnl": { w: 2, h: 1 },
+  "daily-volume": { w: 2, h: 1 },
+  "perf-day-of-week": { w: 2, h: 1 },
+  "perf-month": { w: 2, h: 1 },
+  "perf-symbol": { w: 2, h: 1 },
+  "perf-duration": { w: 2, h: 1 },
+  "perf-price": { w: 2, h: 1 },
+  "tag-breakdown": { w: 2, h: 1 },
+  // Former "compact" (1 col) -> { w: 1, h: 1 } -- omit since fallback is { w: 1, h: 1 }
 };
 
 type TimeFilter = 30 | 60 | 90 | "all";
 
-type WidgetSize = "large" | "medium" | "compact";
-const SIZE_CYCLE: WidgetSize[] = ["large", "medium", "compact"];
-
 interface DashboardLayout {
   order: string[];
   hidden: string[];
-  sizes: Record<string, WidgetSize>;
+  dims: Record<string, WidgetDims>;
 }
 
 export interface LayoutTemplate {
@@ -177,7 +157,7 @@ const DEFAULT_BUILT_IN_TEMPLATES: BuiltInTemplate[] = [
     layout: {
       order: [...DEFAULT_ORDER],
       hidden: [],
-      sizes: { ...DEFAULT_SIZES },
+      dims: { ...DEFAULT_DIMS },
     },
   },
   {
@@ -197,15 +177,15 @@ const DEFAULT_BUILT_IN_TEMPLATES: BuiltInTemplate[] = [
         'daily-loss-status', 'fear-greed', 'vix', 'market-overview',
         'heatmap', 'total-return', 'total-trades', 'profit-factor',
       ].includes(w)),
-      sizes: {
-        'daily-loss-status': 'compact',
-        'fear-greed': 'compact',
-        'vix': 'compact',
-        'market-overview': 'compact',
-        'heatmap': 'compact',
-        'total-return': 'compact',
-        'total-trades': 'compact',
-        'profit-factor': 'compact',
+      dims: {
+        'daily-loss-status': { w: 1, h: 1 },
+        'fear-greed': { w: 1, h: 1 },
+        'vix': { w: 1, h: 1 },
+        'market-overview': { w: 1, h: 1 },
+        'heatmap': { w: 1, h: 1 },
+        'total-return': { w: 1, h: 1 },
+        'total-trades': { w: 1, h: 1 },
+        'profit-factor': { w: 1, h: 1 },
       },
     },
   },
@@ -216,13 +196,14 @@ function getLayoutKey(accountId: string | null): string {
 }
 
 // ── Sortable widget card wrapper ────────────────────────────────────────
-function WidgetCard({ id, title, editMode, size, onHide, onToggleSize, children }: {
+function WidgetCard({ id, title, editMode, dims, onHide, onToggleSize, onResizeStart, children }: {
   id: string;
   title: string;
   editMode: boolean;
-  size: WidgetSize;
+  dims: WidgetDims;
   onHide: () => void;
   onToggleSize: () => void;
+  onResizeStart: (e: React.PointerEvent, id: string, currentW: number, currentH: number) => void;
   children: React.ReactNode;
 }) {
   const {
@@ -235,15 +216,20 @@ function WidgetCard({ id, title, editMode, size, onHide, onToggleSize, children 
     opacity: isDragging ? 0.5 : 1,
   } : undefined;
 
-  const spanClass = size === "compact"
-    ? "col-span-1"
-    : size === "medium"
-      ? "col-span-1 md:col-span-2"
-      : "col-span-1 md:col-span-3";
+  const spanClass = dims.w >= 6 ? "col-span-1 md:col-span-6"
+    : dims.w >= 5 ? "col-span-1 md:col-span-5"
+    : dims.w >= 4 ? "col-span-1 md:col-span-4"
+    : dims.w >= 3 ? "col-span-1 md:col-span-3"
+    : dims.w >= 2 ? "col-span-1 md:col-span-2"
+    : "col-span-1";
+
+  // Size label for display: 3+ = L, 2 = M, 1 = C
+  const sizeLabel = dims.w >= 3 ? "L" : dims.w >= 2 ? "M" : "C";
+  const showExpand = dims.w <= 1;
 
   return (
-    <div ref={setNodeRef} style={style}
-      className={`rounded-md border dark:border-slate-800 border-slate-200 dark:bg-slate-800/50 bg-white p-3 flex flex-col ${spanClass}`}
+    <div ref={setNodeRef} style={style} data-widget-id={id}
+      className={`relative rounded-md border dark:border-slate-800 border-slate-200 dark:bg-slate-800/50 bg-white p-3 flex flex-col ${spanClass}`}
     >
       <div className="flex items-center justify-between mb-2 shrink-0">
         <h3 className="text-sm font-semibold dark:text-white text-slate-900">{title}</h3>
@@ -251,11 +237,11 @@ function WidgetCard({ id, title, editMode, size, onHide, onToggleSize, children 
           <div className="flex items-center gap-1">
             <button onClick={onToggleSize}
               className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors dark:text-slate-400 text-slate-500"
-              title={`Size: ${size} (click to cycle)`}
-              aria-label={`Change size of ${title}, current size: ${size}`}
+              title={`Width: ${dims.w} col(s) (click to cycle)`}
+              aria-label={`Change size of ${title}, current width: ${dims.w}`}
             >
-              {size === "large" ? <Minimize2 className="w-3 h-3" /> : size === "medium" ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
-              <span className="uppercase">{size[0]}</span>
+              {showExpand ? <Maximize2 className="w-3 h-3" /> : <Minimize2 className="w-3 h-3" />}
+              <span className="uppercase">{sizeLabel}</span>
             </button>
             <button onClick={onHide}
               className="p-1 rounded hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors"
@@ -277,6 +263,19 @@ function WidgetCard({ id, title, editMode, size, onHide, onToggleSize, children 
       <div className="flex-1 min-h-0">
         {children}
       </div>
+      {editMode && (
+        <div
+          onPointerDown={(e) => onResizeStart(e, id, dims.w, dims.h)}
+          className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize z-10 flex items-center justify-center"
+          title="Drag to resize"
+        >
+          <svg viewBox="0 0 6 6" className="w-2.5 h-2.5 dark:text-slate-500 text-slate-400">
+            <circle cx="5" cy="1" r="0.7" fill="currentColor" />
+            <circle cx="5" cy="5" r="0.7" fill="currentColor" />
+            <circle cx="1" cy="5" r="0.7" fill="currentColor" />
+          </svg>
+        </div>
+      )}
     </div>
   );
 }
@@ -339,7 +338,8 @@ export default function DashboardShell() {
 
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [editMode, setEditMode] = useState(false);
-  const [layout, setLayout] = useState<DashboardLayout>({ order: DEFAULT_ORDER, hidden: DEFAULT_HIDDEN, sizes: { ...DEFAULT_SIZES } });
+  const [layout, setLayout] = useState<DashboardLayout>({ order: DEFAULT_ORDER, hidden: DEFAULT_HIDDEN, dims: { ...DEFAULT_DIMS } });
+  const gridRef = useRef<HTMLDivElement | null>(null);
   const { hidden, toggleHidden } = usePrivacy();
   const [templates, setTemplates] = useState<LayoutTemplate[]>([]);
   const [builtInTemplates, setBuiltInTemplates] = useState<BuiltInTemplate[]>(DEFAULT_BUILT_IN_TEMPLATES);
@@ -415,13 +415,18 @@ export default function DashboardShell() {
                 merged.push(w);
               }
             }
-            // Migrate old "normal" size values to "large"
-            const rawSizes: Record<string, string> = parsed.sizes ?? {};
-            const sizes: Record<string, WidgetSize> = {};
-            for (const [k, v] of Object.entries(rawSizes)) {
-              sizes[k] = v === "normal" ? "large" : v as WidgetSize;
+            // Migrate old "sizes" field (string format) to "dims" ({ w, h } format)
+            let dims: Record<string, WidgetDims> = {};
+            if (parsed.sizes && !parsed.dims) {
+              // Old format: sizes is Record<string, string>
+              for (const [k, v] of Object.entries(parsed.sizes as Record<string, string>)) {
+                const w = v === "large" || v === "normal" ? 3 : v === "medium" ? 2 : 1;
+                dims[k] = { w, h: 1 };
+              }
+            } else if (parsed.dims) {
+              dims = parsed.dims as Record<string, WidgetDims>;
             }
-            setLayout({ order: merged, hidden: parsed.hidden ?? [], sizes: { ...DEFAULT_SIZES, ...sizes } });
+            setLayout({ order: merged, hidden: parsed.hidden ?? [], dims: { ...DEFAULT_DIMS, ...dims } });
           }
         } catch { /* keep defaults */ }
       }
@@ -433,11 +438,21 @@ export default function DashboardShell() {
       }
       if (settingsData.admin_default_templates) {
         try {
-          const parsed = JSON.parse(settingsData.admin_default_templates) as Record<string, { order: string[]; hidden: string[]; sizes: Record<string, WidgetSize> }>;
+          const parsed = JSON.parse(settingsData.admin_default_templates) as Record<string, { order: string[]; hidden: string[]; dims?: Record<string, WidgetDims>; sizes?: Record<string, string> }>;
           const merged = DEFAULT_BUILT_IN_TEMPLATES.map(t => {
             const override = parsed[t.id];
             if (!override) return t;
-            return { ...t, layout: { order: override.order, hidden: override.hidden, sizes: override.sizes } };
+            // Support both dims (new) and sizes (old) in overrides
+            let dims: Record<string, WidgetDims> = {};
+            if (override.dims) {
+              dims = override.dims;
+            } else if (override.sizes) {
+              for (const [k, v] of Object.entries(override.sizes)) {
+                const w = v === "large" || v === "normal" ? 3 : v === "medium" ? 2 : 1;
+                dims[k] = { w, h: 1 };
+              }
+            }
+            return { ...t, layout: { order: override.order, hidden: override.hidden, dims } };
           });
           setBuiltInTemplates(merged);
         } catch { /* keep defaults */ }
@@ -510,7 +525,7 @@ export default function DashboardShell() {
     const newTemplate: LayoutTemplate = {
       id: String(Date.now()),
       name: name.trim(),
-      layout: { order: [...layout.order], hidden: [...layout.hidden], sizes: { ...layout.sizes } },
+      layout: { order: [...layout.order], hidden: [...layout.hidden], dims: { ...layout.dims } },
       createdAt: new Date().toISOString(),
     };
     const updated = [...templates, newTemplate];
@@ -528,7 +543,7 @@ export default function DashboardShell() {
     const newLayout: DashboardLayout = {
       order: [...template.layout.order],
       hidden: [...template.layout.hidden],
-      sizes: { ...template.layout.sizes },
+      dims: { ...template.layout.dims },
     };
     saveLayout(newLayout, true);
   }, [saveLayout]);
@@ -549,7 +564,7 @@ export default function DashboardShell() {
     const copy: LayoutTemplate = {
       id: String(Date.now()),
       name: newName.trim() || `${preset.name} (copy)`,
-      layout: { order: [...preset.layout.order], hidden: [...preset.layout.hidden], sizes: { ...preset.layout.sizes } },
+      layout: { order: [...preset.layout.order], hidden: [...preset.layout.hidden], dims: { ...preset.layout.dims } },
       createdAt: new Date().toISOString(),
     };
     const updated = [...templates, copy];
@@ -564,7 +579,7 @@ export default function DashboardShell() {
   }, [templates, me]);
 
   const handleEditBuiltIn = useCallback((preset: BuiltInTemplate) => {
-    const updatedLayout = { order: [...layout.order], hidden: [...layout.hidden], sizes: { ...layout.sizes } };
+    const updatedLayout = { order: [...layout.order], hidden: [...layout.hidden], dims: { ...layout.dims } };
     const updatedPreset = { ...preset, layout: updatedLayout };
     const updated = builtInTemplates.map(t => t.id === preset.id ? updatedPreset : t);
     setBuiltInTemplates(updated);
@@ -824,6 +839,29 @@ export default function DashboardShell() {
       .map(([symbol, pnl]) => ({ symbol, pnl: parseFloat(pnl.toFixed(2)) }));
   }, [closed]);
 
+  // ── Resize ────────────────────────────────────────────────────────
+  const handleResizePersist = useCallback((id: string, newDims: WidgetDims) => {
+    setLayout(prev => {
+      const updated = { ...prev, dims: { ...prev.dims, [id]: newDims } };
+      // Immediately save on resize
+      if (me && !me.guest) {
+        fetch("/api/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [getLayoutKey(activeAccountId)]: JSON.stringify(updated) }),
+        });
+      }
+      return updated;
+    });
+  }, [me, activeAccountId]);
+
+  const { resizingId, onResizeStart } = useGridResize({
+    gridRef,
+    cols: 6,
+    gap: 12,
+    onResize: handleResizePersist,
+  });
+
   // ── DnD ───────────────────────────────────────────────────────────
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -849,13 +887,11 @@ export default function DashboardShell() {
   };
 
   const toggleSize = (id: string) => {
-    const current = layout.sizes[id] ?? "large";
-    const idx = SIZE_CYCLE.indexOf(current);
-    const next = SIZE_CYCLE[(idx + 1) % SIZE_CYCLE.length];
-    const newSizes = { ...layout.sizes };
-    if (next === "large") delete newSizes[id];
-    else newSizes[id] = next;
-    saveLayout({ ...layout, sizes: newSizes });
+    const current = layout.dims[id] ?? { w: 3, h: 1 };
+    // Cycle w: 3 -> 2 -> 1 -> 3
+    const nextW = current.w >= 3 ? 2 : current.w >= 2 ? 1 : 3;
+    const newDims = { ...layout.dims, [id]: { ...current, w: nextW } };
+    saveLayout({ ...layout, dims: newDims });
   };
 
   const finishEdit = () => {
@@ -867,7 +903,7 @@ export default function DashboardShell() {
     const defaultLayout: DashboardLayout = {
       order: [...DEFAULT_ORDER],
       hidden: [...DEFAULT_HIDDEN],
-      sizes: { ...DEFAULT_SIZES },
+      dims: { ...DEFAULT_DIMS },
     };
     saveLayout(defaultLayout, true);
   };
@@ -902,8 +938,14 @@ export default function DashboardShell() {
 
   const mask = "------";
 
+  // ── Helper to map dims.w to legacy size hint for widget components ──
+  function dimsToSize(w: number): "large" | "medium" | "compact" {
+    return w >= 3 ? "large" : w >= 2 ? "medium" : "compact";
+  }
+
   // ── Render widget by ID ───────────────────────────────────────────
-  function renderWidget(id: string, size: WidgetSize = "large") {
+  function renderWidget(id: string, dims: WidgetDims = { w: 3, h: 1 }) {
+    const size = dimsToSize(dims.w);
     const isProfit = cumulativeData.length > 0 && cumulativeData[cumulativeData.length - 1].value >= 0;
     const maxDd = drawdownData.length > 0 ? Math.min(...drawdownData.map(d => d.value), 0) : 0;
 
@@ -1240,18 +1282,26 @@ export default function DashboardShell() {
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={visibleWidgets} strategy={rectSortingStrategy}>
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-                {visibleWidgets.map(id => (
-                  <WidgetCard key={id} id={id}
-                    title={WIDGET_MAP.get(id)?.title ?? id}
-                    editMode={editMode}
-                    size={layout.sizes[id] ?? "large"}
-                    onHide={() => hideWidget(id)}
-                    onToggleSize={() => toggleSize(id)}
-                  >
-                    {renderWidget(id, layout.sizes[id] ?? "large")}
-                  </WidgetCard>
-                ))}
+              <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-6 gap-3 relative">
+                {visibleWidgets.map(id => {
+                  const dims = layout.dims[id] ?? { w: 1, h: 1 };
+                  return (
+                    <WidgetCard key={id} id={id}
+                      title={WIDGET_MAP.get(id)?.title ?? id}
+                      editMode={editMode}
+                      dims={dims}
+                      onHide={() => hideWidget(id)}
+                      onToggleSize={() => toggleSize(id)}
+                      onResizeStart={onResizeStart}
+                    >
+                      {renderWidget(id, dims)}
+                    </WidgetCard>
+                  );
+                })}
+                {/* Pointer event overlay during resize to prevent iframe event stealing */}
+                {resizingId && (
+                  <div className="fixed inset-0 z-50" style={{ pointerEvents: "all", cursor: "se-resize" }} />
+                )}
               </div>
             </SortableContext>
           </DndContext>
