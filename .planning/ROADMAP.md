@@ -50,7 +50,7 @@ See [v3.0 Roadmap Archive](.planning/milestones/v3.0-ROADMAP.md) for details.
 
 ### v3.1 Dashboard Redesign
 
-- [ ] **Phase 26: Top Bar and Card Redesign** - Navbar-style header with account stats, viewport-locked layout, unified card styling
+- [x] **Phase 26: Top Bar and Card Redesign** - Navbar-style header with account stats, viewport-locked layout, unified card styling (completed 2026-03-22)
 - [ ] **Phase 27: Grid Resize System** - Drag-to-resize handles with column and row span snapping
 - [ ] **Phase 28: Layout Persistence and Migration** - Save resized layouts and migrate templates to new schema
 
@@ -66,7 +66,7 @@ See [v3.0 Roadmap Archive](.planning/milestones/v3.0-ROADMAP.md) for details.
   3. Dashboard content area scrolls independently below the top bar with no page-level scrollbar
   4. All widget cards use rounded-md borders, matching background colors, and font sizing consistent with the trades page
   5. The page title, subtitle, and recent trades table widget are gone
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 26-01-PLAN.md — Top bar with inline account stats and viewport-locked layout
 - [ ] 26-02-PLAN.md — Unified card styling (rounded-md borders, no shadows)
@@ -105,7 +105,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 26. Top Bar and Card Redesign | 1/2 | In progress | - |
+| 26. Top Bar and Card Redesign | 2/2 | Complete   | 2026-03-22 |
 | 27. Grid Resize System | 0/TBD | Not started | - |
 | 28. Layout Persistence and Migration | 0/TBD | Not started | - |
 

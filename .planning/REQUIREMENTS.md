@@ -16,9 +16,9 @@ Requirements for Dashboard Redesign milestone. Each maps to roadmap phases.
 
 ### Cards
 
-- [ ] **CARD-01**: Card design matches trades page style (rounded-md, borders, bg, font sizing)
-- [ ] **CARD-02**: Recent trades table widget removed
-- [ ] **CARD-03**: All widgets use unified card container component
+- [x] **CARD-01**: Card design matches trades page style (rounded-md, borders, bg, font sizing)
+- [x] **CARD-02**: Recent trades table widget removed
+- [x] **CARD-03**: All widgets use unified card container component
 
 ### Resize
 
@@ -57,9 +57,9 @@ Requirements for Dashboard Redesign milestone. Each maps to roadmap phases.
 | LAYOUT-02 | Phase 26 | Complete (26-01) |
 | LAYOUT-03 | Phase 26 | Complete (26-01) |
 | LAYOUT-04 | Phase 26 | Complete (26-01) |
-| CARD-01 | Phase 26 | Pending |
-| CARD-02 | Phase 26 | Pending |
-| CARD-03 | Phase 26 | Pending |
+| CARD-01 | Phase 26 | Complete |
+| CARD-02 | Phase 26 | Complete |
+| CARD-03 | Phase 26 | Complete |
 | RESIZE-01 | Phase 27 | Pending |
 | RESIZE-02 | Phase 27 | Pending |
 | RESIZE-03 | Phase 27 | Pending |
