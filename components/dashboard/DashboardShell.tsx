@@ -81,13 +81,13 @@ const ALL_WIDGETS = [
 const WIDGET_MAP = new Map<string, { id: string; title: string }>(ALL_WIDGETS.map(w => [w.id, w]));
 
 const DEFAULT_ORDER = [
-  "cumulative-pnl", "fear-greed", "vix", "market-overview",
-  "heatmap", "total-return", "profit-factor", "total-trades", "win-vs-loss", "avg-win-vs-loss",
+  "vix", "cumulative-pnl", "fear-greed", "market-overview",
+  "heatmap", "total-return", "profit-factor", "win-vs-loss", "avg-win-vs-loss",
   "cumulative-dd", "symbol-pnl",
   "win-pct", "avg-trade-pnl", "daily-volume",
-  "largest-gain-loss", "total-fees", "hold-time", "max-consec-wins", "max-consec-losses",
-  "daily-loss-status", "perf-price", "perf-day-of-week", "avg-rr", "avg-daily-volume",
-  "perf-symbol", "top-mistakes", "perf-duration", "tag-breakdown", "perf-month", "avg-rating",
+  "largest-gain-loss", "total-trades", "total-fees", "max-consec-wins", "hold-time", "max-consec-losses",
+  "daily-loss-status", "perf-price", "tag-breakdown", "perf-month", "perf-duration",
+  "perf-symbol", "perf-day-of-week", "avg-rr", "avg-daily-volume", "top-mistakes", "avg-rating",
   // Hidden by default
   "dist-weekday", "dist-hour", "dist-month", "strategy-perf", "risk-simulator", "ai-insights", "perf-hour", "ibkr-positions",
 ];
@@ -100,10 +100,10 @@ const GRID_GAP = 8;
 const MAX_H = 16;
 
 const DEFAULT_DIMS: Record<string, WidgetDims> = {
-  "cumulative-pnl": { w: 12, h: 4 },
+  "cumulative-pnl": { w: 10, h: 4 },
   "cumulative-dd": { w: 6, h: 4 },
   "symbol-pnl": { w: 5, h: 4 },
-  "top-mistakes": { w: 4, h: 3 },
+  "top-mistakes": { w: 3, h: 3 },
   "risk-simulator": { w: 12, h: 8 },
   "ai-insights": { w: 12, h: 4 },
   "ibkr-positions": { w: 12, h: 4 },
@@ -111,18 +111,18 @@ const DEFAULT_DIMS: Record<string, WidgetDims> = {
   "win-pct": { w: 6, h: 4 },
   "avg-trade-pnl": { w: 6, h: 4 },
   "daily-volume": { w: 5, h: 4 },
-  "perf-day-of-week": { w: 5, h: 4 },
+  "perf-day-of-week": { w: 4, h: 3 },
   "perf-month": { w: 4, h: 4 },
-  "perf-symbol": { w: 6, h: 5 },
-  "perf-duration": { w: 5, h: 4 },
-  "perf-price": { w: 3, h: 6 },
+  "perf-symbol": { w: 4, h: 6 },
+  "perf-duration": { w: 6, h: 4 },
+  "perf-price": { w: 4, h: 8 },
   "tag-breakdown": { w: 6, h: 5 },
   "profit-factor": { w: 3, h: 3 },
   "total-return": { w: 3, h: 3 },
   "total-trades": { w: 3, h: 3 },
   "win-vs-loss": { w: 3, h: 2 },
   "avg-win-vs-loss": { w: 3, h: 2 },
-  "hold-time": { w: 3, h: 2 },
+  "hold-time": { w: 4, h: 2 },
   "largest-gain-loss": { w: 4, h: 2 },
   "max-consec-wins": { w: 3, h: 3 },
   "max-consec-losses": { w: 3, h: 3 },
@@ -130,6 +130,8 @@ const DEFAULT_DIMS: Record<string, WidgetDims> = {
   "avg-daily-volume": { w: 3, h: 3 },
   "total-fees": { w: 3, h: 3 },
   "avg-rating": { w: 3, h: 3 },
+  "market-overview": { w: 3, h: 4 },
+  "daily-loss-status": { w: 4, h: 2 },
 };
 
 type TimeFilter = 30 | 60 | 90 | "all";
