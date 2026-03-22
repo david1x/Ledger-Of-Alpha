@@ -199,6 +199,39 @@ const DEFAULT_BUILT_IN_TEMPLATES: BuiltInTemplate[] = [
   },
 ];
 
+/** Migrate any layout shape (old string sizes, legacy 6-col/12-col dims, or current 24-col) to 24-col WidgetDims. */
+function migrateDimsTo24Col(layout: { sizes?: Record<string, string>; dims?: Record<string, Partial<WidgetDims>>; _gridScale?: number }): Record<string, WidgetDims> {
+  if (layout.sizes && !layout.dims) {
+    // Old string format -> 24-col scale
+    const dims: Record<string, WidgetDims> = {};
+    for (const [k, v] of Object.entries(layout.sizes)) {
+      const w = v === "large" || v === "normal" ? 12 : v === "medium" ? 8 : 4;
+      dims[k] = { w, h: 4 };
+    }
+    return dims;
+  }
+  if (layout.dims) {
+    if (layout._gridScale === GRID_COLS) {
+      // Already 24-col scale — use as-is
+      const dims: Record<string, WidgetDims> = {};
+      for (const [k, v] of Object.entries(layout.dims)) {
+        dims[k] = { w: v.w ?? 4, h: v.h ?? 4 };
+      }
+      return dims;
+    }
+    // Legacy: detect scale by max value — maxW <= 6 = old 6-col (x4), <= 12 = old 12-col (x2)
+    const entries = Object.entries(layout.dims);
+    const maxW = Math.max(0, ...entries.map(([, v]) => v.w ?? 1));
+    const scale = maxW <= 6 ? 4 : maxW <= 12 ? 2 : 1;
+    const dims: Record<string, WidgetDims> = {};
+    for (const [k, v] of entries) {
+      dims[k] = { w: (v.w ?? 1) * scale, h: (v.h ?? 1) * scale };
+    }
+    return dims;
+  }
+  return {};
+}
+
 function getLayoutKey(accountId: string | null): string {
   return accountId ? `dashboard_layout_${accountId}` : 'dashboard_layout_all_accounts';
 }
@@ -423,29 +456,7 @@ export default function DashboardShell() {
               }
             }
             // Migrate old layouts to 24-col scale
-            let dims: Record<string, WidgetDims> = {};
-            if (parsed.sizes && !parsed.dims) {
-              // Old string format → 24-col scale
-              for (const [k, v] of Object.entries(parsed.sizes as Record<string, string>)) {
-                const w = v === "large" || v === "normal" ? 12 : v === "medium" ? 8 : 4;
-                dims[k] = { w, h: 4 };
-              }
-            } else if (parsed.dims) {
-              if (parsed._gridScale === GRID_COLS) {
-                // Already 24-col scale — use as-is
-                for (const [k, v] of Object.entries(parsed.dims as Record<string, Partial<WidgetDims>>)) {
-                  dims[k] = { w: v.w ?? 4, h: v.h ?? 4 };
-                }
-              } else {
-                // Legacy: detect scale by max value — maxW ≤ 6 = old 6-col (×4), ≤ 12 = old 12-col (×2)
-                const entries = Object.entries(parsed.dims as Record<string, Partial<WidgetDims>>);
-                const maxW = Math.max(0, ...entries.map(([, v]) => v.w ?? 1));
-                const scale = maxW <= 6 ? 4 : maxW <= 12 ? 2 : 1;
-                for (const [k, v] of entries) {
-                  dims[k] = { w: (v.w ?? 1) * scale, h: (v.h ?? 1) * scale };
-                }
-              }
-            }
+            const dims = migrateDimsTo24Col(parsed);
             setLayout({ order: merged, hidden: parsed.hidden ?? [], dims: { ...DEFAULT_DIMS, ...dims }, _gridScale: GRID_COLS });
           }
         } catch { /* keep defaults */ }
@@ -463,20 +474,7 @@ export default function DashboardShell() {
             const override = parsed[t.id];
             if (!override) return t;
             // Support both dims (new) and sizes (old) in overrides — upscale to 24-col
-            let dims: Record<string, WidgetDims> = {};
-            if (override.dims) {
-              const entries = Object.entries(override.dims);
-              const maxW = Math.max(0, ...entries.map(([, v]) => v.w ?? 1));
-              const scale = maxW <= 6 ? 4 : maxW <= 12 ? 2 : 1;
-              for (const [k, v] of entries) {
-                dims[k] = { w: (v.w ?? 1) * scale, h: (v.h ?? 1) * scale };
-              }
-            } else if (override.sizes) {
-              for (const [k, v] of Object.entries(override.sizes)) {
-                const w = v === "large" || v === "normal" ? 12 : v === "medium" ? 8 : 4;
-                dims[k] = { w, h: 4 };
-              }
-            }
+            const dims = migrateDimsTo24Col(override);
             return { ...t, layout: { order: override.order, hidden: override.hidden, dims } };
           });
           setBuiltInTemplates(merged);
@@ -551,7 +549,7 @@ export default function DashboardShell() {
     const newTemplate: LayoutTemplate = {
       id: String(Date.now()),
       name: name.trim(),
-      layout: { order: [...layout.order], hidden: [...layout.hidden], dims: { ...layout.dims } },
+      layout: { order: [...layout.order], hidden: [...layout.hidden], dims: { ...layout.dims }, _gridScale: GRID_COLS },
       createdAt: new Date().toISOString(),
     };
     const updated = [...templates, newTemplate];
@@ -566,10 +564,12 @@ export default function DashboardShell() {
   }, [layout, templates, me]);
 
   const handleLoadTemplate = useCallback((template: LayoutTemplate | BuiltInTemplate) => {
+    const migratedDims = migrateDimsTo24Col(template.layout);
     const newLayout: DashboardLayout = {
       order: [...template.layout.order],
       hidden: [...template.layout.hidden],
-      dims: { ...template.layout.dims },
+      dims: { ...DEFAULT_DIMS, ...migratedDims },
+      _gridScale: GRID_COLS,
     };
     saveLayout(newLayout, true);
   }, [saveLayout]);
@@ -590,7 +590,7 @@ export default function DashboardShell() {
     const copy: LayoutTemplate = {
       id: String(Date.now()),
       name: newName.trim() || `${preset.name} (copy)`,
-      layout: { order: [...preset.layout.order], hidden: [...preset.layout.hidden], dims: { ...preset.layout.dims } },
+      layout: { order: [...preset.layout.order], hidden: [...preset.layout.hidden], dims: { ...preset.layout.dims }, _gridScale: GRID_COLS },
       createdAt: new Date().toISOString(),
     };
     const updated = [...templates, copy];
