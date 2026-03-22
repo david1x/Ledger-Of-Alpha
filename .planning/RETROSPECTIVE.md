@@ -2,6 +2,53 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+## Milestone: v3.1 — Dashboard Redesign
+
+**Shipped:** 2026-03-22
+**Phases:** 3 | **Plans:** 5 | **Timeline:** 1 day
+
+### What Was Built
+- Viewport-locked dashboard with navbar-style top bar (balance, P&L, win rate, trades count inline)
+- Unified card styling with rounded-md borders matching trades page design language
+- Full 2D grid resize (24-col x 16-row) with SE-corner drag handles via custom useGridResize hook
+- DragOverlay for smooth card reorder without grid reflow during variable-sized item drag
+- Shared migrateDimsTo24Col helper consolidating all layout schema migration paths
+- Template load/save with backward-compatible migration and _gridScale version marker
+
+### What Worked
+- Custom useGridResize hook (~90 lines) solved resize without adopting react-grid-layout — kept full CSS Grid control
+- _gridScale version marker elegantly prevented migration loops on page reload
+- DragOverlay pattern solved the @dnd-kit variable-sized item reflow problem cleanly
+- W x H placeholder during resize prevented Recharts ResponsiveContainer thrashing
+- 24-column grid provided fine-grained resize granularity with half-step increments
+- Milestone audit caught 3 tech debt items before close — all fixed inline without a phase
+
+### What Was Inefficient
+- finishEdit function was written but never wired to the edit button — caught only by audit
+- resetLayout missing _gridScale was a repeat of the pattern that caused migration loops in Phase 27
+- Summary files did not populate one_liner frontmatter field (same gap as v2.1)
+
+### Patterns Established
+- 24-column CSS Grid with grid-auto-flow dense for automatic gap filling
+- useGridResize hook pattern for pointer-based drag resize with snap-to-grid
+- WidgetDims { w, h } as internal layout unit replacing string size enum
+- DragOverlay pattern for DnD with variable-sized grid items
+- _gridScale version marker in persisted layout JSON for schema evolution
+- migrateDimsTo24Col: single source of truth for layout schema migration
+- Pointer-events overlay div during resize to prevent iframe event stealing
+
+### Key Lessons
+1. **Dead code detection needs active wiring verification** — finishEdit was written and tested in isolation but never connected to the UI. Audit caught it, but earlier verification of call sites would have prevented it.
+2. **Guard all object construction paths** — resetLayout missing _gridScale was the same pattern that caused the migration loop bug earlier. Every path that constructs a layout object needs the version marker.
+3. **Inline fixes beat planning overhead for minor debt** — 3 tech debt items fixed in minutes without creating a phase. For small, clear fixes, skip the ceremony.
+
+### Cost Observations
+- Model mix: balanced profile
+- Sessions: ~3 sessions in 1 day
+- Notable: 5 plans in 1 day — smallest milestone but highest design density (resize system required careful interaction design)
+
+---
+
 ## Milestone: v2.1 — Settings & Polish
 
 **Shipped:** 2026-03-21
@@ -147,6 +194,7 @@
 | v2.0 | 2 days | 4 | 12 | Mature codebase, faster execution, AI/broker integration |
 | v2.1 | 2 days | 6 | 10 | Settings/polish — refactoring existing code, no new packages |
 | v3.0 | 1 day | 8 | 15 | Trades page overhaul — most plans in shortest time, heavy post-phase polish |
+| v3.1 | 1 day | 3 | 5 | Dashboard redesign — smallest phase count but highest interaction design density |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -156,3 +204,4 @@
 4. **Roadmap progress tracking is a recurring gap** — v2.0 Phase 9 and v2.1 Phase 13 both had stale progress tables (verified across 2 milestones)
 5. Documentation tracking lags implementation — traceability sweeps needed before milestone close
 6. **Unify data representations early** — two systems for the same concept (v3.0 mistakes) always causes confusion
+7. **Inline fixes beat ceremony for minor debt** — v3.1 fixed 3 audit items in minutes without creating a phase (verified: 1 milestone)

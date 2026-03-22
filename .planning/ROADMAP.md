@@ -7,7 +7,7 @@
 - [v2.1 (SHIPPED)](.planning/milestones/v2.1-ROADMAP.md) — Settings & Polish (2026-03-21)
 - **v2.3 (SHIPPED)** — Verify URL Hotfix (2026-03-21)
 - [v3.0 (SHIPPED)](.planning/milestones/v3.0-ROADMAP.md) — Trades Page Overhaul (2026-03-22)
-- **v3.1 (IN PROGRESS)** — Dashboard Redesign (Phases 26-28)
+- [v3.1 (SHIPPED)](.planning/milestones/v3.1-ROADMAP.md) — Dashboard Redesign (2026-03-22)
 
 ## Phases
 
@@ -48,54 +48,16 @@ See [v3.0 Roadmap Archive](.planning/milestones/v3.0-ROADMAP.md) for details.
 
 </details>
 
-### v3.1 Dashboard Redesign
+<details>
+<summary>v3.1 Dashboard Redesign (Phases 26-28) — SHIPPED 2026-03-22</summary>
 
-- [x] **Phase 26: Top Bar and Card Redesign** - Navbar-style header with account stats, viewport-locked layout, unified card styling (completed 2026-03-22)
-- [x] **Phase 27: Grid Resize System** - Drag-to-resize handles with column and row span snapping (completed 2026-03-22)
-- [x] **Phase 28: Layout Persistence and Migration** - Save resized layouts and migrate templates to new schema (completed 2026-03-22)
+- [x] Phase 26: Top Bar and Card Redesign (2/2 plans) — completed 2026-03-22
+- [x] Phase 27: Grid Resize System (2/2 plans) — completed 2026-03-22
+- [x] Phase 28: Layout Persistence and Migration (1/1 plan) — completed 2026-03-22
 
-## Phase Details
+See [v3.1 Roadmap Archive](.planning/milestones/v3.1-ROADMAP.md) for details.
 
-### Phase 26: Top Bar and Card Redesign
-**Goal**: Dashboard matches the trades page design language with a navbar-style top bar and unified card styling
-**Depends on**: Nothing (first phase of v3.1)
-**Requirements**: LAYOUT-01, LAYOUT-02, LAYOUT-03, LAYOUT-04, CARD-01, CARD-02, CARD-03
-**Success Criteria** (what must be TRUE):
-  1. Dashboard has a fixed h-16 top bar showing account balance, P&L, and win rate inline (no separate account summary strip)
-  2. Layout controls (edit mode toggle, save/load templates, time filter, privacy toggle, refresh) are all accessible from the top bar
-  3. Dashboard content area scrolls independently below the top bar with no page-level scrollbar
-  4. All widget cards use rounded-md borders, matching background colors, and font sizing consistent with the trades page
-  5. The page title, subtitle, and recent trades table widget are gone
-**Plans:** 2/2 plans complete
-Plans:
-- [x] 26-01-PLAN.md — Top bar with inline account stats and viewport-locked layout
-- [x] 26-02-PLAN.md — Unified card styling (rounded-md borders, no shadows)
-
-### Phase 27: Grid Resize System
-**Goal**: Users can resize any dashboard card by dragging to set column and row span
-**Depends on**: Phase 26
-**Requirements**: RESIZE-01, RESIZE-02, RESIZE-03, RESIZE-04
-**Success Criteria** (what must be TRUE):
-  1. User can drag the SE corner handle of any card to change its column span (1-6 columns) with snap-to-grid behavior
-  2. User can drag to change card row span with grid-row snapping
-  3. Resize handles are visible only when edit mode is active and hidden during normal viewing
-  4. Layout data uses `{ w, h }` object format internally, and any saved layout in the old string format loads correctly without data loss
-**Plans:** 2/2 plans complete
-Plans:
-- [x] 27-01-PLAN.md — Data model migration to {w,h} dims and column-span resize hook
-- [x] 27-02-PLAN.md — Row-span resize and Recharts debounce
-
-### Phase 28: Layout Persistence and Migration
-**Goal**: Resized layouts persist across sessions and existing templates work with the new format
-**Depends on**: Phase 27
-**Requirements**: PERSIST-01, PERSIST-02
-**Success Criteria** (what must be TRUE):
-  1. User resizes cards, refreshes the page, and sees the same layout they left
-  2. Previously saved layout templates load correctly with card sizes converted to the new schema
-  3. Built-in default templates render correctly in the new format
-**Plans:** 1/1 plans complete
-Plans:
-- [ ] 28-01-PLAN.md — Extract migration helper and wire into template load/save paths
+</details>
 
 ## Progress
 
@@ -106,13 +68,7 @@ Plans:
 | v2.1 | 12-17 | 10 | Complete | 2026-03-21 |
 | v2.3 | — | — | Complete | 2026-03-21 |
 | v3.0 | 18-25 | 15 | Complete | 2026-03-22 |
-| v3.1 | 26-28 | 5 | In progress | - |
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 26. Top Bar and Card Redesign | 2/2 | Complete    | 2026-03-22 |
-| 27. Grid Resize System | 2/2 | Complete    | 2026-03-22 |
-| 28. Layout Persistence and Migration | 1/1 | Complete    | 2026-03-22 |
+| v3.1 | 26-28 | 5 | Complete | 2026-03-22 |
 
 ---
 *Phase numbering continues across milestones. Next phase: 29.*

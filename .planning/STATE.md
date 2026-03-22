@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Dashboard Redesign
-status: completed
-stopped_at: Completed 28-01 (layout persistence migration helper)
-last_updated: "2026-03-22T21:27:00.513Z"
-last_activity: 2026-03-22 — Completed Plan 28-01 (migrateDimsTo24Col helper + template path fixes)
+status: shipped
+stopped_at: Milestone v3.1 complete and archived
+last_updated: "2026-03-23"
+last_activity: 2026-03-23 — Milestone v3.1 archived, PROJECT.md evolved, retrospective updated
 progress:
   total_phases: 3
   completed_phases: 3
@@ -18,20 +18,16 @@ progress:
 
 ## Current Position
 
-Milestone: v3.1 Dashboard Redesign
-Phase: 28 of 28 (Layout Persistence and Migration) — Plan 01 complete
-Plan: 01 of 01 complete
-Status: Phase 28 complete — migrateDimsTo24Col helper extracted and template paths fixed
-Last activity: 2026-03-22 — Completed Plan 28-01 (migrateDimsTo24Col helper + template path fixes)
-
-Progress: [██████████] 100%
+Milestone: v3.1 Dashboard Redesign — SHIPPED 2026-03-22
+Status: Milestone complete and archived. No active milestone.
+Last activity: 2026-03-23 — Milestone archived, PROJECT.md evolved, retrospective updated
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-22)
+See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Traders can track, analyze, and improve their trading through structured journaling and actionable analytics.
-**Current focus:** Dashboard Redesign — navbar controls, grid-based resizable cards, unified design language
+**Current focus:** Planning next milestone
 
 ## Performance Metrics
 
@@ -39,34 +35,17 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 - v2.0: 4 phases, 12 plans, 2 days (shipped 2026-03-19)
 - v2.1: 6 phases, 10 plans, 51 commits, 2 days (shipped 2026-03-21)
 - v3.0: 8 phases, 15 plans, 1 day (shipped 2026-03-22)
+- v3.1: 3 phases, 5 plans, 28 commits, 1 day (shipped 2026-03-22)
 
 ## Accumulated Context
 
 ### Decisions
 
-- Keep @dnd-kit + custom resize hook. Do not adopt react-grid-layout (migration cost disproportionate to gain).
-- Include `h` in data model from Phase 27 onward but do not expose row-height resize UI yet.
-- Debounce Recharts ResponsiveContainer during resize to prevent performance collapse.
-- Unified top bar design language: dashboard now matches trades page (h-16, same bg, same border, same escape pattern).
-- Account summary strip removed — content absorbed into top bar left side.
-- Page title and subtitle removed from dashboard — stats-rich top bar conveys context.
-- [Phase 26-top-bar-and-card-redesign]: All dashboard cards use border for visual definition not shadow — matches trades page design language
-- [Phase 27-01]: Use numeric { w, h } dims internally instead of string 'large'/'medium'/'compact' to support arbitrary column spans
-- [Phase 27-01]: handleResizePersist saves immediately to API on each column snap (discrete events, not continuous streams)
-- [Phase 27-01]: Safelist md:col-span-4/5/6 in Tailwind since these classes are generated dynamically
-- [Phase 27-02]: Row span clamped to [1, 4] max to prevent excessively tall cards
-- [Phase 27-02]: SortableContext strategy switched to undefined for variable-sized card DnD compatibility
-- [Phase 27-02]: gridAutoRows set to 200px; resize shows W x H placeholder to prevent Recharts thrashing
-- [Phase 27-02]: Switched to 24-column grid for finer resize granularity with half-step increments
-- [Phase 27-02]: DragOverlay replaces in-place SortableContext rendering to prevent grid reflow during drag
-- [Phase 27-02]: _gridScale version marker prevents layout migration loop on page reload
-- [Phase 28-01]: Consolidated all layout migration logic into shared migrateDimsTo24Col function
-- [Phase 28-01]: handleLoadTemplate merges migrated dims with DEFAULT_DIMS for forward-compatible template loading
+(Cleared at milestone boundary — see PROJECT.md Key Decisions for full history)
 
 ### Blockers/Concerns
 
-- @dnd-kit rectSortingStrategy has known issues with variable-sized items — may need null strategy if 6-level granularity worsens behavior.
-- Resize handle pointer events must not conflict with @dnd-kit drag sensors (stopPropagation + activation distance).
+None.
 
 ### Pending Todos
 
@@ -74,5 +53,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T21:24:00.000Z
-Stopped at: Completed 28-01 (layout persistence migration helper)
+Last session: 2026-03-23
+Stopped at: Milestone v3.1 complete and archived

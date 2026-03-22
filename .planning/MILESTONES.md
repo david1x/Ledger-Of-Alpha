@@ -1,5 +1,21 @@
 # Milestones
 
+## v3.1 Dashboard Redesign (Shipped: 2026-03-22)
+
+**Phases completed:** 3 phases (26-28), 5 plans
+**Timeline:** 1 day (2026-03-22)
+**Commits:** 28 | **Files changed:** 20 (+2,407 / -407)
+**Git range:** `d3c2365..d6107e2`
+
+**Key accomplishments:**
+1. Viewport-locked dashboard with navbar-style top bar (balance, P&L, win rate inline)
+2. Unified card styling — rounded-md borders matching trades page design language
+3. Full 2D grid resize (24-col x 16-row) with SE-corner drag handles via custom useGridResize hook
+4. DragOverlay for smooth card reorder without grid reflow
+5. Shared migrateDimsTo24Col helper for all layout load/save/template paths
+
+---
+
 ## v3.0 Trades Page Overhaul (Shipped: 2026-03-22)
 
 **Phases completed:** 8 phases, 15 plans, 0 tasks

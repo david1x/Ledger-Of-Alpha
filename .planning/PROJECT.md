@@ -40,23 +40,13 @@ Traders can track, analyze, and improve their trading through structured journal
 - ✓ Trades sidebar analytics (performance chart, setups breakdown, mistakes impact) — v3.0
 - ✓ Navbar locked to icon-only with custom hover tooltips — v3.0
 - ✓ Viewport-locked trades layout (no page scroll, independent table/sidebar scroll) — v3.0
+- ✓ Dashboard navbar-style top bar with inline account stats and layout controls — v3.1
+- ✓ Unified card styling (rounded-md borders, no shadows) matching trades page — v3.1
+- ✓ Full 2D grid resize (24-col x 16-row) with SE-corner drag handles — v3.1
+- ✓ Layout persistence with schema migration (migrateDimsTo24Col) — v3.1
+- ✓ Template load/save with backward-compatible migration — v3.1
 
 ### Active
-
-## Current Milestone: v3.1 Dashboard Redesign
-
-**Goal:** Redesign the analytics dashboard to match the trades page design language with grid-based resizable cards, navbar-style controls, and unified visual style.
-
-**Target features:**
-- Navbar-style top bar with account stats (balance, P&L, win%) and layout controls
-- Grid-based card resize (column span + row span snapping)
-- Card design matching trades page style (borders, bg, fonts, rounded-md)
-- Remove page title/subtitle and recent trades table
-- All-grid card layout with full user arrangement
-
-### Out of Scope updates from v3.0
-
-- Filter chips removed by design — active filters indicated by colored buttons + Clear button
 
 ### Out of Scope
 
@@ -68,9 +58,10 @@ Traders can track, analyze, and improve their trading through structured journal
 - On-device AI model — cloud API is sufficient
 - Offline mode — real-time data is core value
 - Fibonacci calculator — user decision: not wanted
-- Dashboard widget height adjustment — deferred to later milestone
+- Dashboard widget height adjustment — row-snap resize shipped in v3.1; free-pixel height remains out of scope
 - Template sharing/export — no multi-user sharing infrastructure needed yet
 - Per-strategy performance breakdown — deferred to later milestone
+- Filter chips removed by design — active filters indicated by colored buttons + Clear button (v3.0)
 
 ## Context
 
@@ -78,12 +69,13 @@ Traders can track, analyze, and improve their trading through structured journal
 - v2.0 shipped 2026-03-19 after 2 days and 4 phases (12 plans)
 - v2.1 shipped 2026-03-21 after 2 days and 6 phases (10 plans)
 - v3.0 shipped 2026-03-22 after 1 day and 8 phases (15 plans)
-- Codebase: ~26,660 LOC TypeScript (+3,000 net from v3.0), Next.js 15, SQLite, Recharts, lightweight-charts
+- v3.1 shipped 2026-03-22 after 1 day and 3 phases (5 plans)
+- Codebase: ~28,660 LOC TypeScript (+2,000 net from v3.1), Next.js 15, SQLite, Recharts, lightweight-charts
 - AI: Gemini 2.5 Flash via @google/generative-ai (settings key named `openai_api_key` — naming inconsistency)
 - Broker: IBKR Client Portal REST API (not TWS socket)
 - Monte Carlo: Web Worker with 1K iterations + 500ms debounce for in-modal preview
 - DB migrations through 022 (inline in lib/db.ts)
-- 25 dashboard widgets (including IBKR positions, hidden by default)
+- 24 dashboard widgets (including IBKR positions, hidden by default) on 24-column resizable grid
 - Settings decomposed into 13 per-tab components (was 2380-line monolith)
 - Admin panel manages system-level API keys, SMTP, App URL with sentinel masking
 - 5 built-in strategies with per-trade checklist editing and ChecklistRing badges
@@ -116,6 +108,12 @@ Traders can track, analyze, and improve their trading through structured journal
 | Filter bar as sticky navbar | Filter chips were noisy; colored buttons are enough | ✓ Good — cleaner, always visible |
 | Auto-sync default_mistakes to mistake_types | Settings strings disconnected from DB-backed tagging | ✓ Good — bridges both systems on modal open |
 | Symbol color violet-400 | Green/red reserved for P&L; symbol needs distinct color | ✓ Good — clear visual hierarchy |
+| Keep @dnd-kit + custom resize hook | react-grid-layout uses absolute positioning, incompatible with CSS Grid | ✓ Good — useGridResize hook is ~90 lines, full control |
+| 24-column grid | 6-col too coarse for resize granularity; 24 allows half-step increments | ✓ Good — fine control without complexity |
+| DragOverlay for reorder | In-place SortableContext causes grid reflow with variable-sized items | ✓ Good — smooth drag without layout thrashing |
+| _gridScale version marker | Prevents layout migration loop on page reload | ✓ Good — clean migration path for schema evolution |
+| migrateDimsTo24Col shared helper | Three separate migration paths (load, template load, template save) | ✓ Good — single source of truth |
+| Border not shadow for cards | Consistent with trades page design language | ✓ Good — unified visual style |
 
 ---
-*Last updated: 2026-03-22 after v3.1 milestone start*
+*Last updated: 2026-03-23 after v3.1 milestone completion*
