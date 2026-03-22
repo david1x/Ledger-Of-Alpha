@@ -1,0 +1,77 @@
+# Requirements: Ledger Of Alpha
+
+**Defined:** 2026-03-22
+**Core Value:** Traders can track, analyze, and improve their trading through structured journaling and actionable analytics.
+
+## v3.1 Requirements
+
+Requirements for Dashboard Redesign milestone. Each maps to roadmap phases.
+
+### Layout
+
+- [ ] **LAYOUT-01**: Dashboard has navbar-style top bar (h-16) with account balance, P&L, and win rate
+- [ ] **LAYOUT-02**: Layout controls (edit mode, save/load templates, time filter, privacy, refresh) in top navbar
+- [ ] **LAYOUT-03**: Page title and subtitle removed
+- [ ] **LAYOUT-04**: Dashboard is viewport-locked (no page scroll, grid scrolls independently)
+
+### Cards
+
+- [ ] **CARD-01**: Card design matches trades page style (rounded-md, borders, bg, font sizing)
+- [ ] **CARD-02**: Recent trades table widget removed
+- [ ] **CARD-03**: All widgets use unified card container component
+
+### Resize
+
+- [ ] **RESIZE-01**: User can resize cards by dragging SE corner handle (column span, 1-6 cols)
+- [ ] **RESIZE-02**: User can resize card height by dragging (row span snapping)
+- [ ] **RESIZE-03**: Resize handles visible only in edit mode
+- [ ] **RESIZE-04**: Layout schema migrated from string sizes to {w, h} with backward compatibility
+
+### Persistence
+
+- [ ] **PERSIST-01**: Resized layouts saved to settings API (same dashboard_layout key pattern)
+- [ ] **PERSIST-02**: Saved layout templates migrated to new schema format
+
+## Future Requirements
+
+### Resize Enhancements
+
+- **RESIZE-05**: Per-widget minimum sizes (e.g. chart min 2 cols, stat min 1 col)
+- **RESIZE-06**: Resize preview ghost/outline while dragging
+- **RESIZE-07**: Keyboard-accessible resize (arrow keys in edit mode)
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| react-grid-layout adoption | Uses absolute positioning, incompatible with existing CSS Grid layout engine |
+| Drag from any edge (8 handles) | SE corner only — matches Grafana/Datadog convention, simpler interaction |
+| Mobile resize | Reset all spans to 1 col below md breakpoint — resize is desktop-only |
+| Widget height adjustment (free pixel) | Grid row-snap only, not free-pixel height |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| LAYOUT-01 | TBD | Pending |
+| LAYOUT-02 | TBD | Pending |
+| LAYOUT-03 | TBD | Pending |
+| LAYOUT-04 | TBD | Pending |
+| CARD-01 | TBD | Pending |
+| CARD-02 | TBD | Pending |
+| CARD-03 | TBD | Pending |
+| RESIZE-01 | TBD | Pending |
+| RESIZE-02 | TBD | Pending |
+| RESIZE-03 | TBD | Pending |
+| RESIZE-04 | TBD | Pending |
+| PERSIST-01 | TBD | Pending |
+| PERSIST-02 | TBD | Pending |
+
+**Coverage:**
+- v3.1 requirements: 13 total
+- Mapped to phases: 0
+- Unmapped: 13 ⚠️
+
+---
+*Requirements defined: 2026-03-22*
+*Last updated: 2026-03-22 after initial definition*
