@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Dashboard Redesign
-status: completed
-stopped_at: Completed 26-02-PLAN.md
-last_updated: "2026-03-22T17:17:10.207Z"
-last_activity: 2026-03-22 — Completed Plan 26-02 (card border redesign)
+status: in-progress
+stopped_at: Completed 27-01-PLAN.md (checkpoint:human-verify pending)
+last_updated: "2026-03-22T18:00:00.000Z"
+last_activity: 2026-03-22 — Completed Plan 27-01 Task 1 (grid resize system data model migration)
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 2
+  total_plans: 3
   completed_plans: 2
-  percent: 100
+  percent: 67
 ---
 
 # Project State: Ledger Of Alpha
@@ -19,10 +19,10 @@ progress:
 ## Current Position
 
 Milestone: v3.1 Dashboard Redesign
-Phase: 26 of 28 (Top Bar and Card Redesign) — All plans complete
-Plan: 02 of 02 complete
-Status: Phase 26 Complete — Ready for Phase 27
-Last activity: 2026-03-22 — Completed Plan 26-02 (card border redesign)
+Phase: 27 of 28 (Grid Resize System) — Plan 01 task 1 complete, awaiting human verify
+Plan: 01 of 01 complete (checkpoint pending)
+Status: Checkpoint — awaiting human verification of resize handles in browser
+Last activity: 2026-03-22 — Completed Plan 27-01 Task 1 (grid resize system data model migration)
 
 Progress: [██████████] 100%
 
@@ -51,6 +51,9 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 - Account summary strip removed — content absorbed into top bar left side.
 - Page title and subtitle removed from dashboard — stats-rich top bar conveys context.
 - [Phase 26-top-bar-and-card-redesign]: All dashboard cards use border for visual definition not shadow — matches trades page design language
+- [Phase 27-01]: Use numeric { w, h } dims internally instead of string 'large'/'medium'/'compact' to support arbitrary column spans
+- [Phase 27-01]: handleResizePersist saves immediately to API on each column snap (discrete events, not continuous streams)
+- [Phase 27-01]: Safelist md:col-span-4/5/6 in Tailwind since these classes are generated dynamically
 
 ### Blockers/Concerns
 
@@ -63,6 +66,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T17:09:36.056Z
-Stopped at: Completed 26-02-PLAN.md
+Last session: 2026-03-22T18:00:00.000Z
+Stopped at: 27-01-PLAN.md checkpoint:human-verify (Task 2)
 Resume file: None
