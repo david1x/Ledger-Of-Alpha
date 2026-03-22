@@ -38,6 +38,8 @@ export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defa
   const [fetchingPrice, setFetchingPrice] = useState(false);
 
   const mouseDownTarget = useRef<EventTarget | null>(null);
+  const dragRef = useRef<HTMLDivElement>(null);
+  const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -104,6 +106,45 @@ export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defa
       setError("");
     }
   }, [open, defaultSymbol, defaultPrice, editAlert, fetchCurrentPrice]);
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    const el = dragRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    dragState.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: rect.left,
+      origY: rect.top,
+    };
+    // Apply fixed positioning immediately so subsequent moves are cheap
+    el.style.position = "fixed";
+    el.style.margin = "0";
+    el.style.left = `${rect.left}px`;
+    el.style.top = `${rect.top}px`;
+    const handleDragMove = (ev: MouseEvent) => {
+      if (!dragState.current) return;
+      el.style.left = `${dragState.current.origX + ev.clientX - dragState.current.startX}px`;
+      el.style.top = `${dragState.current.origY + ev.clientY - dragState.current.startY}px`;
+    };
+    const handleDragEnd = () => {
+      dragState.current = null;
+      window.removeEventListener("mousemove", handleDragMove);
+      window.removeEventListener("mouseup", handleDragEnd);
+    };
+    window.addEventListener("mousemove", handleDragMove);
+    window.addEventListener("mouseup", handleDragEnd);
+  }, []);
+
+  // Reset drag position when modal opens
+  useEffect(() => {
+    if (open && dragRef.current) {
+      dragRef.current.style.position = "";
+      dragRef.current.style.margin = "";
+      dragRef.current.style.left = "";
+      dragRef.current.style.top = "";
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -191,13 +232,19 @@ export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defa
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/40 animate-in fade-in duration-200"
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
     >
-      <div className="w-full max-w-md max-h-[95vh] sm:max-h-[90vh] rounded-2xl border dark:border-slate-800 border-slate-200 dark:bg-slate-900 bg-white shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b dark:border-slate-800 border-slate-100 shrink-0">
+      <div
+        ref={dragRef}
+        className="w-full max-w-md max-h-[95vh] sm:max-h-[90vh] rounded-2xl border dark:border-slate-800 border-slate-200 dark:bg-slate-900 bg-white shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+      >
+        {/* Header — drag handle */}
+        <div
+          className="flex items-center justify-between p-4 sm:p-6 border-b dark:border-slate-800 border-slate-100 shrink-0 cursor-grab active:cursor-grabbing select-none"
+          onMouseDown={handleDragStart}
+        >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
               <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-500" />
@@ -209,7 +256,7 @@ export default function AlertModal({ open, onClose, onSaved, defaultSymbol, defa
               {symbol && <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">{symbol}</p>}
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors" aria-label="Close modal">
+          <button onClick={onClose} onMouseDown={e => e.stopPropagation()} className="p-2 rounded-xl hover:dark:bg-slate-800 hover:bg-slate-100 transition-colors" aria-label="Close modal">
             <X className="w-5 h-5 sm:w-6 sm:h-6 dark:text-slate-400 text-slate-500" />
           </button>
         </div>

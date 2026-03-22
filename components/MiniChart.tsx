@@ -9,6 +9,7 @@ import clsx from "clsx";
 interface MiniChartProps {
   symbol: string;
   entry?: number | null;
+  exitPrice?: number | null;
   stopLoss?: number | null;
   takeProfit?: number | null;
   height?: number;
@@ -16,6 +17,8 @@ interface MiniChartProps {
   showTimeframeToggle?: boolean;
   chartTf?: string | null;
   chartSavedAt?: string | null;
+  entryDate?: string | null;
+  exitDate?: string | null;
 }
 
 const TIMEFRAMES = [
@@ -25,41 +28,60 @@ const TIMEFRAMES = [
   { label: "1d", interval: "1d", range: "3mo" },
 ];
 
+function pickTimeframeFromDuration(entryDate?: string | null, exitDate?: string | null) {
+  if (!entryDate || !exitDate) return null;
+  const ms = new Date(exitDate).getTime() - new Date(entryDate).getTime();
+  const hours = ms / (1000 * 60 * 60);
+  if (hours <= 4) return TIMEFRAMES[0];    // 5m for intraday ≤4h
+  if (hours <= 24) return TIMEFRAMES[1];   // 15m for ≤1 day
+  if (hours <= 120) return TIMEFRAMES[2];  // 1h for ≤5 days
+  return TIMEFRAMES[3];                    // 1d for longer
+}
+
 export default function MiniChart({
-  symbol, entry, stopLoss, takeProfit, height = 160,
+  symbol, entry, exitPrice, stopLoss, takeProfit, height = 160,
   showPriceScale = false,
   showTimeframeToggle = false,
   chartTf,
   chartSavedAt,
+  entryDate,
+  exitDate,
 }: MiniChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const seriesRef = useRef<ISeriesApi<any> | null>(null);
   const entryLineRef = useRef<IPriceLine | null>(null);
+  const exitLineRef = useRef<IPriceLine | null>(null);
   const stopLineRef = useRef<IPriceLine | null>(null);
   const targetLineRef = useRef<IPriceLine | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [timeframe, setTimeframe] = useState(() => {
-    // Use trade's saved timeframe if available
     if (chartTf) {
       const found = TIMEFRAMES.find(tf => tf.label === chartTf || tf.label === chartTf.toLowerCase());
       if (found) return found;
     }
+    const fromDuration = pickTimeframeFromDuration(entryDate, exitDate);
+    if (fromDuration) return fromDuration;
     return TIMEFRAMES[2]; // Default 1h
   });
 
-  // Load persisted timeframe (only if no trade-specific tf)
+  // Sync timeframe when trade changes
   useEffect(() => {
-    if (chartTf) return; // trade has its own timeframe
+    if (chartTf) {
+      const found = TIMEFRAMES.find(tf => tf.label === chartTf || tf.label === chartTf.toLowerCase());
+      if (found) { setTimeframe(found); return; }
+    }
+    const fromDuration = pickTimeframeFromDuration(entryDate, exitDate);
+    if (fromDuration) { setTimeframe(fromDuration); return; }
     const saved = localStorage.getItem("minichart_timeframe");
     if (saved) {
       const found = TIMEFRAMES.find(tf => tf.label === saved);
       if (found) setTimeframe(found);
     }
-  }, [chartTf]);
+  }, [chartTf, entryDate, exitDate]);
 
   const handleTimeframeChange = (tf: typeof TIMEFRAMES[0]) => {
     setTimeframe(tf);
@@ -155,6 +177,19 @@ export default function MiniChart({
       });
     }
   }, [entry, showPriceScale]);
+
+  useEffect(() => {
+    const s = seriesRef.current;
+    if (!s) return;
+    if (exitLineRef.current) { s.removePriceLine(exitLineRef.current); exitLineRef.current = null; }
+    if (exitPrice && exitPrice > 0) {
+      const isWin = entry ? exitPrice > entry : true;
+      exitLineRef.current = s.createPriceLine({
+        price: exitPrice, color: isWin ? "#34d399" : "#ef4444", lineWidth: 2,
+        lineStyle: LineStyle.Solid, axisLabelVisible: showPriceScale, title: "Exit",
+      });
+    }
+  }, [exitPrice, entry, showPriceScale]);
 
   useEffect(() => {
     const s = seriesRef.current;

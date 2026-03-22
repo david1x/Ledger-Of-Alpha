@@ -77,14 +77,16 @@ export default function TradesShell() {
   const [mistakeTypes, setMistakeTypes] = useState<MistakeType[]>([]);
   const [mobileTab, setMobileTab] = useState<"Table" | "Analytics">("Table");
 
-  // Filter state with sessionStorage persistence
-  const [filter, setFilter] = useState<TradeFilterState>(() => {
-    if (typeof window === "undefined") return DEFAULT_FILTER;
+  // Filter state with sessionStorage persistence (deferred to avoid hydration mismatch)
+  const [filter, setFilter] = useState<TradeFilterState>(DEFAULT_FILTER);
+
+  // Restore filter from sessionStorage after mount
+  useEffect(() => {
     try {
       const saved = sessionStorage.getItem("trades_filter");
-      return saved ? { ...DEFAULT_FILTER, ...JSON.parse(saved) } : DEFAULT_FILTER;
-    } catch { return DEFAULT_FILTER; }
-  });
+      if (saved) setFilter({ ...DEFAULT_FILTER, ...JSON.parse(saved) });
+    } catch { /* ignore */ }
+  }, []);
 
   // Persist filter on change
   useEffect(() => {

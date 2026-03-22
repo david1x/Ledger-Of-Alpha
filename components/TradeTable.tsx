@@ -2,7 +2,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Trade, QuoteMap, MistakeType } from "@/lib/types";
-import { Pencil, Trash2, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, LineChart, ExternalLink, Bell, Star, GripVertical } from "lucide-react";
+import { Pencil, Trash2, ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, LineChart, Bell, Star, GripVertical } from "lucide-react";
+import TradingViewIcon from "@/components/TradingViewIcon";
 import { useRouter } from "next/navigation";
 import { calcRRAchieved, calcPercentReturn, formatHoldDuration } from "@/lib/trade-utils";
 import clsx from "clsx";
@@ -430,7 +431,7 @@ export default function TradeTable({
                       <LineChart className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
                     </button>
                     <a href={buildTradingViewUrl(t.symbol)} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-xl hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors" title="Open in TradingView" aria-label="Open in TradingView">
-                      <ExternalLink className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
+                      <TradingViewIcon className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500" />
                     </a>
                     {onSetAlert && (
                       <button onClick={() => onSetAlert(t.symbol, t.entry_price ?? undefined)} className="p-1.5 rounded-xl hover:dark:bg-slate-700 hover:bg-slate-200 transition-colors" title="Set Price Alert" aria-label="Set Price Alert">
@@ -584,151 +585,141 @@ export default function TradeTable({
                         </div>
                       </td>
                     )}
-                    {show("symbol") && (
-                      <td
-                        className="px-4 py-3 font-bold text-violet-400 cursor-pointer hover:underline sticky left-0 z-10 dark:bg-slate-900 bg-white group-hover:dark:bg-slate-800/30 group-hover:bg-slate-50/50"
-                        onClick={() => onEdit(t)}
-                      >
-                        <span className="flex items-center gap-1.5">
-                          {t.symbol}
-                          {t.source === "ibkr" && (
-                            <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-500/15 text-blue-400">IBKR</span>
-                          )}
-                          <ChecklistRing checklistState={t.checklist_state} size={24} />
-                        </span>
-                      </td>
-                    )}
-                    {show("direction") && (
-                      <td className="px-4 py-3">
-                        <span className={clsx("px-2.5 py-1 rounded-md text-xs font-semibold ring-1 ring-inset", t.direction === "long" ? "bg-emerald-500/15 dark:text-white text-slate-900 ring-emerald-500/30" : "bg-red-500/15 dark:text-white text-slate-900 ring-red-500/30")}>
-                          {t.direction === "long" ? "Long" : "Short"}
-                        </span>
-                      </td>
-                    )}
-                    {show("status") && (
-                      <td className="px-4 py-3">
-                        <span className={clsx("px-2.5 py-1 rounded-md text-xs font-semibold ring-1 ring-inset", statusBadge.className)}>
-                          {statusBadge.label}
-                        </span>
-                      </td>
-                    )}
-                    {show("entry") && <td className="px-4 py-3 dark:text-slate-300 text-slate-700 font-medium text-sm">{t.entry_price ? `$${t.entry_price}` : "—"}</td>}
-                    {show("stop") && <td className="px-4 py-3 text-red-400 font-medium text-sm">{t.stop_loss ? `$${t.stop_loss}` : "—"}</td>}
-                    {show("target") && <td className="px-4 py-3 text-emerald-400 font-medium text-sm">{t.take_profit ? `$${t.take_profit}` : "—"}</td>}
-                    {show("exit") && <td className="px-4 py-3 dark:text-slate-300 text-slate-700 font-medium text-sm">{t.exit_price ? `$${t.exit_price}` : "—"}</td>}
-                    {show("shares") && <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm font-medium">{t.shares ?? "—"}</td>}
-                    {show("pnl") && (
-                      <td className={clsx("px-4 py-3 font-semibold text-sm", closedPnlColor)}>
-                        {hidden ? "••••" : (t.pnl !== null ? `${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}` : "—")}
-                      </td>
-                    )}
-                    {show("rr_achieved") && (() => {
-                      const rr = calcRRAchieved(t);
-                      const color = rr === null ? "" : rr >= 2 ? "text-emerald-400" : rr >= 1 ? "text-blue-400" : rr >= 0 ? "text-amber-400" : "text-red-400";
-                      return <td className={clsx("px-4 py-3 text-sm font-semibold", color)}>{rr !== null ? `${rr.toFixed(2)}R` : "—"}</td>;
-                    })()}
-                    {show("pct_return") && (() => {
-                      const pct = calcPercentReturn(t, accountSize ?? 10000);
-                      const color = pct === null ? "" : pct >= 0 ? "text-emerald-400" : "text-red-400";
-                      return <td className={clsx("px-4 py-3 text-sm font-semibold", color)}>{pct !== null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%` : "—"}</td>;
-                    })()}
-                    {show("cost_basis") && (
-                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm font-medium">
-                        {hidden ? "••••" : (costBasis ?? "—")}
-                      </td>
-                    )}
-                    {show("hold_duration") && (
-                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm">
-                        {formatHoldDuration(t.entry_date, t.exit_date) ?? "—"}
-                      </td>
-                    )}
-                    {show("rating") && (
-                      <td className="px-4 py-3">
-                        {t.rating ? (
-                          <div className="flex items-center gap-0.5">
-                            {[1,2,3,4,5].map(n => (
-                              <Star key={n} className={clsx("w-3 h-3", n <= t.rating! ? "text-amber-400 fill-amber-400" : "dark:text-slate-700 text-slate-300")} />
-                            ))}
-                          </div>
-                        ) : "—"}
-                      </td>
-                    )}
-                    {show("market_ctx") && (
-                      <td className="px-4 py-3 text-sm dark:text-slate-400 text-slate-500 capitalize">
-                        {t.market_context ? t.market_context.replace("_", " ") : "—"}
-                      </td>
-                    )}
-                    {show("potential") && (
-                      <td className="px-4 py-3">
-                        {pot ? (
-                          <div className="flex items-center gap-1.5">
-                            {pot.profit != null && <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-xs font-bold">+${pot.profit.toFixed(0)}</span>}
-                            {pot.loss != null && <span className="px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 text-xs font-bold">-${Math.abs(pot.loss).toFixed(0)}</span>}
-                          </div>
-                        ) : "—"}
-                      </td>
-                    )}
-                    {show("unrealized") && (
-                      <td className={clsx("px-4 py-3 font-semibold text-sm", liveColor)}>
-                        <span className="flex items-center gap-1.5">
-                          {livePnl !== null && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
-                          {hidden ? "••••" : (livePnl !== null ? `${livePnl >= 0 ? "+" : ""}$${livePnl.toFixed(2)}` : "—")}
-                        </span>
-                      </td>
-                    )}
-                    {show("commission") && (
-                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm">
-                        {t.commission != null ? `$${t.commission.toFixed(2)}` : "—"}
-                      </td>
-                    )}
-                    {show("risk") && (
-                      <td className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm">
-                        {t.risk_per_trade != null
-                          ? `${t.risk_per_trade}%`
-                          : defaultRiskPercent != null
-                            ? <span className="italic dark:text-slate-500 text-slate-400">{defaultRiskPercent}%</span>
-                            : "—"}
-                      </td>
-                    )}
-                    {show("date") && (
-                      <td className="px-4 py-3 dark:text-slate-500 text-slate-400 text-xs whitespace-nowrap">
-                        {t.entry_date ?? t.created_at.slice(0, 10)}
-                      </td>
-                    )}
-                    {show("notes") && (
-                      <td
-                        className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm max-w-[150px] truncate cursor-help"
-                        onMouseEnter={(e) => handleNoteEnter(e, t.notes || "")}
-                        onMouseLeave={handleNoteLeave}
-                      >
-                        {t.notes || "—"}
-                      </td>
-                    )}
-                    {show("mistakes") && (
-                      <td className="px-4 py-3">
-                        {mistakeTypes && mistakeTypes.length > 0 && t.mistake_tag_ids ? (() => {
-                          const mistakeIds = t.mistake_tag_ids?.split(",").filter(Boolean) ?? [];
-                          if (!mistakeIds.length) return <span className="dark:text-slate-600 text-slate-400 text-sm">—</span>;
+                    {headers.map(h => {
+                      const col = h.key;
+                      switch (col) {
+                        case "symbol":
                           return (
-                            <div className="flex flex-wrap gap-1">
-                              {mistakeIds.map(id => {
-                                const mt = mistakeTypes?.find(m => m.id === id);
-                                if (!mt) return null;
-                                return (
-                                  <span
-                                    key={id}
-                                    className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
-                                    style={{ backgroundColor: mt.color + "33", color: mt.color }}
-                                  >
-                                    {mt.name}
-                                  </span>
-                                );
-                              })}
-                            </div>
+                            <td key={col} className="px-4 py-3 font-bold text-violet-400 cursor-pointer hover:underline sticky left-0 z-10 dark:bg-slate-900 bg-white group-hover:dark:bg-slate-800/30 group-hover:bg-slate-50/50" onClick={() => onEdit(t)}>
+                              <span className="flex items-center gap-1.5">
+                                {t.symbol}
+                                {t.source === "ibkr" && <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-500/15 text-blue-400">IBKR</span>}
+                                <ChecklistRing checklistState={t.checklist_state} size={24} />
+                              </span>
+                            </td>
                           );
-                        })() : <span className="dark:text-slate-600 text-slate-400 text-xs">—</span>}
-                      </td>
-                    )}
+                        case "direction":
+                          return (
+                            <td key={col} className="px-4 py-3">
+                              <span className={clsx("px-2.5 py-1 rounded-md text-xs font-semibold ring-1 ring-inset", t.direction === "long" ? "bg-emerald-500/15 dark:text-white text-slate-900 ring-emerald-500/30" : "bg-red-500/15 dark:text-white text-slate-900 ring-red-500/30")}>
+                                {t.direction === "long" ? "Long" : "Short"}
+                              </span>
+                            </td>
+                          );
+                        case "status":
+                          return (
+                            <td key={col} className="px-4 py-3">
+                              <span className={clsx("px-2.5 py-1 rounded-md text-xs font-semibold ring-1 ring-inset", statusBadge.className)}>
+                                {statusBadge.label}
+                              </span>
+                            </td>
+                          );
+                        case "entry":
+                          return <td key={col} className="px-4 py-3 dark:text-slate-300 text-slate-700 font-medium text-sm">{t.entry_price ? `$${t.entry_price}` : "—"}</td>;
+                        case "stop":
+                          return <td key={col} className="px-4 py-3 text-red-400 font-medium text-sm">{t.stop_loss ? `$${t.stop_loss}` : "—"}</td>;
+                        case "target":
+                          return <td key={col} className="px-4 py-3 text-emerald-400 font-medium text-sm">{t.take_profit ? `$${t.take_profit}` : "—"}</td>;
+                        case "exit":
+                          return <td key={col} className="px-4 py-3 dark:text-slate-300 text-slate-700 font-medium text-sm">{t.exit_price ? `$${t.exit_price}` : "—"}</td>;
+                        case "shares":
+                          return <td key={col} className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm font-medium">{t.shares ?? "—"}</td>;
+                        case "pnl":
+                          return <td key={col} className={clsx("px-4 py-3 font-semibold text-sm", closedPnlColor)}>{hidden ? "••••" : (t.pnl !== null ? `${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}` : "—")}</td>;
+                        case "rr_achieved": {
+                          const rr = calcRRAchieved(t);
+                          const color = rr === null ? "" : rr >= 2 ? "text-emerald-400" : rr >= 1 ? "text-blue-400" : rr >= 0 ? "text-amber-400" : "text-red-400";
+                          return <td key={col} className={clsx("px-4 py-3 text-sm font-semibold", color)}>{rr !== null ? `${rr.toFixed(2)}R` : "—"}</td>;
+                        }
+                        case "pct_return": {
+                          const pct = calcPercentReturn(t, accountSize ?? 10000);
+                          const color = pct === null ? "" : pct >= 0 ? "text-emerald-400" : "text-red-400";
+                          return <td key={col} className={clsx("px-4 py-3 text-sm font-semibold", color)}>{pct !== null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%` : "—"}</td>;
+                        }
+                        case "cost_basis":
+                          return <td key={col} className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm font-medium">{hidden ? "••••" : (costBasis ?? "—")}</td>;
+                        case "hold_duration":
+                          return <td key={col} className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm">{formatHoldDuration(t.entry_date, t.exit_date) ?? "—"}</td>;
+                        case "rating":
+                          return (
+                            <td key={col} className="px-4 py-3">
+                              {t.rating ? (
+                                <div className="flex items-center gap-0.5">
+                                  {[1,2,3,4,5].map(n => (
+                                    <Star key={n} className={clsx("w-3 h-3", n <= t.rating! ? "text-amber-400 fill-amber-400" : "dark:text-slate-700 text-slate-300")} />
+                                  ))}
+                                </div>
+                              ) : "—"}
+                            </td>
+                          );
+                        case "market_ctx":
+                          return <td key={col} className="px-4 py-3 text-sm dark:text-slate-400 text-slate-500 capitalize">{t.market_context ? t.market_context.replace("_", " ") : "—"}</td>;
+                        case "potential":
+                          return (
+                            <td key={col} className="px-4 py-3">
+                              {pot ? (
+                                <div className="flex items-center gap-1.5">
+                                  {pot.profit != null && <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-xs font-bold">+${pot.profit.toFixed(0)}</span>}
+                                  {pot.loss != null && <span className="px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 text-xs font-bold">-${Math.abs(pot.loss).toFixed(0)}</span>}
+                                </div>
+                              ) : "—"}
+                            </td>
+                          );
+                        case "unrealized":
+                          return (
+                            <td key={col} className={clsx("px-4 py-3 font-semibold text-sm", liveColor)}>
+                              <span className="flex items-center gap-1.5">
+                                {livePnl !== null && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+                                {hidden ? "••••" : (livePnl !== null ? `${livePnl >= 0 ? "+" : ""}$${livePnl.toFixed(2)}` : "—")}
+                              </span>
+                            </td>
+                          );
+                        case "commission":
+                          return <td key={col} className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm">{t.commission != null ? `$${t.commission.toFixed(2)}` : "—"}</td>;
+                        case "risk":
+                          return (
+                            <td key={col} className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm">
+                              {t.risk_per_trade != null
+                                ? `${t.risk_per_trade}%`
+                                : defaultRiskPercent != null
+                                  ? <span className="italic dark:text-slate-500 text-slate-400">{defaultRiskPercent}%</span>
+                                  : "—"}
+                            </td>
+                          );
+                        case "date":
+                          return <td key={col} className="px-4 py-3 dark:text-slate-500 text-slate-400 text-xs whitespace-nowrap">{t.entry_date ?? t.created_at.slice(0, 10)}</td>;
+                        case "notes":
+                          return (
+                            <td key={col} className="px-4 py-3 dark:text-slate-400 text-slate-500 text-sm max-w-[150px] truncate cursor-help" onMouseEnter={(e) => handleNoteEnter(e, t.notes || "")} onMouseLeave={handleNoteLeave}>
+                              {t.notes || "—"}
+                            </td>
+                          );
+                        case "mistakes":
+                          return (
+                            <td key={col} className="px-4 py-3">
+                              {mistakeTypes && mistakeTypes.length > 0 && t.mistake_tag_ids ? (() => {
+                                const mistakeIds = t.mistake_tag_ids?.split(",").filter(Boolean) ?? [];
+                                if (!mistakeIds.length) return <span className="dark:text-slate-600 text-slate-400 text-sm">—</span>;
+                                return (
+                                  <div className="flex flex-wrap gap-1">
+                                    {mistakeIds.map(id => {
+                                      const mt = mistakeTypes?.find(m => m.id === id);
+                                      if (!mt) return null;
+                                      return (
+                                        <span key={id} className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase" style={{ backgroundColor: mt.color + "33", color: mt.color }}>
+                                          {mt.name}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })() : <span className="dark:text-slate-600 text-slate-400 text-xs">—</span>}
+                            </td>
+                          );
+                        default:
+                          return null;
+                      }
+                    })}
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
@@ -747,7 +738,7 @@ export default function TradeTable({
                           title="Open in TradingView"
                           aria-label="Open in TradingView"
                         >
-                          <ExternalLink className="w-4 h-4 dark:text-slate-400 text-slate-500" />
+                          <TradingViewIcon className="w-4 h-4 dark:text-slate-400 text-slate-500" />
                         </a>
                         {onSetAlert && (
                           <button
