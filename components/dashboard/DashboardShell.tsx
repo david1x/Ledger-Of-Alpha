@@ -30,7 +30,7 @@ import {
   useSensor, useSensors, DragEndEvent,
 } from "@dnd-kit/core";
 import {
-  SortableContext, rectSortingStrategy,
+  SortableContext,
   useSortable, arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -111,9 +111,11 @@ const DEFAULT_DIMS: Record<string, WidgetDims> = {
   "cumulative-dd": { w: 3, h: 1 },
   "symbol-pnl": { w: 3, h: 1 },
   "top-mistakes": { w: 3, h: 1 },
-  "risk-simulator": { w: 3, h: 1 },
+  "risk-simulator": { w: 3, h: 2 },
   "ai-insights": { w: 3, h: 1 },
   "ibkr-positions": { w: 3, h: 1 },
+  // Widgets that benefit from taller rows
+  "heatmap": { w: 1, h: 2 },
   // Former "medium" (2 cols) -> { w: 2, h: 1 }
   "win-pct": { w: 2, h: 1 },
   "avg-trade-pnl": { w: 2, h: 1 },
@@ -196,11 +198,12 @@ function getLayoutKey(accountId: string | null): string {
 }
 
 // ── Sortable widget card wrapper ────────────────────────────────────────
-function WidgetCard({ id, title, editMode, dims, onHide, onToggleSize, onResizeStart, children }: {
+function WidgetCard({ id, title, editMode, dims, isBeingResized, onHide, onToggleSize, onResizeStart, children }: {
   id: string;
   title: string;
   editMode: boolean;
   dims: WidgetDims;
+  isBeingResized: boolean;
   onHide: () => void;
   onToggleSize: () => void;
   onResizeStart: (e: React.PointerEvent, id: string, currentW: number, currentH: number) => void;
@@ -210,11 +213,14 @@ function WidgetCard({ id, title, editMode, dims, onHide, onToggleSize, onResizeS
     attributes, listeners, setNodeRef, transform, transition, isDragging,
   } = useSortable({ id });
 
+  const rowSpan = dims.h > 1 ? { gridRow: `span ${dims.h}` } : undefined;
+
   const style = editMode ? {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-  } : undefined;
+    ...rowSpan,
+  } : rowSpan;
 
   const spanClass = dims.w >= 6 ? "col-span-1 md:col-span-6"
     : dims.w >= 5 ? "col-span-1 md:col-span-5"
@@ -261,7 +267,11 @@ function WidgetCard({ id, title, editMode, dims, onHide, onToggleSize, onResizeS
         )}
       </div>
       <div className="flex-1 min-h-0">
-        {children}
+        {isBeingResized ? (
+          <div className="flex-1 h-full flex items-center justify-center dark:text-slate-500 text-slate-400 text-sm font-mono">
+            {dims.w} x {dims.h}
+          </div>
+        ) : children}
       </div>
       {editMode && (
         <div
@@ -424,7 +434,10 @@ export default function DashboardShell() {
                 dims[k] = { w, h: 1 };
               }
             } else if (parsed.dims) {
-              dims = parsed.dims as Record<string, WidgetDims>;
+              // Ensure each entry has w and h (backward compat)
+              for (const [k, v] of Object.entries(parsed.dims as Record<string, Partial<WidgetDims>>)) {
+                dims[k] = { w: v.w ?? 1, h: v.h ?? 1 };
+              }
             }
             setLayout({ order: merged, hidden: parsed.hidden ?? [], dims: { ...DEFAULT_DIMS, ...dims } });
           }
@@ -1281,15 +1294,20 @@ export default function DashboardShell() {
           </div>
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={visibleWidgets} strategy={rectSortingStrategy}>
-              <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-6 gap-3 relative">
+            <SortableContext items={visibleWidgets} strategy={undefined}>
+              <div ref={gridRef}
+                className={clsx("grid grid-cols-1 md:grid-cols-6 gap-3 relative", resizingId && "select-none")}
+                style={{ gridAutoRows: '200px' }}
+              >
                 {visibleWidgets.map(id => {
-                  const dims = layout.dims[id] ?? { w: 1, h: 1 };
+                  const d = layout.dims[id] ?? DEFAULT_DIMS[id] ?? { w: 1, h: 1 };
+                  const dims = { w: d.w ?? 1, h: d.h ?? 1 };
                   return (
                     <WidgetCard key={id} id={id}
                       title={WIDGET_MAP.get(id)?.title ?? id}
                       editMode={editMode}
                       dims={dims}
+                      isBeingResized={resizingId === id}
                       onHide={() => hideWidget(id)}
                       onToggleSize={() => toggleSize(id)}
                       onResizeStart={onResizeStart}

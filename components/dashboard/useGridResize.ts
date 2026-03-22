@@ -24,6 +24,7 @@ export function useGridResize({ gridRef, cols, gap, onResize }: UseGridResizeOpt
   const [resizingId, setResizingId] = useState<string | null>(null);
   const stateRef = useRef<ResizeState | null>(null);
   const currentWRef = useRef<number>(0);
+  const currentHRef = useRef<number>(0);
 
   const onResizeStart = useCallback((
     e: React.PointerEvent,
@@ -54,6 +55,7 @@ export function useGridResize({ gridRef, cols, gap, onResize }: UseGridResizeOpt
       rowPx,
     };
     currentWRef.current = currentW;
+    currentHRef.current = currentH;
     setResizingId(id);
 
     const onPointerMove = (ev: PointerEvent) => {
@@ -61,11 +63,15 @@ export function useGridResize({ gridRef, cols, gap, onResize }: UseGridResizeOpt
       if (!state) return;
 
       const deltaX = ev.clientX - state.startX;
-      const newW = Math.max(1, Math.min(cols, state.startW + Math.round(deltaX / (state.colPx + gap))));
+      const deltaY = ev.clientY - state.startY;
 
-      if (newW !== currentWRef.current) {
+      const newW = Math.max(1, Math.min(cols, state.startW + Math.round(deltaX / (state.colPx + gap))));
+      const newH = Math.max(1, Math.min(4, state.startH + Math.round(deltaY / state.rowPx)));
+
+      if (newW !== currentWRef.current || newH !== currentHRef.current) {
         currentWRef.current = newW;
-        onResize(state.id, { w: newW, h: state.startH });
+        currentHRef.current = newH;
+        onResize(state.id, { w: newW, h: newH });
       }
     };
 
