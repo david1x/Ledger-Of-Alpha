@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Dashboard Redesign
-status: in-progress
-stopped_at: Completed 27-01-PLAN.md
-last_updated: "2026-03-22T18:10:00.000Z"
+status: executing
+stopped_at: "Checkpoint: Task 2 human-verify for 27-02-PLAN.md"
+last_updated: "2026-03-22T18:53:19.072Z"
 last_activity: 2026-03-22 — Completed Plan 27-01 (data model migration + column resize approved by user)
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
   percent: 100
 ---
 
@@ -54,6 +54,9 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 - [Phase 27-01]: Use numeric { w, h } dims internally instead of string 'large'/'medium'/'compact' to support arbitrary column spans
 - [Phase 27-01]: handleResizePersist saves immediately to API on each column snap (discrete events, not continuous streams)
 - [Phase 27-01]: Safelist md:col-span-4/5/6 in Tailwind since these classes are generated dynamically
+- [Phase 27-02]: Row span clamped to [1, 4] max to prevent excessively tall cards
+- [Phase 27-02]: SortableContext strategy switched to undefined for variable-sized card DnD compatibility
+- [Phase 27-02]: gridAutoRows set to 200px; resize shows W x H placeholder to prevent Recharts thrashing
 
 ### Blockers/Concerns
 
@@ -66,6 +69,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T17:55:10.781Z
-Stopped at: Completed 27-01-PLAN.md
+Last session: 2026-03-22T18:53:19.069Z
+Stopped at: Checkpoint: Task 2 human-verify for 27-02-PLAN.md
 Resume file: None

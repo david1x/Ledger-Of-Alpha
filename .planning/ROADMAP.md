@@ -51,7 +51,7 @@ See [v3.0 Roadmap Archive](.planning/milestones/v3.0-ROADMAP.md) for details.
 ### v3.1 Dashboard Redesign
 
 - [x] **Phase 26: Top Bar and Card Redesign** - Navbar-style header with account stats, viewport-locked layout, unified card styling (completed 2026-03-22)
-- [ ] **Phase 27: Grid Resize System** - Drag-to-resize handles with column and row span snapping
+- [x] **Phase 27: Grid Resize System** - Drag-to-resize handles with column and row span snapping (completed 2026-03-22)
 - [ ] **Phase 28: Layout Persistence and Migration** - Save resized layouts and migrate templates to new schema
 
 ## Phase Details
@@ -80,7 +80,7 @@ Plans:
   2. User can drag to change card row span with grid-row snapping
   3. Resize handles are visible only when edit mode is active and hidden during normal viewing
   4. Layout data uses `{ w, h }` object format internally, and any saved layout in the old string format loads correctly without data loss
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 27-01-PLAN.md — Data model migration to {w,h} dims and column-span resize hook
 - [ ] 27-02-PLAN.md — Row-span resize and Recharts debounce
@@ -109,7 +109,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 26. Top Bar and Card Redesign | 2/2 | Complete    | 2026-03-22 |
-| 27. Grid Resize System | 1/2 | In Progress|  |
+| 27. Grid Resize System | 2/2 | Complete   | 2026-03-22 |
 | 28. Layout Persistence and Migration | 0/TBD | Not started | - |
 
 ---

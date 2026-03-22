@@ -23,7 +23,7 @@ Requirements for Dashboard Redesign milestone. Each maps to roadmap phases.
 ### Resize
 
 - [x] **RESIZE-01**: User can resize cards by dragging SE corner handle (column span, 1-6 cols)
-- [ ] **RESIZE-02**: User can resize card height by dragging (row span snapping)
+- [x] **RESIZE-02**: User can resize card height by dragging (row span snapping)
 - [x] **RESIZE-03**: Resize handles visible only in edit mode
 - [x] **RESIZE-04**: Layout schema migrated from string sizes to {w, h} with backward compatibility
 
@@ -61,7 +61,7 @@ Requirements for Dashboard Redesign milestone. Each maps to roadmap phases.
 | CARD-02 | Phase 26 | Complete |
 | CARD-03 | Phase 26 | Complete |
 | RESIZE-01 | Phase 27 | Complete (27-01) |
-| RESIZE-02 | Phase 27 | Pending |
+| RESIZE-02 | Phase 27 | Complete |
 | RESIZE-03 | Phase 27 | Complete (27-01) |
 | RESIZE-04 | Phase 27 | Complete (27-01) |
 | PERSIST-01 | Phase 28 | Pending |
