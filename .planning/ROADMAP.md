@@ -83,7 +83,7 @@ Plans:
 **Plans:** 2/2 plans complete
 Plans:
 - [x] 27-01-PLAN.md — Data model migration to {w,h} dims and column-span resize hook
-- [ ] 27-02-PLAN.md — Row-span resize and Recharts debounce
+- [x] 27-02-PLAN.md — Row-span resize and Recharts debounce
 
 ### Phase 28: Layout Persistence and Migration
 **Goal**: Resized layouts persist across sessions and existing templates work with the new format
@@ -93,7 +93,9 @@ Plans:
   1. User resizes cards, refreshes the page, and sees the same layout they left
   2. Previously saved layout templates load correctly with card sizes converted to the new schema
   3. Built-in default templates render correctly in the new format
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 28-01-PLAN.md — Extract migration helper and wire into template load/save paths
 
 ## Progress
 
@@ -104,13 +106,13 @@ Plans:
 | v2.1 | 12-17 | 10 | Complete | 2026-03-21 |
 | v2.3 | — | — | Complete | 2026-03-21 |
 | v3.0 | 18-25 | 15 | Complete | 2026-03-22 |
-| v3.1 | 26-28 | 4 | In progress | - |
+| v3.1 | 26-28 | 5 | In progress | - |
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 26. Top Bar and Card Redesign | 2/2 | Complete    | 2026-03-22 |
 | 27. Grid Resize System | 2/2 | Complete    | 2026-03-22 |
-| 28. Layout Persistence and Migration | 0/TBD | Not started | - |
+| 28. Layout Persistence and Migration | 0/1 | Not started | - |
 
 ---
-*Phase numbering continues across milestones. Next phase: 27.*
+*Phase numbering continues across milestones. Next phase: 29.*
