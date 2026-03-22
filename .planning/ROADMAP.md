@@ -68,7 +68,7 @@ See [v3.0 Roadmap Archive](.planning/milestones/v3.0-ROADMAP.md) for details.
   5. The page title, subtitle, and recent trades table widget are gone
 **Plans:** 2 plans
 Plans:
-- [ ] 26-01-PLAN.md — Top bar with inline account stats and viewport-locked layout
+- [x] 26-01-PLAN.md — Top bar with inline account stats and viewport-locked layout
 - [ ] 26-02-PLAN.md — Unified card styling (rounded-md borders, no shadows)
 
 ### Phase 27: Grid Resize System
@@ -105,7 +105,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 26. Top Bar and Card Redesign | 0/2 | Not started | - |
+| 26. Top Bar and Card Redesign | 1/2 | In progress | - |
 | 27. Grid Resize System | 0/TBD | Not started | - |
 | 28. Layout Persistence and Migration | 0/TBD | Not started | - |
 

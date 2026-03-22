@@ -9,10 +9,10 @@ Requirements for Dashboard Redesign milestone. Each maps to roadmap phases.
 
 ### Layout
 
-- [ ] **LAYOUT-01**: Dashboard has navbar-style top bar (h-16) with account balance, P&L, and win rate
-- [ ] **LAYOUT-02**: Layout controls (edit mode, save/load templates, time filter, privacy, refresh) in top navbar
-- [ ] **LAYOUT-03**: Page title and subtitle removed
-- [ ] **LAYOUT-04**: Dashboard is viewport-locked (no page scroll, grid scrolls independently)
+- [x] **LAYOUT-01**: Dashboard has navbar-style top bar (h-16) with account balance, P&L, and win rate
+- [x] **LAYOUT-02**: Layout controls (edit mode, save/load templates, time filter, privacy, refresh) in top navbar
+- [x] **LAYOUT-03**: Page title and subtitle removed
+- [x] **LAYOUT-04**: Dashboard is viewport-locked (no page scroll, grid scrolls independently)
 
 ### Cards
 
@@ -53,10 +53,10 @@ Requirements for Dashboard Redesign milestone. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LAYOUT-01 | Phase 26 | Pending |
-| LAYOUT-02 | Phase 26 | Pending |
-| LAYOUT-03 | Phase 26 | Pending |
-| LAYOUT-04 | Phase 26 | Pending |
+| LAYOUT-01 | Phase 26 | Complete (26-01) |
+| LAYOUT-02 | Phase 26 | Complete (26-01) |
+| LAYOUT-03 | Phase 26 | Complete (26-01) |
+| LAYOUT-04 | Phase 26 | Complete (26-01) |
 | CARD-01 | Phase 26 | Pending |
 | CARD-02 | Phase 26 | Pending |
 | CARD-03 | Phase 26 | Pending |

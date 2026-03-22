@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Dashboard Redesign
-status: planning
-stopped_at: Phase 26 context gathered
-last_updated: "2026-03-22T16:33:17.616Z"
-last_activity: 2026-03-22 — Roadmap created (3 phases, 13 requirements)
+status: in-progress
+stopped_at: "Completed 26-01-PLAN.md"
+last_updated: "2026-03-22T17:00:00.000Z"
+last_activity: 2026-03-22 — Completed Plan 26-01 (top bar and viewport lock)
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 10
 ---
 
 # Project State: Ledger Of Alpha
@@ -19,12 +19,12 @@ progress:
 ## Current Position
 
 Milestone: v3.1 Dashboard Redesign
-Phase: 26 of 28 (Top Bar and Card Redesign) — ready to plan
-Plan: —
-Status: Ready to plan Phase 26
-Last activity: 2026-03-22 — Roadmap created (3 phases, 13 requirements)
+Phase: 26 of 28 (Top Bar and Card Redesign) — Plan 01 complete
+Plan: 01 of 02 complete
+Status: In Progress — Plan 26-01 complete, ready for Plan 26-02
+Last activity: 2026-03-22 — Completed Plan 26-01 (top bar and viewport lock)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 10%
 
 ## Project Reference
 
@@ -47,6 +47,9 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 - Keep @dnd-kit + custom resize hook. Do not adopt react-grid-layout (migration cost disproportionate to gain).
 - Include `h` in data model from Phase 27 onward but do not expose row-height resize UI yet.
 - Debounce Recharts ResponsiveContainer during resize to prevent performance collapse.
+- Unified top bar design language: dashboard now matches trades page (h-16, same bg, same border, same escape pattern).
+- Account summary strip removed — content absorbed into top bar left side.
+- Page title and subtitle removed from dashboard — stats-rich top bar conveys context.
 
 ### Blockers/Concerns
 
@@ -59,6 +62,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T16:33:17.612Z
-Stopped at: Phase 26 context gathered
-Resume file: .planning/phases/26-top-bar-and-card-redesign/26-CONTEXT.md
+Last session: 2026-03-22T17:00:00.000Z
+Stopped at: Completed 26-01-PLAN.md
+Resume file: .planning/phases/26-top-bar-and-card-redesign/26-01-SUMMARY.md
