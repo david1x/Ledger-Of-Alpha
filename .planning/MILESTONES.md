@@ -1,5 +1,14 @@
 # Milestones
 
+## v3.0 Trades Page Overhaul (Shipped: 2026-03-22)
+
+**Phases completed:** 8 phases, 15 plans, 0 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
 ## v2.3 Verify URL Hotfix (Shipped: 2026-03-21)
 
 **Fix:** Email verification redirect used `req.url` (Docker internal hostname) instead of configured public URL.

@@ -33,28 +33,21 @@ Traders can track, analyze, and improve their trading through structured journal
 - ✓ Admin panel as single source of truth for runtime config (API keys, SMTP, App URL) — v2.1
 - ✓ Dashboard layout templates (saveable presets with built-in defaults) — v2.1
 - ✓ Strategy enhancements (built-in defaults, per-trade checklist editing, ad-hoc checklists, ChecklistRing) — v2.1
-
-## Current Milestone: v3.0 Trades Page Overhaul
-
-**Goal:** Transform the trades page into a powerful, filterable workspace with summary analytics, a mistakes system, and saved views.
-
-**Target features:**
-- Custom filter system (Symbol, Setup, Side, Mistake, Status, Account, Date Range, Custom Tags)
-- Active filter chips with clear, quick filter presets, saved named views
-- Summary stats bar (Cumulative Return, P/L Ratio, Win %) with sparklines
-- Enhanced trade table with status/side badges, mistakes column, column config
-- Mistakes tagging system (user-defined mistake types, per-trade tagging)
-- Right sidebar analytics (Account Performance, Setups P&L breakdown, Mistakes P&L breakdown)
+- ✓ Trades page filter system with uniform dropdown buttons, multi-select symbol checklist, saved views — v3.0
+- ✓ Summary stats bar (Cumulative Return, P/L Ratio, Win %) with dual-color sparklines — v3.0
+- ✓ Enhanced trade table (drag-reorder columns, mistake tagging, potential P&L pills, bigger fonts) — v3.0
+- ✓ Mistakes tagging system with auto-sync from settings, inline creation with presets — v3.0
+- ✓ Trades sidebar analytics (performance chart, setups breakdown, mistakes impact) — v3.0
+- ✓ Navbar locked to icon-only with custom hover tooltips — v3.0
+- ✓ Viewport-locked trades layout (no page scroll, independent table/sidebar scroll) — v3.0
 
 ### Active
 
-- [ ] Custom filter system with dropdown filters and active filter chips
-- [ ] Quick filter chips (Winners, Losers, This Week, This Month)
-- [ ] Saved named filter presets (save/load/delete)
-- [ ] Summary stats bar with sparklines (scoped to all trades unless date-filtered)
-- [ ] Enhanced trade table (status/side badges, net return $/%, cost, column config)
-- [ ] Mistakes tagging system with user-defined mistake types
-- [ ] Right sidebar with account performance, setups breakdown, mistakes breakdown
+(No active milestone — ready for next)
+
+### Out of Scope updates from v3.0
+
+- Filter chips removed by design — active filters indicated by colored buttons + Clear button
 
 ### Out of Scope
 
@@ -75,7 +68,8 @@ Traders can track, analyze, and improve their trading through structured journal
 - v1.0.0 shipped 2026-03-14 after 16 days and 7 phases
 - v2.0 shipped 2026-03-19 after 2 days and 4 phases (12 plans)
 - v2.1 shipped 2026-03-21 after 2 days and 6 phases (10 plans)
-- Codebase: ~23,650 LOC TypeScript (+2,100 net from v2.1), Next.js 15, SQLite, Recharts, lightweight-charts
+- v3.0 shipped 2026-03-22 after 1 day and 8 phases (15 plans)
+- Codebase: ~26,660 LOC TypeScript (+3,000 net from v3.0), Next.js 15, SQLite, Recharts, lightweight-charts
 - AI: Gemini 2.5 Flash via @google/generative-ai (settings key named `openai_api_key` — naming inconsistency)
 - Broker: IBKR Client Portal REST API (not TWS socket)
 - Monte Carlo: Web Worker with 1K iterations + 500ms debounce for in-modal preview
@@ -108,6 +102,11 @@ Traders can track, analyze, and improve their trading through structured journal
 | Per-account layout storage | Users want different layouts per account | ✓ Good — scoped keys with legacy fallback |
 | checklist_state column per-trade | Global strategies immutable; per-trade edits need own storage | ✓ Good — migration 022, backward compat |
 | getBaseUrl 5-level priority chain | Must work across npm dev, Docker, Cloudflare Tunnel | ✓ Good — zero-config in all environments |
+| Viewport-locked trades layout | Page scroll on trades page felt disconnected | ✓ Good — table + sidebar scroll independently |
+| Navbar permanently collapsed | Sidebar labels wasted space; icons + tooltips sufficient | ✓ Good — cleaner, more screen real estate |
+| Filter bar as sticky navbar | Filter chips were noisy; colored buttons are enough | ✓ Good — cleaner, always visible |
+| Auto-sync default_mistakes to mistake_types | Settings strings disconnected from DB-backed tagging | ✓ Good — bridges both systems on modal open |
+| Symbol color violet-400 | Green/red reserved for P&L; symbol needs distinct color | ✓ Good — clear visual hierarchy |
 
 ---
-*Last updated: 2026-03-21 after v3.0 milestone started*
+*Last updated: 2026-03-22 after v3.0 milestone*

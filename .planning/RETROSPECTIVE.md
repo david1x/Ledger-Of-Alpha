@@ -92,6 +92,51 @@
 
 ---
 
+## Milestone: v3.0 — Trades Page Overhaul
+
+**Shipped:** 2026-03-22
+**Phases:** 8 | **Plans:** 15 | **Timeline:** 1 day
+
+### What Was Built
+- Trades page filter system with uniform dropdown buttons, multi-select symbol checklist, saved filter views
+- Summary stats bar (Cumulative Return, P/L Ratio, Win %) with dual-color sparklines
+- Enhanced trade table with drag-reorder columns, mistake tagging, potential P&L pills, bigger fonts
+- Mistakes tagging system with auto-sync from settings, inline creation with common presets
+- Trades sidebar analytics (performance chart, setups breakdown with expand/collapse, mistakes impact)
+- Navbar locked to icon-only with custom hover tooltips (scale-in, 100ms)
+- Viewport-locked trades layout — no page scroll, independent table/sidebar scrolling
+- Direction/status badges redesigned as rounded-md with ring-1 inset, white text
+- Symbol color changed to violet-400 for clear P&L distinction
+
+### What Worked
+- Extensive post-phase UI polish in a single conversation — rapid iteration on layout, badges, colors, spacing
+- User-driven design iteration: 10+ rounds of feedback applied without breaking existing functionality
+- Auto-sync pattern for bridging settings-based strings with DB-backed mistake_types — eliminates data disconnect
+- Viewport-locked layout solved the page scroll problem cleanly with flex column + min-h-0
+
+### What Was Inefficient
+- Two disconnected mistake systems (default_mistakes strings vs mistake_types table) required bridge code — should have unified earlier
+- Multiple layout iterations (stats cards above vs inside table scroll) before landing on the right structure
+- Filter chips were built in phase 19, then removed in the post-phase polish — wasted effort
+
+### Patterns Established
+- Sticky filter navbar pattern: `-mx-6 -mt-6 px-6 h-16 border-b` to extend edge-to-edge
+- Dual-color sparklines: semantic line color + contrasting fill gradient
+- Badge design: `rounded-md ring-1 ring-inset` with white text over tinted bg
+- Custom tooltips: `scale-95 → scale-100 duration-100` with `ring-1 ring-slate-700/50`
+- Inline entity creation: "+ Add" dashed button expanding to input + color picker + presets
+
+### Key Lessons
+- Design decisions should be made before phase planning, not after — post-phase polish was effective but could have been planned
+- Two systems for the same data (settings strings vs DB rows) always causes confusion — unify immediately
+- Viewport-locked layouts need careful flex column setup: `h-screen overflow-hidden` on container, `flex-1 min-h-0` on scrollable sections
+
+### Cost Observations
+- Model mix: balanced profile (sonnet executors, opus orchestration)
+- Notable: 15 plans + extensive post-phase polish in 1 day — fastest milestone yet
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -101,6 +146,7 @@
 | v1.0.0 | 16 days | 7 | ~15 | Initial build, establishing patterns |
 | v2.0 | 2 days | 4 | 12 | Mature codebase, faster execution, AI/broker integration |
 | v2.1 | 2 days | 6 | 10 | Settings/polish — refactoring existing code, no new packages |
+| v3.0 | 1 day | 8 | 15 | Trades page overhaul — most plans in shortest time, heavy post-phase polish |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -109,3 +155,4 @@
 3. Settings persistence via key-value store scales well across features
 4. **Roadmap progress tracking is a recurring gap** — v2.0 Phase 9 and v2.1 Phase 13 both had stale progress tables (verified across 2 milestones)
 5. Documentation tracking lags implementation — traceability sweeps needed before milestone close
+6. **Unify data representations early** — two systems for the same concept (v3.0 mistakes) always causes confusion
