@@ -106,7 +106,7 @@ export default function WeeklyCalendar({ dailyPnl, dailyCounts, trades }: Props)
   const popupDayIndex = popupDate ? weekDays.findIndex(d => d.date === popupDate) : -1;
 
   return (
-    <div ref={containerRef} className="rounded-xl dark:bg-slate-900/80 bg-white px-4 py-3">
+    <div ref={containerRef} className="rounded-md border dark:border-slate-800 border-slate-200 dark:bg-slate-900/80 bg-white px-4 py-3">
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-2">
           <button onClick={() => { setWeekOffset(v => v - 1); setPopupDate(null); }}
@@ -133,7 +133,7 @@ export default function WeeklyCalendar({ dailyPnl, dailyCounts, trades }: Props)
           return (
             <button key={d.date}
               onClick={() => hasTrades ? setPopupDate(popupDate === d.date ? null : d.date) : undefined}
-              className={`rounded-xl px-2 py-2.5 text-center transition-all flex flex-col items-center justify-between min-h-[90px] relative ${
+              className={`rounded-md px-2 py-2.5 text-center transition-all flex flex-col items-center justify-between min-h-[90px] relative ${
                 popupDate === d.date
                   ? "ring-2 ring-emerald-500/50 dark:bg-slate-800 bg-slate-100 shadow-lg scale-[1.02] z-10"
                   : d.isToday
@@ -171,7 +171,7 @@ export default function WeeklyCalendar({ dailyPnl, dailyCounts, trades }: Props)
           <div
             ref={popupRef}
             onMouseLeave={() => setPopupDate(null)}
-            className="absolute z-50 top-full mt-2 w-72 rounded-xl border dark:border-slate-600 border-slate-200 dark:bg-slate-800 bg-white shadow-xl p-3"
+            className="absolute z-50 top-full mt-2 w-72 rounded-md border dark:border-slate-600 border-slate-200 dark:bg-slate-800 bg-white shadow-xl p-3"
             style={{
               left: popupDayIndex <= Math.floor(dayCount / 2)
                 ? `${(popupDayIndex / dayCount) * 100}%`
