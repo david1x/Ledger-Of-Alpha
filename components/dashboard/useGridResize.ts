@@ -5,7 +5,7 @@ export interface WidgetDims { w: number; h: number }
 
 interface UseGridResizeOptions {
   gridRef: React.RefObject<HTMLDivElement | null>;
-  cols: number;          // total grid columns (6)
+  cols: number;          // total grid columns (24)
   gap: number;           // gap in px (12 = gap-3)
   onResize: (id: string, dims: WidgetDims) => void;
 }

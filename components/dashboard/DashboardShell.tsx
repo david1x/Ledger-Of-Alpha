@@ -956,6 +956,7 @@ export default function DashboardShell() {
       order: [...DEFAULT_ORDER],
       hidden: [...DEFAULT_HIDDEN],
       dims: { ...DEFAULT_DIMS },
+      _gridScale: GRID_COLS,
     };
     saveLayout(defaultLayout, true);
   };
@@ -1218,7 +1219,7 @@ export default function DashboardShell() {
 
           {/* Utility group */}
           <div className="flex items-center gap-1 p-1 rounded-2xl dark:bg-slate-800 bg-slate-200/50 border dark:border-slate-700 border-slate-200 shadow-sm">
-            <button onClick={() => setEditMode(!editMode)}
+            <button onClick={() => editMode ? finishEdit() : setEditMode(true)}
               className={clsx(
                 "flex items-center justify-center h-7 w-7 sm:h-8 sm:w-8 rounded-xl transition-colors",
                 editMode ? "bg-emerald-500 text-white" : "hover:dark:bg-slate-700 hover:bg-white text-slate-500"
