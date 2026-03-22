@@ -138,6 +138,7 @@ interface DashboardLayout {
   order: string[];
   hidden: string[];
   dims: Record<string, WidgetDims>;
+  _gridScale?: number; // 24 = current 24-col scale; absent = needs migration
 }
 
 export interface LayoutTemplate {
@@ -342,7 +343,7 @@ export default function DashboardShell() {
 
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [editMode, setEditMode] = useState(false);
-  const [layout, setLayout] = useState<DashboardLayout>({ order: DEFAULT_ORDER, hidden: DEFAULT_HIDDEN, dims: { ...DEFAULT_DIMS } });
+  const [layout, setLayout] = useState<DashboardLayout>({ order: DEFAULT_ORDER, hidden: DEFAULT_HIDDEN, dims: { ...DEFAULT_DIMS }, _gridScale: GRID_COLS });
   const gridRef = useRef<HTMLDivElement | null>(null);
   const { hidden, toggleHidden } = usePrivacy();
   const [templates, setTemplates] = useState<LayoutTemplate[]>([]);
@@ -428,15 +429,22 @@ export default function DashboardShell() {
                 dims[k] = { w, h: 4 };
               }
             } else if (parsed.dims) {
-              // Detect scale: maxW ≤ 6 = old 6-col (×4), ≤ 12 = old 12-col (×2), else 24-col
-              const entries = Object.entries(parsed.dims as Record<string, Partial<WidgetDims>>);
-              const maxW = Math.max(0, ...entries.map(([, v]) => v.w ?? 1));
-              const scale = maxW <= 6 ? 4 : maxW <= 12 ? 2 : 1;
-              for (const [k, v] of entries) {
-                dims[k] = { w: (v.w ?? 1) * scale, h: (v.h ?? 1) * scale };
+              if (parsed._gridScale === GRID_COLS) {
+                // Already 24-col scale — use as-is
+                for (const [k, v] of Object.entries(parsed.dims as Record<string, Partial<WidgetDims>>)) {
+                  dims[k] = { w: v.w ?? 4, h: v.h ?? 4 };
+                }
+              } else {
+                // Legacy: detect scale by max value — maxW ≤ 6 = old 6-col (×4), ≤ 12 = old 12-col (×2)
+                const entries = Object.entries(parsed.dims as Record<string, Partial<WidgetDims>>);
+                const maxW = Math.max(0, ...entries.map(([, v]) => v.w ?? 1));
+                const scale = maxW <= 6 ? 4 : maxW <= 12 ? 2 : 1;
+                for (const [k, v] of entries) {
+                  dims[k] = { w: (v.w ?? 1) * scale, h: (v.h ?? 1) * scale };
+                }
               }
             }
-            setLayout({ order: merged, hidden: parsed.hidden ?? [], dims: { ...DEFAULT_DIMS, ...dims } });
+            setLayout({ order: merged, hidden: parsed.hidden ?? [], dims: { ...DEFAULT_DIMS, ...dims }, _gridScale: GRID_COLS });
           }
         } catch { /* keep defaults */ }
       }
@@ -509,14 +517,15 @@ export default function DashboardShell() {
 
   // ── Layout persistence ──────────────────────────────────────────────
   const saveLayout = useCallback((newLayout: DashboardLayout, immediate = false) => {
-    setLayout(newLayout);
+    const stamped = { ...newLayout, _gridScale: GRID_COLS };
+    setLayout(stamped);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     const doSave = () => {
       if (me && !me.guest) {
         fetch("/api/settings", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ [getLayoutKey(activeAccountId)]: JSON.stringify(newLayout) }),
+          body: JSON.stringify({ [getLayoutKey(activeAccountId)]: JSON.stringify(stamped) }),
         });
       }
     };
@@ -857,8 +866,7 @@ export default function DashboardShell() {
   // ── Resize ────────────────────────────────────────────────────────
   const handleResizePersist = useCallback((id: string, newDims: WidgetDims) => {
     setLayout(prev => {
-      const updated = { ...prev, dims: { ...prev.dims, [id]: newDims } };
-      // Immediately save on resize
+      const updated = { ...prev, dims: { ...prev.dims, [id]: newDims }, _gridScale: GRID_COLS };
       if (me && !me.guest) {
         fetch("/api/settings", {
           method: "PUT",
