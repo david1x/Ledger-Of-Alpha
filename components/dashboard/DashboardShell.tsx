@@ -105,28 +105,34 @@ const DEFAULT_ORDER = [
 ];
 const DEFAULT_HIDDEN = ["dist-weekday", "dist-hour", "dist-month", "strategy-perf", "risk-simulator", "ai-insights", "perf-hour", "ibkr-positions"] as string[];
 
+// 12-column grid with 100px rows — w/h in grid units (half-step granularity)
+const GRID_COLS = 12;
+const GRID_ROW_PX = 100;
+const GRID_GAP = 12;
+const MAX_H = 8;
+
 const DEFAULT_DIMS: Record<string, WidgetDims> = {
-  // Former "large" (3 cols) -> { w: 3, h: 1 }
-  "cumulative-pnl": { w: 3, h: 1 },
-  "cumulative-dd": { w: 3, h: 1 },
-  "symbol-pnl": { w: 3, h: 1 },
-  "top-mistakes": { w: 3, h: 1 },
-  "risk-simulator": { w: 3, h: 2 },
-  "ai-insights": { w: 3, h: 1 },
-  "ibkr-positions": { w: 3, h: 1 },
-  // Widgets that benefit from taller rows
-  "heatmap": { w: 1, h: 2 },
-  // Former "medium" (2 cols) -> { w: 2, h: 1 }
-  "win-pct": { w: 2, h: 1 },
-  "avg-trade-pnl": { w: 2, h: 1 },
-  "daily-volume": { w: 2, h: 1 },
-  "perf-day-of-week": { w: 2, h: 1 },
-  "perf-month": { w: 2, h: 1 },
-  "perf-symbol": { w: 2, h: 1 },
-  "perf-duration": { w: 2, h: 1 },
-  "perf-price": { w: 2, h: 1 },
-  "tag-breakdown": { w: 2, h: 1 },
-  // Former "compact" (1 col) -> { w: 1, h: 1 } -- omit since fallback is { w: 1, h: 1 }
+  // Large widgets (6 of 12 cols)
+  "cumulative-pnl": { w: 6, h: 2 },
+  "cumulative-dd": { w: 6, h: 2 },
+  "symbol-pnl": { w: 6, h: 2 },
+  "top-mistakes": { w: 6, h: 2 },
+  "risk-simulator": { w: 6, h: 4 },
+  "ai-insights": { w: 6, h: 2 },
+  "ibkr-positions": { w: 6, h: 2 },
+  // Heatmap — needs vertical space
+  "heatmap": { w: 2, h: 4 },
+  // Medium widgets (4 of 12 cols)
+  "win-pct": { w: 4, h: 2 },
+  "avg-trade-pnl": { w: 4, h: 2 },
+  "daily-volume": { w: 4, h: 2 },
+  "perf-day-of-week": { w: 4, h: 2 },
+  "perf-month": { w: 4, h: 2 },
+  "perf-symbol": { w: 4, h: 2 },
+  "perf-duration": { w: 4, h: 2 },
+  "perf-price": { w: 4, h: 2 },
+  "tag-breakdown": { w: 4, h: 2 },
+  // Compact widgets (2 of 12 cols) — omit since fallback is { w: 2, h: 2 }
 };
 
 type TimeFilter = 30 | 60 | 90 | "all";
@@ -180,14 +186,14 @@ const DEFAULT_BUILT_IN_TEMPLATES: BuiltInTemplate[] = [
         'heatmap', 'total-return', 'total-trades', 'profit-factor',
       ].includes(w)),
       dims: {
-        'daily-loss-status': { w: 1, h: 1 },
-        'fear-greed': { w: 1, h: 1 },
-        'vix': { w: 1, h: 1 },
-        'market-overview': { w: 1, h: 1 },
-        'heatmap': { w: 1, h: 1 },
-        'total-return': { w: 1, h: 1 },
-        'total-trades': { w: 1, h: 1 },
-        'profit-factor': { w: 1, h: 1 },
+        'daily-loss-status': { w: 3, h: 2 },
+        'fear-greed': { w: 3, h: 2 },
+        'vix': { w: 3, h: 2 },
+        'market-overview': { w: 3, h: 2 },
+        'heatmap': { w: 3, h: 2 },
+        'total-return': { w: 3, h: 2 },
+        'total-trades': { w: 3, h: 2 },
+        'profit-factor': { w: 3, h: 2 },
       },
     },
   },
@@ -213,32 +219,26 @@ function WidgetCard({ id, title, editMode, dims, isBeingResized, onHide, onToggl
     attributes, listeners, setNodeRef, transform, transition, isDragging,
   } = useSortable({ id });
 
-  const rowSpan = dims.h > 1 ? { gridRow: `span ${dims.h}` } : undefined;
+  const gridStyle: React.CSSProperties = {
+    gridColumn: `span ${Math.min(dims.w, GRID_COLS)}`,
+    gridRow: `span ${dims.h}`,
+    ...(editMode ? {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    } : {}),
+  };
 
-  const style = editMode ? {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    ...rowSpan,
-  } : rowSpan;
-
-  const spanClass = dims.w >= 6 ? "col-span-1 md:col-span-6"
-    : dims.w >= 5 ? "col-span-1 md:col-span-5"
-    : dims.w >= 4 ? "col-span-1 md:col-span-4"
-    : dims.w >= 3 ? "col-span-1 md:col-span-3"
-    : dims.w >= 2 ? "col-span-1 md:col-span-2"
-    : "col-span-1";
-
-  // Size label for display: 3+ = L, 2 = M, 1 = C
-  const sizeLabel = dims.w >= 3 ? "L" : dims.w >= 2 ? "M" : "C";
-  const showExpand = dims.w <= 1;
+  // Size label for display: 5+ = L, 3-4 = M, 1-2 = C
+  const sizeLabel = dims.w >= 5 ? "L" : dims.w >= 3 ? "M" : "C";
+  const showExpand = dims.w <= 2;
 
   return (
-    <div ref={setNodeRef} style={style} data-widget-id={id}
-      className={`relative rounded-md border dark:border-slate-800 border-slate-200 dark:bg-slate-800/50 bg-white p-3 flex flex-col ${spanClass}`}
+    <div ref={setNodeRef} style={gridStyle} data-widget-id={id}
+      className="relative rounded-md border dark:border-slate-800 border-slate-200 dark:bg-slate-800/50 bg-white p-3 flex flex-col overflow-hidden"
     >
       <div className="flex items-center justify-between mb-2 shrink-0">
-        <h3 className="text-sm font-semibold dark:text-white text-slate-900">{title}</h3>
+        <h3 className="text-sm font-semibold dark:text-white text-slate-900 truncate">{title}</h3>
         {editMode && (
           <div className="flex items-center gap-1">
             <button onClick={onToggleSize}
@@ -266,7 +266,7 @@ function WidgetCard({ id, title, editMode, dims, isBeingResized, onHide, onToggl
           </div>
         )}
       </div>
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-hidden">
         {isBeingResized ? (
           <div className="flex-1 h-full flex items-center justify-center dark:text-slate-500 text-slate-400 text-sm font-mono">
             {dims.w} x {dims.h}
@@ -428,15 +428,20 @@ export default function DashboardShell() {
             // Migrate old "sizes" field (string format) to "dims" ({ w, h } format)
             let dims: Record<string, WidgetDims> = {};
             if (parsed.sizes && !parsed.dims) {
-              // Old format: sizes is Record<string, string>
+              // Old format: sizes is Record<string, string> — map to 12-col scale
               for (const [k, v] of Object.entries(parsed.sizes as Record<string, string>)) {
-                const w = v === "large" || v === "normal" ? 3 : v === "medium" ? 2 : 1;
-                dims[k] = { w, h: 1 };
+                const w = v === "large" || v === "normal" ? 6 : v === "medium" ? 4 : 2;
+                dims[k] = { w, h: 2 };
               }
             } else if (parsed.dims) {
-              // Ensure each entry has w and h (backward compat)
-              for (const [k, v] of Object.entries(parsed.dims as Record<string, Partial<WidgetDims>>)) {
-                dims[k] = { w: v.w ?? 1, h: v.h ?? 1 };
+              // Detect old 6-col scale (max w ≤ 6 and values are small) and upscale to 12-col
+              const entries = Object.entries(parsed.dims as Record<string, Partial<WidgetDims>>);
+              const maxW = Math.max(0, ...entries.map(([, v]) => v.w ?? 1));
+              const isOldScale = maxW <= 6;
+              for (const [k, v] of entries) {
+                const rawW = v.w ?? 1;
+                const rawH = v.h ?? 1;
+                dims[k] = isOldScale ? { w: rawW * 2, h: rawH * 2 } : { w: rawW, h: rawH };
               }
             }
             setLayout({ order: merged, hidden: parsed.hidden ?? [], dims: { ...DEFAULT_DIMS, ...dims } });
@@ -455,14 +460,19 @@ export default function DashboardShell() {
           const merged = DEFAULT_BUILT_IN_TEMPLATES.map(t => {
             const override = parsed[t.id];
             if (!override) return t;
-            // Support both dims (new) and sizes (old) in overrides
+            // Support both dims (new) and sizes (old) in overrides — upscale to 12-col
             let dims: Record<string, WidgetDims> = {};
             if (override.dims) {
-              dims = override.dims;
+              const entries = Object.entries(override.dims);
+              const maxW = Math.max(0, ...entries.map(([, v]) => v.w ?? 1));
+              const isOldScale = maxW <= 6;
+              for (const [k, v] of entries) {
+                dims[k] = isOldScale ? { w: (v.w ?? 1) * 2, h: (v.h ?? 1) * 2 } : { w: v.w ?? 2, h: v.h ?? 2 };
+              }
             } else if (override.sizes) {
               for (const [k, v] of Object.entries(override.sizes)) {
-                const w = v === "large" || v === "normal" ? 3 : v === "medium" ? 2 : 1;
-                dims[k] = { w, h: 1 };
+                const w = v === "large" || v === "normal" ? 6 : v === "medium" ? 4 : 2;
+                dims[k] = { w, h: 2 };
               }
             }
             return { ...t, layout: { order: override.order, hidden: override.hidden, dims } };
@@ -870,8 +880,8 @@ export default function DashboardShell() {
 
   const { resizingId, onResizeStart } = useGridResize({
     gridRef,
-    cols: 6,
-    gap: 12,
+    cols: GRID_COLS,
+    gap: GRID_GAP,
     onResize: handleResizePersist,
   });
 
@@ -900,9 +910,9 @@ export default function DashboardShell() {
   };
 
   const toggleSize = (id: string) => {
-    const current = layout.dims[id] ?? { w: 3, h: 1 };
-    // Cycle w: 3 -> 2 -> 1 -> 3
-    const nextW = current.w >= 3 ? 2 : current.w >= 2 ? 1 : 3;
+    const current = layout.dims[id] ?? { w: 2, h: 2 };
+    // Cycle w: 6 -> 4 -> 2 -> 6 (large -> medium -> compact -> large)
+    const nextW = current.w >= 6 ? 4 : current.w >= 4 ? 2 : 6;
     const newDims = { ...layout.dims, [id]: { ...current, w: nextW } };
     saveLayout({ ...layout, dims: newDims });
   };
@@ -953,11 +963,11 @@ export default function DashboardShell() {
 
   // ── Helper to map dims.w to legacy size hint for widget components ──
   function dimsToSize(w: number): "large" | "medium" | "compact" {
-    return w >= 3 ? "large" : w >= 2 ? "medium" : "compact";
+    return w >= 5 ? "large" : w >= 3 ? "medium" : "compact";
   }
 
   // ── Render widget by ID ───────────────────────────────────────────
-  function renderWidget(id: string, dims: WidgetDims = { w: 3, h: 1 }) {
+  function renderWidget(id: string, dims: WidgetDims = { w: 6, h: 2 }) {
     const size = dimsToSize(dims.w);
     const isProfit = cumulativeData.length > 0 && cumulativeData[cumulativeData.length - 1].value >= 0;
     const maxDd = drawdownData.length > 0 ? Math.min(...drawdownData.map(d => d.value), 0) : 0;
@@ -1296,12 +1306,12 @@ export default function DashboardShell() {
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={visibleWidgets} strategy={undefined}>
               <div ref={gridRef}
-                className={clsx("grid grid-cols-1 md:grid-cols-6 gap-3 relative", resizingId && "select-none")}
-                style={{ gridAutoRows: '200px' }}
+                className={clsx("grid grid-cols-1 md:grid-cols-12 gap-3 relative", resizingId && "select-none")}
+                style={{ gridAutoRows: `${GRID_ROW_PX}px` }}
               >
                 {visibleWidgets.map(id => {
-                  const d = layout.dims[id] ?? DEFAULT_DIMS[id] ?? { w: 1, h: 1 };
-                  const dims = { w: d.w ?? 1, h: d.h ?? 1 };
+                  const d = layout.dims[id] ?? DEFAULT_DIMS[id] ?? { w: 2, h: 2 };
+                  const dims = { w: d.w ?? 2, h: d.h ?? 2 };
                   return (
                     <WidgetCard key={id} id={id}
                       title={WIDGET_MAP.get(id)?.title ?? id}

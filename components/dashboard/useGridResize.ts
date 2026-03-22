@@ -66,7 +66,7 @@ export function useGridResize({ gridRef, cols, gap, onResize }: UseGridResizeOpt
       const deltaY = ev.clientY - state.startY;
 
       const newW = Math.max(1, Math.min(cols, state.startW + Math.round(deltaX / (state.colPx + gap))));
-      const newH = Math.max(1, Math.min(4, state.startH + Math.round(deltaY / state.rowPx)));
+      const newH = Math.max(1, Math.min(8, state.startH + Math.round(deltaY / state.rowPx)));
 
       if (newW !== currentWRef.current || newH !== currentHRef.current) {
         currentWRef.current = newW;
