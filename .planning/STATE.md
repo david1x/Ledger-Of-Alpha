@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Dashboard Redesign
 status: executing
-stopped_at: "Checkpoint: Task 2 human-verify for 27-02-PLAN.md"
-last_updated: "2026-03-22T18:53:19.072Z"
+stopped_at: Completed 27-02-PLAN.md
+last_updated: "2026-03-22T20:50:52.322Z"
 last_activity: 2026-03-22 — Completed Plan 27-01 (data model migration + column resize approved by user)
 progress:
   total_phases: 3
@@ -57,6 +57,9 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 - [Phase 27-02]: Row span clamped to [1, 4] max to prevent excessively tall cards
 - [Phase 27-02]: SortableContext strategy switched to undefined for variable-sized card DnD compatibility
 - [Phase 27-02]: gridAutoRows set to 200px; resize shows W x H placeholder to prevent Recharts thrashing
+- [Phase 27-02]: Switched to 24-column grid for finer resize granularity with half-step increments
+- [Phase 27-02]: DragOverlay replaces in-place SortableContext rendering to prevent grid reflow during drag
+- [Phase 27-02]: _gridScale version marker prevents layout migration loop on page reload
 
 ### Blockers/Concerns
 
@@ -69,6 +72,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T18:53:19.069Z
-Stopped at: Checkpoint: Task 2 human-verify for 27-02-PLAN.md
+Last session: 2026-03-22T20:50:52.319Z
+Stopped at: Completed 27-02-PLAN.md
 Resume file: None
