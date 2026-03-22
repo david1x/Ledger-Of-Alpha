@@ -90,7 +90,7 @@ All API routes live under `app/api/`. Key patterns:
 - **No filter chips**: Active filters indicated by colored dropdown buttons; "Clear" button appears when any filter is active.
 - **Stats cards**: Full-width row of 3 cards (Cumulative Return, P/L Ratio, Win %) with dual-color sparklines (line + fill use different colors).
 - **Table + Sidebar**: Flex row filling remaining viewport height. Table scrolls vertically and horizontally independently. No page-level scroll.
-- **Stats sidebar**: 430px wide, always visible (no collapse toggle), top aligned with trade table frame. Setups panel limited to 7 items with "Show more" expand button.
+- **Stats sidebar**: 430px wide, always visible (no collapse toggle), top aligned with trade table frame. Cards fill full width (no horizontal padding). Gap to table is `pl-3` matching the `gap-3` between top stat cards. Setups panel limited to 7 items with "Show more" expand button.
 - **Trade table**: Font size `text-sm` for data cells. Direction/status badges use `rounded-md ring-1 ring-inset` with white text. Symbol color is `text-violet-400`.
 - **Column config cog**: Floating at top-right of table, overlapping the header row.
 

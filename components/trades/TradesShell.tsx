@@ -383,8 +383,8 @@ export default function TradesShell() {
         </div>
 
         {/* Desktop sidebar — always visible, aligned with table top, vertical scroll only */}
-        <aside className="hidden lg:block shrink-0 pl-4 overflow-y-auto overflow-x-hidden">
-          <div className="w-[430px] px-3 pb-3 space-y-3">
+        <aside className="hidden lg:block shrink-0 pl-3 overflow-y-auto overflow-x-hidden">
+          <div className="w-[430px] pb-3 space-y-3">
             <TradesSidebar
               filteredTrades={filteredTrades}
               mistakeTypes={mistakeTypes}
