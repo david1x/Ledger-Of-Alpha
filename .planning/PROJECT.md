@@ -43,7 +43,16 @@ Traders can track, analyze, and improve their trading through structured journal
 
 ### Active
 
-(No active milestone — ready for next)
+## Current Milestone: v3.1 Dashboard Redesign
+
+**Goal:** Redesign the analytics dashboard to match the trades page design language with grid-based resizable cards, navbar-style controls, and unified visual style.
+
+**Target features:**
+- Navbar-style top bar with account stats (balance, P&L, win%) and layout controls
+- Grid-based card resize (column span + row span snapping)
+- Card design matching trades page style (borders, bg, fonts, rounded-md)
+- Remove page title/subtitle and recent trades table
+- All-grid card layout with full user arrangement
 
 ### Out of Scope updates from v3.0
 
@@ -109,4 +118,4 @@ Traders can track, analyze, and improve their trading through structured journal
 | Symbol color violet-400 | Green/red reserved for P&L; symbol needs distinct color | ✓ Good — clear visual hierarchy |
 
 ---
-*Last updated: 2026-03-22 after v3.0 milestone*
+*Last updated: 2026-03-22 after v3.1 milestone start*
