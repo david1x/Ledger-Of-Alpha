@@ -81,22 +81,13 @@ const ALL_WIDGETS = [
 const WIDGET_MAP = new Map<string, { id: string; title: string }>(ALL_WIDGETS.map(w => [w.id, w]));
 
 const DEFAULT_ORDER = [
-  // Row 1 (3+1+1+1=6): Hero chart + market gauges
   "cumulative-pnl", "fear-greed", "vix", "market-overview",
-  // Row 2 (1+1+1+1+1+1=6): Heatmap + key stats
   "heatmap", "total-return", "profit-factor", "total-trades", "win-vs-loss", "avg-win-vs-loss",
-  // Row 3 (3+3=6): Drawdown + symbol breakdown
   "cumulative-dd", "symbol-pnl",
-  // Row 4 (2+2+2=6): Secondary charts
   "win-pct", "avg-trade-pnl", "daily-volume",
-  // Row 5 (1+1+1+1+1+1=6): Comparisons + streaks
-  "largest-gain-loss", "hold-time", "max-consec-wins", "max-consec-losses", "avg-rr", "avg-rating",
-  // Row 6 (1+1+1+3=6): Quick stats + mistakes
-  "daily-loss-status", "total-fees", "avg-daily-volume", "top-mistakes",
-  // Row 7 (2+2+2=6): Performance tables
-  "perf-day-of-week", "perf-month", "perf-symbol",
-  // Row 8 (2+2+2=6): Performance tables continued
-  "perf-duration", "perf-price", "tag-breakdown",
+  "largest-gain-loss", "total-fees", "hold-time", "max-consec-wins", "max-consec-losses",
+  "daily-loss-status", "perf-price", "perf-day-of-week", "avg-rr", "avg-daily-volume",
+  "perf-symbol", "top-mistakes", "perf-duration", "tag-breakdown", "perf-month", "avg-rating",
   // Hidden by default
   "dist-weekday", "dist-hour", "dist-month", "strategy-perf", "risk-simulator", "ai-insights", "perf-hour", "ibkr-positions",
 ];
@@ -109,27 +100,36 @@ const GRID_GAP = 8;
 const MAX_H = 16;
 
 const DEFAULT_DIMS: Record<string, WidgetDims> = {
-  // Large widgets (12 of 24 cols, 4 rows = 200px+)
   "cumulative-pnl": { w: 12, h: 4 },
-  "cumulative-dd": { w: 12, h: 4 },
-  "symbol-pnl": { w: 12, h: 4 },
-  "top-mistakes": { w: 12, h: 4 },
+  "cumulative-dd": { w: 6, h: 4 },
+  "symbol-pnl": { w: 5, h: 4 },
+  "top-mistakes": { w: 4, h: 3 },
   "risk-simulator": { w: 12, h: 8 },
   "ai-insights": { w: 12, h: 4 },
   "ibkr-positions": { w: 12, h: 4 },
-  // Heatmap — needs vertical space
-  "heatmap": { w: 4, h: 8 },
-  // Medium widgets (8 of 24 cols)
-  "win-pct": { w: 8, h: 4 },
-  "avg-trade-pnl": { w: 8, h: 4 },
-  "daily-volume": { w: 8, h: 4 },
-  "perf-day-of-week": { w: 8, h: 4 },
-  "perf-month": { w: 8, h: 4 },
-  "perf-symbol": { w: 8, h: 4 },
-  "perf-duration": { w: 8, h: 4 },
-  "perf-price": { w: 8, h: 4 },
-  "tag-breakdown": { w: 8, h: 4 },
-  // Compact widgets (4 of 24 cols) — omit since fallback is { w: 4, h: 4 }
+  "heatmap": { w: 4, h: 5 },
+  "win-pct": { w: 6, h: 4 },
+  "avg-trade-pnl": { w: 6, h: 4 },
+  "daily-volume": { w: 5, h: 4 },
+  "perf-day-of-week": { w: 5, h: 4 },
+  "perf-month": { w: 4, h: 4 },
+  "perf-symbol": { w: 6, h: 5 },
+  "perf-duration": { w: 5, h: 4 },
+  "perf-price": { w: 3, h: 6 },
+  "tag-breakdown": { w: 6, h: 5 },
+  "profit-factor": { w: 3, h: 3 },
+  "total-return": { w: 3, h: 3 },
+  "total-trades": { w: 3, h: 3 },
+  "win-vs-loss": { w: 3, h: 2 },
+  "avg-win-vs-loss": { w: 3, h: 2 },
+  "hold-time": { w: 3, h: 2 },
+  "largest-gain-loss": { w: 4, h: 2 },
+  "max-consec-wins": { w: 3, h: 3 },
+  "max-consec-losses": { w: 3, h: 3 },
+  "avg-rr": { w: 3, h: 3 },
+  "avg-daily-volume": { w: 3, h: 3 },
+  "total-fees": { w: 3, h: 3 },
+  "avg-rating": { w: 3, h: 3 },
 };
 
 type TimeFilter = 30 | 60 | 90 | "all";
