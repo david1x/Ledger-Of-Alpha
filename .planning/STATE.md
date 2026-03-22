@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Dashboard Redesign
-status: defining_requirements
+status: ready_to_plan
 stopped_at: null
 last_updated: "2026-03-22"
-last_activity: "2026-03-22 — Milestone v3.1 started"
+last_activity: "2026-03-22 — Roadmap created (3 phases, 13 requirements)"
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -19,10 +19,10 @@ progress:
 ## Current Position
 
 Milestone: v3.1 Dashboard Redesign
-Phase: Not started (defining requirements)
+Phase: 26 of 28 (Top Bar and Card Redesign) — ready to plan
 Plan: —
-Status: Defining requirements
-Last activity: 2026-03-22 — Milestone v3.1 started
+Status: Ready to plan Phase 26
+Last activity: 2026-03-22 — Roadmap created (3 phases, 13 requirements)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -44,11 +44,14 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 
 ### Decisions
 
-(None yet for v3.1)
+- Keep @dnd-kit + custom resize hook. Do not adopt react-grid-layout (migration cost disproportionate to gain).
+- Include `h` in data model from Phase 27 onward but do not expose row-height resize UI yet.
+- Debounce Recharts ResponsiveContainer during resize to prevent performance collapse.
 
 ### Blockers/Concerns
 
-(None)
+- @dnd-kit rectSortingStrategy has known issues with variable-sized items — may need null strategy if 6-level granularity worsens behavior.
+- Resize handle pointer events must not conflict with @dnd-kit drag sensors (stopPropagation + activation distance).
 
 ### Pending Todos
 
@@ -57,5 +60,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: null
+Stopped at: Roadmap created, ready to plan Phase 26
 Resume file: None

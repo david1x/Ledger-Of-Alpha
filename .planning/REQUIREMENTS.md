@@ -53,25 +53,25 @@ Requirements for Dashboard Redesign milestone. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LAYOUT-01 | TBD | Pending |
-| LAYOUT-02 | TBD | Pending |
-| LAYOUT-03 | TBD | Pending |
-| LAYOUT-04 | TBD | Pending |
-| CARD-01 | TBD | Pending |
-| CARD-02 | TBD | Pending |
-| CARD-03 | TBD | Pending |
-| RESIZE-01 | TBD | Pending |
-| RESIZE-02 | TBD | Pending |
-| RESIZE-03 | TBD | Pending |
-| RESIZE-04 | TBD | Pending |
-| PERSIST-01 | TBD | Pending |
-| PERSIST-02 | TBD | Pending |
+| LAYOUT-01 | Phase 26 | Pending |
+| LAYOUT-02 | Phase 26 | Pending |
+| LAYOUT-03 | Phase 26 | Pending |
+| LAYOUT-04 | Phase 26 | Pending |
+| CARD-01 | Phase 26 | Pending |
+| CARD-02 | Phase 26 | Pending |
+| CARD-03 | Phase 26 | Pending |
+| RESIZE-01 | Phase 27 | Pending |
+| RESIZE-02 | Phase 27 | Pending |
+| RESIZE-03 | Phase 27 | Pending |
+| RESIZE-04 | Phase 27 | Pending |
+| PERSIST-01 | Phase 28 | Pending |
+| PERSIST-02 | Phase 28 | Pending |
 
 **Coverage:**
 - v3.1 requirements: 13 total
-- Mapped to phases: 0
-- Unmapped: 13 ⚠️
+- Mapped to phases: 13
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-22*
-*Last updated: 2026-03-22 after initial definition*
+*Last updated: 2026-03-22 after roadmap creation*
