@@ -1,307 +1,273 @@
 # Domain Pitfalls
 
-**Domain:** Advanced filter system, saved views, mistakes tagging, summary stats with sparklines, enhanced trade table with column config, and right sidebar analytics — added to existing Next.js 15 + SQLite trading journal (v3.0 Trades Page Overhaul)
-**Researched:** 2026-03-21
-**Confidence:** HIGH (direct codebase analysis of existing trades page + targeted research on each feature area)
+**Domain:** Grid-based resizable dashboard cards — adding column/row span resize to existing Next.js 15 dashboard with @dnd-kit drag reorder, 6-column CSS grid, Recharts widgets, and JSON layout persistence (v3.1 Dashboard Redesign)
+**Researched:** 2026-03-22
+**Confidence:** HIGH (direct codebase analysis + verified research against @dnd-kit issues and Recharts known bugs)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, data corruption, or feature failure.
+### Pitfall 1: @dnd-kit rectSortingStrategy Breaks with Variable-Sized Grid Items
 
----
+**What goes wrong:** The current dashboard uses `rectSortingStrategy` from @dnd-kit/sortable, which assumes all grid items are the same size. When widgets have different column spans (1, 2, or 3 cols) AND different row spans, @dnd-kit measures the first item and assumes all others match. Dragging a 3-col widget over a 1-col widget causes visual glitches: items overlap, sort animations jump to wrong positions, and the drop target calculation is incorrect.
 
-### Pitfall 1: Client-Side Filter Architecture Cannot Scale to the Mistakes System
+**Why it happens:** `rectSortingStrategy` calculates expected positions using a uniform grid assumption. Variable `col-span` and `row-span` values break this assumption. The library author explicitly acknowledged this is a known limitation (GitHub issue #720, #77, #117).
 
-**What goes wrong:** The existing trades page already uses client-side filtering: `allTrades` is fetched once from `/api/trades`, then filtered in JavaScript with a simple `.filter()` chain (lines 162-167 of app/trades/page.tsx). The current filters are trivial — status, direction, and a symbol substring. Adding Mistake filters breaks this model entirely. The `mistakes` column on the `trades` table stores a JSON string (TEXT column added in migration 007 via `ALTER TABLE trades ADD COLUMN mistakes TEXT`). Filtering client-side requires `JSON.parse(t.mistakes)` on every row for every filter evaluation. For a trader with 500+ trades, this causes a measurable render stall, and the filter combination logic grows into an untestable nested condition chain.
-
-**Why it happens:** Client-side filtering is fast to write and avoids a round-trip. Developers extend it because "it worked before." Each new filter type gets appended to the `.filter()` chain without measuring cumulative cost. When the mistakes column needs to be filtered, `JSON.parse` inside a hot loop is the natural first attempt.
-
-**Consequences:**
-- Filtering 1000 trades by three simultaneous criteria including JSON-parsed mistakes causes a 200-400ms stall on mid-range hardware — enough to make the UI feel broken on every keystroke.
-- The client holds ALL trades in memory regardless of filter. A trader with years of journal data hits browser memory pressure.
-- Adding "saved views" that trigger filter changes on load means the stall happens immediately on page open, not just when the user actively filters.
-- The summary stats bar (totals, win%, sparkline data) must recalculate over the same filtered slice on every filter change — doubling the work.
+**Consequences:** Widgets visually overlap during drag, drop in wrong positions, or cause layout to "explode" with items jumping unpredictably. Users see broken drag behavior and lose trust in the layout editor.
 
 **Prevention:**
-- Move filtering to the server. Extend `GET /api/trades` to accept all new filter params: `mistake_type`, `setup`, `tags`, `date_from`, `date_to`. Build the WHERE clause server-side using parameterised queries (the existing query-builder pattern at lines 38-44 of `app/api/trades/route.ts` is already structured for this — extend it).
-- For the `mistakes` JSON column, use SQLite's `json_each()` to filter: `EXISTS (SELECT 1 FROM json_each(t.mistakes) WHERE value = ?)`. This is supported without schema changes and performs acceptably on datasets under 10,000 rows. Add `CREATE INDEX IF NOT EXISTS idx_trades_user_id ON trades (user_id)` if not already present — the user_id filter is the first clause and the index prevents full-table scans.
-- The "mistakes" column currently stores unstructured text or JSON. Before building the filter, audit what format it actually holds in production (open DevTools and inspect a few trade records). If it is free-text, a normalised approach (separate `trade_mistakes` junction table) is required for efficient filtering. If it is already a JSON array of strings, `json_each()` works.
-- Keep client-side JavaScript filtering only for the quick filter chips (Winners/Losers/This Week) that filter an already-fetched, already-server-filtered result set — this is the correct use of client-side filtering.
+- Use a **null sorting strategy** (`strategy={() => null}`) and handle reordering manually in `onDragOver`/`onDragEnd`. This is the officially recommended workaround from the @dnd-kit maintainer.
+- Maintain a separate layout model that tracks each widget's grid position (col, row, colSpan, rowSpan) independently of CSS grid auto-placement.
+- Use a `DragOverlay` component to render the dragged item at the correct size rather than relying on in-place transforms.
 
-**Detection:** Insert 500 demo trades via the import system, then enable all filter types simultaneously. Measure filter-change-to-render time with Chrome DevTools Performance tab. Any value above 100ms is unacceptable for a filter that fires on dropdown change.
+**Detection:** Test by dragging a compact (1-col) widget over a large (3-col) widget and vice versa. If the widget being displaced jumps to the wrong row or overlaps, the sorting strategy is broken.
 
-**Phase:** Filter system phase (highest risk — affects all downstream features).
+**Confidence:** HIGH -- verified against multiple @dnd-kit GitHub issues (#720, #77, #804) and maintainer responses.
 
 ---
 
-### Pitfall 2: Mistakes Tagging — JSON Column Cannot Be Indexed, Normalised Table Cannot Be Migrated Without Data Loss
+### Pitfall 2: Resize Handles Intercepted by @dnd-kit Drag Sensors
 
-**What goes wrong:** The `mistakes` column (TEXT, stores JSON) was added in migration 007. The new mistakes system is user-defined mistake types (e.g. "Chased Entry", "Ignored Stop") that are tagged per trade. There are two approaches:
+**What goes wrong:** Adding resize handles (e.g., bottom-right corner grip) to cards that are also draggable creates an event conflict. The `PointerSensor` from @dnd-kit captures `pointerdown` events on the resize handle and initiates a drag instead of a resize. Users try to resize but the card starts moving.
 
-1. Continue storing mistakes as a JSON array in the existing `mistakes` column (e.g. `["Chased Entry", "Ignored Stop"]`).
-2. Create a normalised `trade_mistakes` junction table.
+**Why it happens:** @dnd-kit's `useSortable` attaches pointer listeners to the entire sortable element by default. Even with a separate drag handle (the `GripVertical` icon currently used in edit mode), the resize handle's mousedown/pointerdown events can bubble up to the sortable wrapper or conflict with the sensor's activation logic.
 
-The JSON column approach cannot be indexed in SQLite. `json_each()` queries require a full scan of the `mistakes` column for every matching row. The normalised table approach requires a migration that parses the existing `mistakes` JSON values and inserts them into the new table — if the existing data is a mix of text formats (some rows store free text, some store JSON arrays, some are NULL), the migration will silently drop data for rows that fail to parse.
-
-**Why it happens:** The `mistakes` column predates the structured mistakes system. It was likely a free-text field used for ad-hoc notes. A developer building the new mistakes system may assume it contains structured JSON when it does not.
-
-**Consequences:**
-- Attempting `json_each()` on a row where `mistakes` is `"Rushed the trade"` (plain text, not a JSON array) returns a SQLite error or silently returns no rows — the trade disappears from mistake-filtered results without warning.
-- A migration that does `INSERT INTO trade_mistakes SELECT json_each.value FROM trades, json_each(trades.mistakes)` will fail on rows with non-JSON values, aborting the migration if not wrapped in error handling.
-- User-defined mistake type names stored only in trades JSON cannot be enumerated without scanning all trade rows — there is no `mistake_types` source of truth for the dropdown.
+**Consequences:** Resize is impossible or triggers drag instead. Users cannot resize cards at all, or resize works only intermittently.
 
 **Prevention:**
-- Before writing the migration, audit actual `mistakes` column values with: `SELECT mistakes FROM trades WHERE user_id = [id] AND mistakes IS NOT NULL AND mistakes != '' LIMIT 20`. This reveals whether data is JSON or free text.
-- Add a `mistake_types` table for the user-defined catalogue: `id INTEGER PRIMARY KEY, user_id TEXT, name TEXT, color TEXT`. This becomes the source of truth for the filter dropdown and is trivially indexable.
-- Add a `trade_mistakes` junction table: `trade_id INTEGER, mistake_type_id INTEGER`. This replaces (not augments) the JSON column for new mistake assignments.
-- The migration that populates `trade_mistakes` from the old `mistakes` column must wrap each row in a try/catch (SQLite's `json_valid()` function: `WHERE json_valid(mistakes) = 1`) to skip non-JSON rows, then log skipped rows for the user to re-tag manually.
-- After migration, do NOT drop the `mistakes` column — keep it as a graveyard column (nullable, ignored by new code) for backward compatibility and potential data recovery. Mark it deprecated in a code comment.
+- **Separate interaction zones completely.** The drag handle (`GripVertical`) should be the ONLY element that triggers drag. Use `useSortable` with `{ id, ..., activators }` or configure the `PointerSensor` with `activationConstraint: { distance: 8 }` to require 8px of movement before drag starts.
+- **Stop propagation on resize handles.** On the resize handle's `onPointerDown`, call `e.stopPropagation()` before initiating resize logic.
+- Ensure resize handles have a higher `z-index` than the drag overlay and are rendered outside the drag handle's event scope.
+- Consider restricting drag to edit mode only (current behavior) and allowing resize in both edit and normal modes, reducing the window for conflicts.
 
-**Detection:** Before shipping, query `SELECT COUNT(*) FROM trades WHERE mistakes IS NOT NULL AND json_valid(COALESCE(mistakes, '[]')) = 0` against a real database. If count > 0, the JSON-column filtering strategy will silently lose data.
+**Detection:** In edit mode, try to resize a card by its bottom-right handle. If the card lifts and starts dragging instead, the events are conflicting.
 
-**Phase:** Mistakes tagging phase. The migration must run before the filter system is wired up — order matters.
+**Confidence:** HIGH -- this is a well-documented interaction pattern issue in drag-and-drop libraries.
 
 ---
 
-### Pitfall 3: Saved Views Stored in Settings JSON Collide with Active Filter State
+### Pitfall 3: Recharts ResponsiveContainer Performance Collapse During Resize
 
-**What goes wrong:** The existing settings system stores everything as key-value pairs in the `settings` table (key TEXT PRIMARY KEY, value TEXT). Saved filter views (named presets like "Winners This Month", "TSLA Only") are the natural next entry. The pitfall is that developers will also want to persist the *currently active* filter state so it survives page refreshes. If both "current active filter" and "saved views" are written to the same `trade_filter_views` settings key, loading the page overwrites the user's current session filter state with the last-saved named preset.
+**What goes wrong:** Recharts' `ResponsiveContainer` uses `ResizeObserver` to detect parent size changes and re-renders the entire SVG chart on every observation. When a user drags a resize handle, the container fires resize events continuously (potentially 60+ times per second), causing every visible chart to re-render simultaneously. With 24+ widgets on screen, this causes severe frame drops, UI freezing, and horizontal overflow artifacts.
 
-More subtly: if saved views are stored in `localStorage` (for speed) but the API route for fetching trades does not have the corresponding filter params, the UI shows a filter chip ("Saved: Winners Only") but the trade data behind it is unfiltered. The filter chip and the data are out of sync.
+**Why it happens:** `ResponsiveContainer` has no built-in debounce. Each resize observation triggers a full React re-render of the chart component, including all axes, grids, areas, and tooltips. Multiple charts resizing simultaneously compounds the problem. This is a known issue (recharts/recharts#1767, closed as "not planned").
 
-**Why it happens:** There are three separate states to manage: (a) the current active filter values, (b) the list of saved named views, and (c) which saved view (if any) is "active." Developers conflate (a) and (c), or store (b) in `localStorage` without syncing to the DB, meaning views disappear when the user clears browser storage.
-
-**Consequences:**
-- A user saves a view called "My Best Setups," navigates away, returns to the trades page, and finds the page has applied "My Best Setups" automatically even though they wanted no filter.
-- Saved views stored only in `localStorage` are lost if the user clears their browser or switches machines.
-- Applying a saved view does not update the URL, so sharing the page link gives an unfiltered view — the recipient sees different trades than the sender intended.
+**Consequences:** Dashboard becomes unresponsive during resize. Frame rate drops to single digits. Browser tab may become temporarily unresponsive. CSS overflow artifacts appear during the lag.
 
 **Prevention:**
-- Use three distinct storage keys: `trade_saved_views` (DB, for the named presets catalogue), `trade_active_filters` (localStorage, ephemeral session state that survives refresh but not intent), and URL search params for shareable filter state.
-- On page load priority: URL params take highest precedence, then `trade_active_filters` from localStorage, then no filter (clean state). Never auto-apply a saved view on page load.
-- Applying a saved view copies its filter values into the URL params — not into a "which view is active" flag. This way, the URL is always the truth for what filters are active. The "active view" chip label is derived by comparing current URL params against the saved views catalogue.
-- Saved views are stored in the DB via the existing `/api/settings` endpoint as: `trade_saved_views: JSON.stringify(Array<{ id: string; name: string; filters: FilterState }>)`. This ensures cross-device persistence.
-- The settings save is debounced (500ms) for active filter state — every filter change should not fire a settings API call. For saved views (explicit user action: "Save View"), the save fires immediately.
+- **Debounce resize observations.** Wrap each chart widget in a container that debounces `ResizeObserver` callbacks (150-200ms). Only pass final dimensions to `ResponsiveContainer` after the user stops resizing.
+- **Hide chart content during active resize.** Show a placeholder (skeleton or blurred snapshot) while the resize handle is being dragged. Re-render the chart only on `onResizeEnd`.
+- **Use CSS `contain: layout style paint` on chart containers** to prevent layout thrashing from propagating to parent elements.
+- **Set `width: 0` on flex-child containers** holding `ResponsiveContainer` as a CSS workaround for the shrink-direction bug.
 
-**Detection:** (1) Save a view, reload the page — active filter must be clear, saved view must appear in the presets list only. (2) Apply a saved view, copy the URL, open it in an incognito tab — the same filters must be active. (3) Clear localStorage, reload — saved views must still be present (pulled from DB).
+**Detection:** Open the dashboard with 10+ chart widgets visible. Resize any card by dragging. If the UI stutters or freezes, the debounce is missing.
 
-**Phase:** Saved views phase. Must be designed before the filter UI is built, since the persistence architecture affects how every filter change is wired.
+**Confidence:** HIGH -- verified against recharts GitHub issue #1767 and tested pattern.
 
 ---
 
-### Pitfall 4: Summary Stats Sparklines Re-render on Every Filter Change, Blocking the Main Thread
+### Pitfall 4: Layout Migration Breaks Saved User Layouts and Templates
 
-**What goes wrong:** The summary stats bar will include sparklines (cumulative return, win%, P/L ratio trend). Each sparkline is a Recharts instance (or similar SVG chart). When the user changes a filter, the trade list re-renders AND the sparkline data recalculates AND three Recharts instances re-render — all synchronously on the main thread. With 500 trades, the sparkline data computation alone (sorting by date, computing cumulative series, slicing the last N points) takes 15-40ms. Three sparklines in the same render cycle = 45-120ms, which adds to the filter-change latency.
+**What goes wrong:** The current `DashboardLayout` schema stores `{ order: string[], hidden: string[], sizes: Record<string, WidgetSize> }` where `WidgetSize` is `"large" | "medium" | "compact"` mapping to fixed col-span values (3, 2, 1). Switching to grid-based resize requires storing `{ colSpan: number, rowSpan: number }` per widget. All existing saved layouts, per-account layouts, and user-created templates become incompatible.
 
-**Why it happens:** Sparkline data is computed inline in the render function: `const sparkData = trades.map(t => ({ date: t.exit_date, cum: ... }))`. This recomputes from scratch on every render because trades is a new array reference after each filter. React.memo on the sparkline component doesn't help because `data` is a new array reference each time.
+**Why it happens:** The current schema has no concept of row span. Column sizes are semantic names ("large" = 3 cols) rather than numeric spans. The migration to `{ colSpan, rowSpan }` requires converting every saved layout. There are multiple storage keys: `dashboard_layout`, `dashboard_layout_{accountId}`, `dashboard_layout_all_accounts`, and `dashboard_layout_templates`.
 
-**Consequences:**
-- Rapid filter changes (typing in a symbol search box triggers one render per keystroke) causes jank because each keystroke triggers full sparkline recomputation.
-- Memory pressure: each Recharts instance maintains its own SVG DOM tree. Three sparklines plus the main trade table in the same component tree is manageable, but if the right sidebar also contains charts, total concurrent Recharts instances can reach 8-10 on a single page.
+**Consequences:** After deployment, users open their dashboard and see broken layouts, default layouts, or crashes from parsing errors. Per-account customizations are lost. Saved templates revert to defaults.
 
 **Prevention:**
-- Memoize sparkline data with `useMemo`: `const sparkData = useMemo(() => computeCumulative(filteredTrades), [filteredTrades])`. This ensures the expensive computation only runs when `filteredTrades` actually changes (referential equality check), not on every re-render.
-- Debounce filter application by 150ms for text inputs (symbol search) so sparklines don't recompute on every keystroke. Dropdown filter changes (Status, Direction) can apply immediately since they are discrete selections.
-- Use lightweight sparkline SVG primitives instead of full Recharts instances in the summary stats bar. Recharts' `LineChart` with `CartesianGrid`, `XAxis`, `YAxis`, `Tooltip`, and `Legend` is far heavier than needed for a 60x20px sparkline. A raw SVG `<polyline>` computed from normalised data points is sufficient and has zero re-render overhead.
-- The right sidebar analytics (Account Performance, Setups P&L, Mistakes P&L) should be lazy-loaded or deferred — they are secondary information and should not block the main table from rendering.
+- **Write an explicit migration function** in the layout loading code (where the "normal" to "large" migration already exists at line ~419). Map `"compact"` to `{colSpan: 1, rowSpan: 1}`, `"medium"` to `{colSpan: 2, rowSpan: 1}`, `"large"` to `{colSpan: 3, rowSpan: 1}`.
+- **Keep the migration backwards-compatible.** Check for both old schema (`sizes: Record<string, WidgetSize>`) and new schema (`sizes: Record<string, {colSpan, rowSpan}>`) in the layout parser. Accept both formats.
+- **Migrate templates too.** Both user templates (`dashboard_layout_templates`) and built-in templates (`DEFAULT_BUILT_IN_TEMPLATES`) need schema updates.
+- **Test with a real saved layout** from the current production system, not just default layouts.
 
-**Detection:** Open Chrome DevTools Performance tab. Change a filter (type a single character in the symbol search box). The flame graph must show no long tasks (>50ms) in the main thread. If sparkline recalculation appears as a significant slice, memoization is not working.
+**Detection:** Save a layout in the current system, deploy the new code, and verify the saved layout loads correctly with proper widget sizes.
 
-**Phase:** Summary stats bar phase. Architecture the sparkline data pipeline before building the UI.
-
----
-
-### Pitfall 5: Dynamic SQLite Filter Query with User-Provided Values — SQL Injection via Tag/Mistake Filters
-
-**What goes wrong:** The existing query builder (lines 35-47 of `app/api/trades/route.ts`) uses parameterised queries correctly: `query += " AND symbol LIKE ?"` with `params.push(...)`. The new filter types include Custom Tags and Mistake Types. Tags are stored as a JSON array in a TEXT column. The temptation is to build the `json_each()` clause by interpolating the filter value directly: `query += \` AND EXISTS (SELECT 1 FROM json_each(t.tags) WHERE value = '${tagValue}')\``. This is a classic SQL injection vector.
-
-**Why it happens:** SQLite's `json_each()` is a table-valued function and the filtering pattern `WHERE json_each.value = ?` with parameterised queries is non-obvious. Developers who have never used `json_each()` before copy examples from blog posts that use string interpolation.
-
-**Consequences:**
-- A user who names a mistake type `') OR '1'='1` can craft a query that returns all users' trades.
-- Even non-malicious input (apostrophes in tag names like "Bull's Run") causes SQLite syntax errors that crash the API route.
-
-**Prevention:**
-- Always use parameterised queries, even with `json_each()`. The correct form is:
-  ```sql
-  SELECT t.* FROM trades t
-  WHERE t.user_id = ?
-  AND EXISTS (
-    SELECT 1 FROM json_each(t.tags) jt WHERE jt.value = ?
-  )
-  ```
-  With `params.push(user.id, tagValue)`. Better-sqlite3 supports this pattern natively.
-- Validate tag and mistake values server-side: strip or reject values containing SQL metacharacters (`'`, `;`, `--`, `/*`). Since these are user-defined label strings, valid values are plain text with no SQL significance.
-- The mistake filter should filter by `mistake_type_id` (an integer from the normalised `trade_mistakes` table), not by the user-entered name string. Integer parameters are injection-safe by construction.
-
-**Detection:** Set a breakpoint in the API route and inspect the `query` string. Confirm no user-provided value appears as a string literal in the query — every user value must be a `?` placeholder.
-
-**Phase:** Filter system phase. Must be reviewed in code review before any filter value touches the DB.
+**Confidence:** HIGH -- direct analysis of the existing codebase schema at DashboardShell.tsx lines 107-156 and 404-424.
 
 ---
 
-## Moderate Pitfalls
+## Integration Risks
 
-Mistakes that cause significant rework or user-visible bugs but don't require fundamental redesigns.
+### Risk 1: CSS Grid Auto-Placement vs Explicit Positioning Conflict
 
----
+**What goes wrong:** The current dashboard uses CSS Grid with `grid-cols-6` and relies on auto-placement (items flow left-to-right, top-to-bottom based on their `col-span`). With variable row spans, auto-placement creates gaps. A widget with `row-span: 2` next to a `row-span: 1` widget leaves empty cells that CSS Grid cannot backfill by default.
 
-### Pitfall 6: Mobile Table Layout — Horizontal Scroll + Fixed First Column Conflict with the Right Sidebar
+**Why it happens:** CSS Grid's auto-placement algorithm places items sequentially. It does not backfill gaps unless `grid-auto-flow: dense` is enabled. Even with `dense`, the visual order may not match the logical order, breaking @dnd-kit's sort assumptions.
 
-**What goes wrong:** Adding a right sidebar (account performance, setups, mistakes breakdown) narrows the available width for the trade table. On a 1280px screen with a left sidebar (~220px), right sidebar (~280px), and padding, the trade table gets ~750px. The existing TradeTable renders a standard `<table>` with multiple columns. At 750px, columns overflow, causing horizontal scroll. Adding a "freeze first column" (Symbol) to anchor position while scrolling is the standard solution — but CSS `position: sticky` on a `<td>` requires the parent `<td>` and all ancestor elements to NOT have `overflow: hidden` or `overflow: auto`. The scrollable wrapper div that enables horizontal scrolling typically needs `overflow-x: auto`, which breaks sticky column positioning.
+**Impact:** Dashboard has visible gaps between cards. Layout looks broken even though the CSS is technically correct. Users see "holes" in their dashboard.
 
-**Why it happens:** The `position: sticky` + horizontal scroll conflict is a well-known browser quirk. Developers test sticky columns in isolation (they work), add the scrollable wrapper (sticky stops working), and spend hours debugging.
+**Mitigation:**
+- Use `grid-auto-flow: dense` to backfill gaps, BUT be aware this changes visual order. The drag-and-drop order array must reflect the visual position, not the DOM order.
+- Alternatively, use **explicit grid placement** (`grid-column` and `grid-row` CSS properties per widget) calculated from the layout model. This gives full control but requires computing positions in JavaScript.
+- The explicit placement approach pairs better with the null sorting strategy recommended for Pitfall 1.
 
-**Consequences:**
-- If sticky column is implemented incorrectly, Symbol scrolls out of view with the rest of the row — the user loses context of which trade they're looking at.
-- If the developer uses `transform: translateX()` as a sticky fallback, it fires on every scroll event and can cause jank on lower-end devices.
-- The right sidebar may need to be collapsible by default on screens below 1400px to prevent the table from becoming unusable.
-
-**Prevention:**
-- Do not implement a custom sticky-column solution. Use `table-layout: fixed` with the first column having `position: sticky; left: 0; z-index: 1` and the scrollable wrapper using `overflow-x: auto`. This specific combination works in all modern browsers (Chrome 90+, Firefox 88+, Safari 14+).
-- The right sidebar must have a default-collapsed state below 1400px viewport width, controlled by a CSS breakpoint or a `useResizeObserver` hook. Store the collapsed state in `localStorage` (key: `trades_sidebar_open`) so the user's preference persists.
-- On screens below 768px, abandon the multi-column table entirely. Render trades as stacked cards (the "card view" pattern already used on the journal page). The journal page's card layout is a reference implementation.
-
-**Detection:** Test the table at viewport widths of 1280px, 1024px, 768px, and 375px. At each breakpoint verify: (a) the Symbol column is visible without horizontal scrolling, or (b) the table switches to card layout. Use Chrome DevTools device emulation for the mobile tests.
-
-**Phase:** Enhanced trade table phase. Design the responsive strategy before building the filter UI — filter chips above the table affect available height.
+**Confidence:** HIGH -- standard CSS Grid behavior, well-documented in MDN.
 
 ---
 
-### Pitfall 7: Column Config Persistence Conflicts with New "Mistakes" and "Net Return" Columns
+### Risk 2: Responsive Breakpoints with Variable Sizes
 
-**What goes wrong:** Column visibility is persisted via the `trade_table_columns` settings key (a JSON string array of `ColumnKey` values). The existing `ColumnKey` union type is derived from `ALL_COLUMNS` (a `const` array in TradeTable.tsx). Adding new columns (`mistakes`, `net_return`, `cost_basis`) requires adding them to `ALL_COLUMNS`. If a user's saved `trade_table_columns` is `["symbol", "direction", "pnl", "date"]` and the new code expects `ColumnKey` to include `"mistakes"` as a valid value, the saved array is valid — new columns simply aren't shown. This is safe. The problem is the inverse: if a column key is removed (e.g., `"potential"` is renamed to `"unrealized_potential"`), saved configs containing the old key parse without error but the column renders nothing — the `ColumnKey` type guard passes because the value is still a string, but the render switch never matches.
+**What goes wrong:** The current responsive strategy is simple: on mobile (`< md`), all widgets become `col-span-1` in a single-column layout. With row spans added, a widget that is 3 cols x 2 rows on desktop needs sensible mobile dimensions. Blindly setting `col-span-1` while keeping `row-span: 2` creates excessively tall single-column cards.
 
-**Why it happens:** The column key is a TypeScript union type enforced at compile time, but the saved JSON comes in at runtime. `JSON.parse` produces `string[]`, not `ColumnKey[]`. The type assertion `saved as ColumnKey[]` on line 150 of `app/trades/page.tsx` silently accepts stale keys.
+**Why it happens:** The current system maps sizes to Tailwind responsive classes (`col-span-1 md:col-span-2`). Row spans have no responsive equivalent in the current approach.
 
-**Consequences:**
-- Users who had `potential` in their visible columns see a blank column with no header after a rename. No error, no indication that their config is stale.
-- If many columns are renamed in one milestone, users lose all their column visibility configuration silently.
+**Impact:** Mobile layout looks broken with some cards taking up excessive vertical space.
 
-**Prevention:**
-- After loading saved column config, filter it against the current `ALL_COLUMNS` keys: `const validKeys = new Set(ALL_COLUMNS.map(c => c.key)); const cleaned = saved.filter(k => validKeys.has(k));`. If `cleaned.length < saved.length`, the config had stale keys — apply it anyway (users lose their preference for removed columns only) and log a warning.
-- Never rename existing column keys. Add new columns with new keys. Deprecate columns by keeping the key in `ALL_COLUMNS` but setting `default: false` — they fade from default views but don't break saved configs.
-- If a column must be renamed, add the new key and keep the old key as an alias that maps to the same render path. Remove the alias in the milestone after next.
+**Mitigation:**
+- Reset row spans to 1 on mobile breakpoints. Only apply custom row spans at `md` and above.
+- Define a mobile layout override that ignores row spans entirely and stacks all widgets as `1x1`.
+- Use a `useMediaQuery` hook to switch between grid-placement mode (desktop) and simple stack mode (mobile).
 
-**Detection:** Save a column config, add a new column key to `ALL_COLUMNS` (simulate a new release), reload. Verify the saved config still renders correctly and includes the new column in its default-hidden state.
-
-**Phase:** Enhanced trade table phase.
+**Confidence:** HIGH -- standard responsive design concern.
 
 ---
 
-### Pitfall 8: Right Sidebar Analytics Run Separate API Calls, Causing Waterfall Fetches
+### Risk 3: Resize Handle Z-Index Stacking with Card Content
 
-**What goes wrong:** The right sidebar needs: (1) account performance summary (total P&L, win rate, expectancy), (2) P&L breakdown by setup/strategy, (3) P&L breakdown by mistake type. The natural implementation is three separate `useEffect` calls each fetching from a different API endpoint (or the same endpoint with different aggregation params). On page load, these three fetches happen in sequence if each depends on the previous, or in parallel but each with its own loading spinner — creating a "flickering" sidebar where sections pop in at different times.
+**What goes wrong:** Resize handles positioned at the bottom-right corner of a card overlap with card content: chart tooltips, table pagination buttons, "Show more" links, and heatmap click targets. The resize handle either covers interactive content or gets covered by it.
 
-**Why it happens:** Sidebar sections are built as independent components, each owning their own data fetching. This is a clean component boundary but produces a waterfall. React 18's Suspense could wrap these, but the codebase's API routes are not set up for streaming responses.
+**Why it happens:** Cards contain diverse content types (charts, tables, buttons) with their own z-index stacking contexts. The resize handle must be above all card content but below the drag overlay and modal layers.
 
-**Consequences:**
-- Three spinner-then-content transitions in the sidebar create a jarring UX.
-- Three separate `/api/trades` round-trips for the same underlying dataset (just different aggregations) is wasteful — all three can be computed from the same trade records.
-- If the active account filter changes, all three sidepanel queries must re-fetch. Without careful dependency arrays, stale data from a previous account appears briefly.
+**Impact:** Users accidentally resize when clicking pagination buttons, or cannot reach the resize handle because a chart tooltip covers it.
 
-**Prevention:**
-- Compute sidebar analytics from the same `filteredTrades` array that drives the table, using client-side aggregation (reduce/groupBy). The sidebar shows breakdowns of the already-loaded trade data — it does not need its own API calls. This eliminates the waterfall entirely.
-- Aggregate functions: `groupBy(filteredTrades, t => t.strategy_id)` for setup breakdown; `groupBy(tradesMistakes, m => m.mistake_type_id)` for mistake breakdown. These are O(n) operations on the already-fetched array.
-- The sidebar should receive `filteredTrades` as a prop (or read from a shared context) and be a pure computation component. No `useEffect`, no fetch.
-- If the analytics require data not in the trades array (e.g., account balance history for the performance chart), fetch it once in the parent and pass it down.
+**Mitigation:**
+- Place resize handles at `z-10` within the card (above card content).
+- Ensure card content (charts, tables) does not create higher stacking contexts.
+- Make the resize handle visible only on card hover or in edit mode to reduce accidental activation.
+- Use a distinct visual indicator (e.g., diagonal grip lines) and cursor (`cursor-se-resize`) so users can distinguish resize from content interaction.
+- Size the handle at minimum 16x16px (touch-friendly: 24x24px) but keep it visually subtle.
 
-**Detection:** Open the Network tab, apply a filter, observe the sidebar update. Zero new API calls should fire — the sidebar must update purely from the in-memory filtered trades.
-
-**Phase:** Right sidebar analytics phase. This is a downstream consumer of the filter architecture — design the filter state propagation path to include the sidebar before building it.
+**Confidence:** MEDIUM -- depends on specific content types and their z-index requirements.
 
 ---
 
-### Pitfall 9: Quick Filter Chips ("Winners", "This Week") Override Active Saved View State Inconsistently
+### Risk 4: Template System Compatibility
 
-**What goes wrong:** Quick filter chips are shortcuts that apply a preset filter combination (e.g., "Winners" = `status: closed, pnl > 0`; "This Week" = `exit_date >= [start of week]`). Saved views are named presets that restore a full filter state. If a user has a saved view active ("TSLA Shorts") and clicks the "Winners" quick filter chip, the intent is ambiguous: (a) does "Winners" replace all filters? (b) does "Winners" add to the active view's filters? The UX becomes inconsistent if quick filter chips are not treated as a defined operation.
+**What goes wrong:** The existing template system (both user-saved and built-in `DEFAULT_BUILT_IN_TEMPLATES`) stores layouts in the old schema format. After the resize migration, loading an old template applies the old `WidgetSize` type instead of `{colSpan, rowSpan}`, causing type errors or visual bugs.
 
-**Why it happens:** Quick filter chips are added to the filter toolbar without a clear mental model of how they interact with the filter state. Each developer makes their own assumption about whether chips are additive or replacive.
+**Why it happens:** Templates are serialized to JSON and stored in the settings API. The built-in templates are hardcoded in `DashboardShell.tsx`. Both need simultaneous updates.
 
-**Consequences:**
-- Users applying "This Week" after having "TSLA Shorts" active expect to see TSLA shorts from this week — but the implementation replaced all filters, so they see all trades from this week.
-- The saved view chip shows "TSLA Shorts" as active even though "This Week" overrode part of its filter — the UI lies about which view is active.
+**Impact:** Loading a saved template crashes or produces a broken layout. Built-in "Performance Review" and "Daily Monitor" templates apply incorrect sizes.
 
-**Prevention:**
-- Define the interaction contract before building: quick filter chips are **additive to the current filter state**, not replacive. "Winners" adds `pnl > 0` and `status: closed` on top of whatever else is active. "This Week" adds `exit_date_from` and `exit_date_to` on top of whatever else is active.
-- If a quick chip's filter value conflicts with an existing filter (e.g., current active filter already has `status: open`, and "Winners" requires `status: closed`), the chip replaces only its own fields, not the entire filter state.
-- When any quick chip or manual filter change modifies the filter state away from a saved view's exact values, the "active view" label changes to "Custom" (or clears). The saved views list remains available to re-apply.
-- Implement a `FilterState` type with well-defined fields and a pure `applyQuickFilter(current: FilterState, chip: QuickFilter): FilterState` function. This makes the merge logic testable and consistent.
+**Mitigation:**
+- Apply the same migration logic from Pitfall 4 when loading templates, not just the main layout.
+- Update `DEFAULT_BUILT_IN_TEMPLATES` and `DEFAULT_SIZES` to use the new schema.
+- The `handleLoadTemplate` function (line ~527) must handle both old and new formats.
 
-**Detection:** (1) Apply a saved view. (2) Click a quick filter chip. (3) Verify the trade list shows the intersection (both filters active). (4) Verify the saved view label changes to "Custom."
-
-**Phase:** Filter system phase. Define `FilterState` type and the merge semantics before building any UI.
+**Confidence:** HIGH -- direct code analysis.
 
 ---
 
-### Pitfall 10: The `load()` Function Is Called on Account Switch, Discarding Active Filters
+## Prevention Strategies
 
-**What goes wrong:** The existing `load()` function (lines 113-157 of `app/trades/page.tsx`) is triggered by `useEffect(() => { load(); }, [activeAccountId, accounts.length])`. When the account changes, `load()` fetches fresh trades but also resets all UI state that is computed from the trade response. Adding filters means filter state must survive account switches (the user may want "Winners" in both their Main and Paper Trading accounts) — but if `load()` also calls `setStatus("all"); setDirection("all"); setSymbolQ("")`, the filters reset on every account change.
+### Strategy 1: Use Explicit Grid Placement Instead of Auto-Flow
 
-**Why it happens:** The single `load()` function mixes data fetching with state initialisation. When it was written, there was no filter state to preserve. Adding filter state without refactoring `load()` means either (a) filters reset on account switch (bad) or (b) stale filters from the previous account contaminate the new account's view (bad).
+Rather than relying on CSS Grid auto-placement with `col-span` classes, compute explicit `grid-column` and `grid-row` values for each widget based on a layout algorithm. This approach:
 
-**Consequences:**
-- User sets up a "Losers" filter on their Main account, switches to Paper Trading to check something, switches back — filter is gone.
-- Alternatively: user searches for "AAPL" on their Main account, switches to Paper Trading — Paper Trading shows an "AAPL" filter even though they never set it there.
+- Eliminates gaps from mixed row spans
+- Gives precise control over widget positions
+- Pairs naturally with the null sorting strategy for @dnd-kit
+- Makes the layout model the single source of truth
 
-**Prevention:**
-- Separate the filter state lifecycle from the data-fetching lifecycle. Filters belong to the UI session (persist in URL params or localStorage), not to the account. Switching accounts refetches data with the current filter applied.
-- The `load()` function must accept filter params and pass them to the API call — it must NOT reset filter state. Filter state is controlled by the filter UI components independently.
-- On initial page load, initialise filter state from URL params, then call `load()` with those filters. On account switch, call `load()` with the *current* filter state (not a reset state).
+**Implementation:** Maintain a `positions: Record<string, {col: number, row: number, colSpan: number, rowSpan: number}>` in the layout state. On drag-end or resize-end, recalculate all positions using a packing algorithm (top-left gravity, similar to what react-grid-layout uses).
 
-**Detection:** Set a filter, switch accounts, switch back. The filter must still be active and the data must reflect both the filter AND the correct account.
+### Strategy 2: Debounce All Resize Observations
 
-**Phase:** Filter system phase. Refactor `load()` before adding any filter params to it.
+Create a `useResizeObserver` hook that wraps `ResizeObserver` with a 150ms debounce. Use this for all chart-containing widgets instead of relying on Recharts' built-in `ResponsiveContainer` resize detection.
+
+```typescript
+// Pattern: debounced resize for chart containers
+const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+const resizeTimer = useRef<ReturnType<typeof setTimeout>>();
+
+useEffect(() => {
+  const observer = new ResizeObserver((entries) => {
+    clearTimeout(resizeTimer.current);
+    resizeTimer.current = setTimeout(() => {
+      const { width, height } = entries[0].contentRect;
+      setDimensions({ width, height });
+    }, 150);
+  });
+  if (containerRef.current) observer.observe(containerRef.current);
+  return () => { observer.disconnect(); clearTimeout(resizeTimer.current); };
+}, []);
+```
+
+### Strategy 3: Separate Resize and Drag into Distinct Modes
+
+The current dashboard already has an "edit mode" toggle. Extend this:
+
+- **Normal mode:** No drag, no resize. Cards are static.
+- **Edit mode:** Drag handles appear AND resize handles appear. Both active.
+- Use `e.stopPropagation()` on resize handles to prevent drag sensor activation.
+- Configure `PointerSensor` with `activationConstraint: { distance: 8 }` so tiny accidental movements on resize handles do not trigger drag.
+
+### Strategy 4: Snapshot-Based Resize Preview
+
+During active resize (while the user is dragging the handle):
+
+1. Hide the chart/table content
+2. Show a lightweight placeholder (card title + target dimensions text)
+3. On resize end, reveal content and let Recharts re-render once
+
+This eliminates the performance problem entirely by avoiding continuous chart re-renders during resize.
 
 ---
 
-## Minor Pitfalls
+## Migration Considerations
 
-Mistakes that cause inconvenience or polish issues without fundamental breakage.
+### Layout Schema Migration Path
 
----
+**Current schema:**
+```typescript
+interface DashboardLayout {
+  order: string[];
+  hidden: string[];
+  sizes: Record<string, "large" | "medium" | "compact">;
+}
+```
 
-### Pitfall 11: Filter Chips Show Stale Labels When Referenced Entities Are Deleted
+**Target schema:**
+```typescript
+interface DashboardLayout {
+  order: string[];
+  hidden: string[];
+  sizes: Record<string, { colSpan: number; rowSpan: number }>;
+}
+```
 
-**What goes wrong:** A filter chip might display "Setup: Wyckoff Buying" or "Mistake: Chased Entry." If the user deletes the "Wyckoff Buying" strategy or the "Chased Entry" mistake type, the filter chip still shows the label (it stored the ID or the name string). The filter may still technically work (filtering by a deleted mistake type returns zero results), but the chip label says "Mistake: Chased Entry" when that type no longer exists.
+**Migration function:**
+```typescript
+function migrateSize(size: string | { colSpan: number; rowSpan: number }): { colSpan: number; rowSpan: number } {
+  if (typeof size === 'object' && 'colSpan' in size) return size; // already new format
+  switch (size) {
+    case 'large': case 'normal': return { colSpan: 3, rowSpan: 1 };
+    case 'medium': return { colSpan: 2, rowSpan: 1 };
+    case 'compact': default: return { colSpan: 1, rowSpan: 1 };
+  }
+}
+```
 
-**Prevention:**
-- Active filter chips derive their display labels from the live catalogue (strategies list, mistake types list). When deriving the label, if the ID is not found in the catalogue, show "[Deleted]" with a warning style and an X to dismiss.
-- On page load, validate active filter state against the live catalogue. Auto-remove filter values referencing deleted entities.
+**Migration points (all must be updated):**
+1. Layout loading in `load()` function (~line 404)
+2. Template loading in `handleLoadTemplate()` (~line 527)
+3. Built-in templates in `DEFAULT_BUILT_IN_TEMPLATES` (~line 172)
+4. Default sizes in `DEFAULT_SIZES` (~line 107)
+5. `WidgetCard` component's `spanClass` calculation (~line 238)
 
-**Phase:** Mistakes tagging phase / saved views phase.
+### Settings Keys That Store Layouts
 
----
+All of these contain layout JSON and need migration handling:
+- `dashboard_layout` (legacy global key)
+- `dashboard_layout_all_accounts` (aggregate view)
+- `dashboard_layout_{accountId}` (per-account, one per account)
+- `dashboard_layout_templates` (array of user templates)
+- `admin_default_templates` (admin-customized built-in templates)
 
-### Pitfall 12: Summary Stats Bar Shows Aggregate of ALL Trades, Not Filtered Trades
+### Backwards Compatibility Window
 
-**What goes wrong:** The project spec says the summary stats bar is "scoped to all trades unless date-filtered." This is an unusual scoping rule. If the user has a Symbol filter active ("TSLA only"), they expect the stats bar to reflect TSLA trades. If the stats bar always shows all-trades aggregates, it becomes misleading — the win rate in the bar doesn't match the trades shown in the table below it.
-
-**Why it happens:** The spec ambiguity. "Unless date-filtered" is likely meant to mean "always shows current account's all-time stats for context, and only date-filtering narrows it" — but this is not how users expect a filter bar to behave.
-
-**Prevention:**
-- Clarify with the project owner before building: does the stats bar reflect the filtered set or the unfiltered set? The most intuitive UX (and the pattern used by every competitor: TradesViz, TraderSync, Tradervue) is that the stats bar reflects the filtered set.
-- If the answer is "unfiltered always," label the stats bar clearly as "Account Totals" and position it above the filter bar (not between filter and table) so users understand it is a separate summary, not filter-scoped.
-- If the answer is "filtered," use the same `filteredTrades` array for stats computation — this is the simpler implementation and the expected UX.
-
-**Detection:** Apply a filter that excludes 50% of trades. If the stats bar numbers don't change, it's showing unfiltered data — which may be intended but must be labeled clearly.
-
-**Phase:** Summary stats bar phase. Clarify the spec before implementation.
-
----
-
-### Pitfall 13: The Symbol Search Filter Fires an API Call on Every Keystroke
-
-**What goes wrong:** If the symbol filter input triggers server-side filtering (the correct architecture per Pitfall 1), each keystroke fires a `fetch()` call to `/api/trades?symbol=T`, then `/api/trades?symbol=TS`, then `/api/trades?symbol=TSL`, then `/api/trades?symbol=TSLA`. Without debouncing, four API calls fire in under 200ms. The last response is not guaranteed to be the last to arrive (network race condition) — the user may briefly see TSLA results replaced by TSL results if the `TSLA` response arrives before the `TSL` response.
-
-**Prevention:**
-- Debounce the symbol search input at 300ms. Only fire the API call after the user pauses typing.
-- Use an AbortController to cancel the previous in-flight request when a new one fires. The existing `load()` function has no cancellation — add a `useRef` for the AbortController and cancel on each new call.
-- Pattern: `const abortRef = useRef<AbortController | null>(null); const load = () => { abortRef.current?.abort(); abortRef.current = new AbortController(); fetch(url, { signal: abortRef.current.signal }); }`.
-
-**Phase:** Filter system phase.
+Keep the migration code (accepting old string-based sizes) for at least one version cycle. Users may have layouts saved across multiple accounts and templates that get loaded lazily. The existing "normal" to "large" migration at line 419 proves this pattern works and should be extended rather than replaced.
 
 ---
 
@@ -309,32 +275,24 @@ Mistakes that cause inconvenience or polish issues without fundamental breakage.
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| Filter system | Client-side JSON parse in hot loop for mistakes filter (Pitfall 1) | Move all filtering server-side; use json_each() with parameterised queries |
-| Filter system | FilterState type undefined — each filter has ad-hoc shape (Pitfall 9, 10) | Define `FilterState` type and `applyQuickFilter()` before writing any UI |
-| Filter system | SQL injection via tag/mistake name strings (Pitfall 5) | Parameterised queries only; never interpolate user values |
-| Filter system | Symbol search API call race condition (Pitfall 13) | Debounce 300ms + AbortController |
-| Mistakes tagging | Non-JSON values in existing `mistakes` column crash `json_each()` (Pitfall 2) | Audit column values before migration; use `json_valid()` guard |
-| Mistakes tagging | No source-of-truth table for mistake type names (Pitfall 2) | Add `mistake_types` table in migration |
-| Saved views | Active filter and saved views stored in same settings key (Pitfall 3) | Three separate storage mechanisms: DB for views, localStorage for session filters, URL for shareable state |
-| Saved views | Saved view auto-applies on page load (Pitfall 3) | Never auto-apply saved views; URL params are the only auto-applied state |
-| Summary stats sparklines | Recharts instances recompute on every keystroke (Pitfall 4) | `useMemo` for sparkline data; debounce text inputs; use raw SVG for sparklines |
-| Summary stats | Stats bar reflects unfiltered data without labeling (Pitfall 12) | Clarify spec; implement stats from filteredTrades |
-| Enhanced trade table | Sticky first column breaks inside overflow-x wrapper (Pitfall 6) | Use `table-layout: fixed` + `position: sticky; left: 0` pattern specifically |
-| Enhanced trade table | Column key rename silently breaks saved configs (Pitfall 7) | Never rename keys; add new keys; validate saved keys against ALL_COLUMNS at load |
-| Right sidebar | Three separate API fetches cause waterfall (Pitfall 8) | Compute all sidebar analytics from `filteredTrades` prop — no sidebar API calls |
-| Right sidebar | Sidebar too wide on 1280px screens (Pitfall 6) | Default-collapsed below 1400px; persist preference in localStorage |
-| Account switch | `load()` resets filter state on account change (Pitfall 10) | Separate filter state lifecycle from data fetch lifecycle |
-| Filter chips | Chips referencing deleted entities show stale labels (Pitfall 11) | Validate active filters against live catalogues on load |
+| Resize handle implementation | Event conflict with @dnd-kit drag sensors | stopPropagation on resize handle + PointerSensor distance constraint |
+| Chart widget resize | ResponsiveContainer re-render storm | Debounce ResizeObserver + placeholder during active resize |
+| Layout persistence | Breaking existing saved layouts | Migration function for old schema, test with real saved data |
+| CSS Grid layout | Gaps from mixed row/col spans | Explicit grid placement or grid-auto-flow: dense |
+| Mobile responsive | Row spans creating oversized mobile cards | Reset row spans to 1 below md breakpoint |
+| Template system | Old templates incompatible with new schema | Apply migration logic in template load path too |
+| Drag reorder | rectSortingStrategy fails with variable sizes | Null sorting strategy + manual reorder logic |
+| Performance | 24+ widgets re-rendering on resize | CSS contain property + debounce + lazy render |
 
 ---
 
 ## Sources
 
-- SQLite json_each() query patterns and indexing limitations: [SQLite JSON Functions And Operators](https://sqlite.org/json1.html), [SQLite Indexing JSON (Hacker News)](https://news.ycombinator.com/item?id=46243904), [SQLite json_each forum discussion](https://sqlite-users.sqlite.narkive.com/FoNgEqSn/sqlite-fastest-way-to-search-json-array-values)
-- Client-side vs server-side filtering tradeoffs: [DEV Community — Deciding Between Client-Side and Server-Side Filtering](https://dev.to/marmariadev/deciding-between-client-side-and-server-side-filtering-22l9), [Next.js Table with Server-Side Performance](https://medium.com/@divyanshsharma0631/the-next-js-table-tango-mastering-dynamic-data-tables-with-server-side-performance-client-side-a71ee0ec2c63)
-- Filter state URL sync pitfalls: [LogRocket — Advanced React state management using URL parameters](https://blog.logrocket.com/advanced-react-state-management-using-url-parameters/), [TanStack Table URL sync tree mismatch issue](https://github.com/TanStack/table/discussions/5002)
-- Saved view persistence pitfalls: [PrimeNG saved filter state stale data issue](https://github.com/primefaces/primeng/issues/10065), [Best Practices for Persisting State in Frontend Applications](https://blog.pixelfreestudio.com/best-practices-for-persisting-state-in-frontend-applications/)
-- Recharts performance and memoization: [Recharts Performance Guide](https://recharts.github.io/en-US/guide/performance/), [LogRocket — Best React chart libraries 2025](https://blog.logrocket.com/best-react-chart-libraries-2025/)
-- Mobile table responsive patterns: [TanStack Table responsive collapse discussion](https://github.com/TanStack/table/discussions/3259), [CSS Responsive Tables 2025](https://dev.to/satyam_gupta_0d1ff2152dcc/css-responsive-tables-complete-guide-with-code-examples-for-2025-225p)
-- SQLite dynamic filter performance: [SQLite Query Optimizer Overview](https://sqlite.org/optoverview.html), [SQLite Performance Tuning](https://phiresky.github.io/blog/2020/sqlite-performance-tuning/)
-- Normalization vs JSON column tradeoffs: [SQLite JSON and denormalization](https://maximeblanc.fr/blog/sqlite-json-and-denormalization)
+- [@dnd-kit Issue #720: Handling differently sized grid items](https://github.com/clauderic/dnd-kit/issues/720) -- maintainer-confirmed limitation
+- [@dnd-kit Issue #77: Sortable grid with different item sizes](https://github.com/clauderic/dnd-kit/issues/77)
+- [@dnd-kit Issue #804: useSortable with variable size items](https://github.com/clauderic/dnd-kit/issues/804)
+- [@dnd-kit Issue #117: Variable sized sortables stretched when dragged](https://github.com/clauderic/dnd-kit/issues/117)
+- [Recharts Issue #1767: ResponsiveContainer very slow when resizing](https://github.com/recharts/recharts/issues/1767) -- closed as not planned
+- [react-grid-layout GitHub](https://github.com/react-grid-layout/react-grid-layout) -- reference architecture for grid dashboards
+- [Building Customizable Dashboard Widgets Using React Grid Layout (AntStack)](https://www.antstack.com/blog/building-customizable-dashboard-widgets-using-react-grid-layout/)
+- [Drag and Drop with dynamically changing sizes (Michael Chen, Medium)](https://medium.com/@michaelchen101/draft-drag-and-drop-with-dynamically-changing-sizes-cedb3f479038)

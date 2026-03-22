@@ -1,671 +1,383 @@
-# Architecture Patterns
+# Architecture: Dashboard Redesign with Grid-Based Resizable Cards
 
-**Domain:** Trades page overhaul — filters, saved views, mistakes tagging, summary stats, column config, sidebar analytics
-**Researched:** 2026-03-21
-**Milestone:** v3.0 Trades Page Overhaul
-**Confidence:** HIGH (derived from full codebase read; all patterns proven from existing code)
+**Domain:** Trade journaling analytics dashboard redesign
+**Researched:** 2026-03-22
+**Milestone:** v3.1 Dashboard Redesign
+**Confidence:** HIGH (derived from full codebase analysis of DashboardShell.tsx, existing patterns)
 
 ---
 
 ## Executive Context
 
-The v3.0 milestone transforms `app/trades/page.tsx` from a ~590-line monolith with basic symbol/status/direction filtering into a full-featured workspace. The existing page already loads all trades client-side, filters in-memory, and persists column config via `/api/settings`. The work is additive: new DB migrations for mistakes types, new filter state, new components extracted from the page, and a new sidebar analytics panel. No existing API routes are removed; the GET `/api/trades` route gains additional query params.
+The v3.1 milestone redesigns the analytics dashboard to match the trades page design language. The current DashboardShell.tsx (~770 lines) already has a working drag-reorder system via @dnd-kit, a 6-column CSS grid, three column-span sizes (large=3, medium=2, compact=1), and layout persistence per account via the settings API. The work is primarily a UI restructure: merging the header and account summary into a navbar-style top bar, updating card styling, and potentially adding edge-drag resize handles. No new database tables or API routes are needed.
 
-The key architectural constraint: the existing codebase stores UI config as JSON strings in the settings table (strategies, dashboard layouts, watchlists, tab configs, column visibility). This pattern must be followed for saved views and column order. No new tables for user preferences.
-
----
-
-## Recommended Architecture
-
-```
-app/
-  trades/
-    page.tsx                      MODIFY: thin shell — imports TradesShell, passes nothing
-components/
-  trades/                         NEW directory
-    TradesShell.tsx               NEW: orchestrator (~600 lines). Owns all filter state,
-                                       loads trades + mistakes types, mounts sub-components.
-    FilterBar.tsx                 NEW: symbol search, dropdown filters, quick chips, active
-                                       filter chips with clear, saved views load/save/delete.
-    SummaryStatsBar.tsx           NEW: 3 stat cards (Cumulative Return, P/L Ratio, Win%) +
-                                       sparklines. Scoped to filtered trades.
-    TradesSidebar.tsx             NEW: right sidebar. Account performance, setups P&L
-                                       breakdown, mistakes P&L breakdown. Collapsible.
-    MistakesPill.tsx              NEW: displays mistake tags inline in table row.
-    SavedViewsMenu.tsx            NEW: dropdown panel for save/load/delete named views.
-  TradeTable.tsx                  MODIFY: add "mistakes" column, status/side badges, net
-                                          return $/%/cost columns, column reorder support.
-lib/
-  db.ts                           MODIFY: add migrations 023 (mistake_types table) and
-                                          024 (trade_mistake_tags junction table).
-  types.ts                        MODIFY: add MistakeType, TradeFilterState interfaces.
-app/
-  api/
-    trades/
-      route.ts                    MODIFY: add date_from/date_to/mistake_id/tag query params.
-    mistakes/
-      route.ts                    NEW: GET list, POST create mistake type (user-scoped).
-      [id]/
-        route.ts                  NEW: PUT rename, DELETE mistake type.
-    trades/
-      [id]/
-        mistakes/
-          route.ts                NEW: POST add mistake tag, DELETE remove mistake tag.
-```
+The critical architectural constraint: the existing `DashboardLayout` data model (`{ order, hidden, sizes }`) already encodes everything needed for column-span resize. Row span (height adjustment) is explicitly deferred per PROJECT.md. This means the "grid-based resize" feature is an interaction improvement on the existing size system, not a data model change.
 
 ---
 
-## Component Boundaries
+## Integration Points
 
-### Feature 1: Filter System and Saved Views
+### 1. DashboardLayout Data Model -- NO SCHEMA CHANGE
 
-**Current state:** Filters live directly in `app/trades/page.tsx` as three `useState` calls (`status`, `direction`, `symbolQ`). Filtering is client-side. There are no filter chips, no presets, no saved views.
-
-**New filter state model:**
+**Current model** (DashboardShell.tsx, lines 152-156):
 
 ```typescript
-// lib/types.ts (additions)
-export interface TradeFilterState {
-  symbol: string;           // substring match
-  status: "all" | "planned" | "open" | "closed";
-  direction: "all" | "long" | "short";
-  mistakeId: string | null; // filter to trades tagged with this mistake type
-  tags: string[];           // custom tags (from trade.tags JSON field)
-  dateFrom: string | null;  // ISO date string
-  dateTo: string | null;    // ISO date string
-  accountId: string | null; // null = active account from context (not a separate filter)
-}
+type WidgetSize = "large" | "medium" | "compact";
 
-export const DEFAULT_FILTER: TradeFilterState = {
-  symbol: "",
-  status: "all",
-  direction: "all",
-  mistakeId: null,
-  tags: [],
-  dateFrom: null,
-  dateTo: null,
-  accountId: null,
-};
-
-export interface SavedView {
-  id: string;               // crypto.randomUUID()
-  name: string;
-  filter: TradeFilterState;
-  created_at: string;
+interface DashboardLayout {
+  order: string[];                    // widget ID ordering
+  hidden: string[];                   // hidden widget IDs
+  sizes: Record<string, WidgetSize>;  // per-widget column span
 }
 ```
 
-**Filter state management — React state only (not URL params):**
+Column span mapping (WidgetCard, lines 238-242):
+- `"large"` = `col-span-1 md:col-span-3` (half of 6-column grid)
+- `"medium"` = `col-span-1 md:col-span-2` (one-third)
+- `"compact"` = `col-span-1` (one-sixth)
 
-The existing page uses no URL params for filters. Given the app is a single-user journaling tool (not a shareable link destination), React state is sufficient and simpler. URL params would add `useSearchParams` + router dependency for no user benefit. The saved views system gives persistence without URL coupling.
+**No changes needed.** The existing sizes field IS the resize data. Existing saved layouts, templates, and built-in presets all remain valid. No migration. No API changes.
 
-If a future milestone adds deep linking to specific filter states, URL params can be added then — it is an additive change (read from URL on mount, write on filter change).
+**Row span consideration:** PROJECT.md explicitly lists "Dashboard widget height adjustment" as out of scope. Do NOT add a `rowSpans` field. Use `grid-auto-rows` with a minmax for uniform minimum card heights instead.
 
-**Quick filter presets (client-side computed, not stored):**
+### 2. Settings Persistence -- NO CHANGES NEEDED
 
-```typescript
-const QUICK_FILTERS: { label: string; filter: Partial<TradeFilterState> }[] = [
-  { label: "Winners",    filter: { status: "closed" } }, // show trades where pnl > 0 — post-filter
-  { label: "Losers",     filter: { status: "closed" } }, // show trades where pnl < 0 — post-filter
-  { label: "This Week",  filter: { dateFrom: startOfWeek, dateTo: today } },
-  { label: "This Month", filter: { dateFrom: startOfMonth, dateTo: today } },
-];
-```
-
-Winners/Losers are special: they need a `pnlFilter: "winners" | "losers" | "all"` field added to `TradeFilterState`. The filter is applied client-side after loading (pnl is already on the trade object from the DB).
-
-**Saved views persistence:** Follow the strategies/templates pattern exactly.
+The layout save path is already correct:
 
 ```typescript
-// settings key: "trades_saved_views"
-// value: JSON.stringify(SavedView[])
-```
-
-Loaded in `TradesShell` on mount alongside settings. Saved via `PUT /api/settings`. No dedicated API route needed.
-
-**FilterBar component interface:**
-
-```typescript
-interface FilterBarProps {
-  filter: TradeFilterState;
-  onFilterChange: (patch: Partial<TradeFilterState>) => void;
-  onReset: () => void;
-  savedViews: SavedView[];
-  onSaveView: (name: string) => void;
-  onLoadView: (view: SavedView) => void;
-  onDeleteView: (id: string) => void;
-  mistakeTypes: MistakeType[];
-  allTags: string[];           // derived from loaded trades
+// Per-account layout key (line 214-216)
+function getLayoutKey(accountId: string | null): string {
+  return accountId ? `dashboard_layout_${accountId}` : 'dashboard_layout_all_accounts';
 }
+
+// Debounced save (lines 481-495)
+const saveLayout = useCallback((newLayout: DashboardLayout, immediate = false) => {
+  setLayout(newLayout);
+  if (saveTimer.current) clearTimeout(saveTimer.current);
+  const doSave = () => {
+    fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [getLayoutKey(activeAccountId)]: JSON.stringify(newLayout) }),
+    });
+  };
+  if (immediate) doSave();
+  else saveTimer.current = setTimeout(doSave, 1000);
+}, [me, activeAccountId]);
 ```
 
-**Active filter chips:** Rendered by FilterBar. One chip per active filter criterion. Each chip shows the criterion label and an X to clear that specific filter. "Clear all" button when any filter is active.
+Resize interactions call the existing `saveLayout()` with updated sizes. No new persistence logic.
+
+### 3. @dnd-kit Integration -- MINIMAL CHANGES
+
+**Current DnD setup** (lines 28-35, 828-841):
+- `DndContext` + `SortableContext` with `rectSortingStrategy`
+- `useSortable` hook per `WidgetCard`
+- `PointerSensor` with 5px activation distance
+- `handleDragEnd` reorders the `layout.order` array via `arrayMove`
+
+**Known limitation:** @dnd-kit's `rectSortingStrategy` handles variable column spans imperfectly -- items can visually overlap during drag when sizes differ. This is a [known issue](https://github.com/clauderic/dnd-kit/issues/720). The current codebase already ships with 3 different column spans and this exact setup, so the behavior is accepted and users are accustomed to it.
+
+**No changes to DnD setup.** The drag-reorder operates on the `order` array regardless of visual sizes. If edge-drag resize handles are added, they must NOT use @dnd-kit -- use native mouse events on dedicated handle elements to avoid conflicts with reorder drag.
+
+### 4. Template Compatibility -- AUTOMATIC
+
+`LayoutTemplate` and `BuiltInTemplate` (lines 158-170) both store `DashboardLayout` directly. Since the interface is unchanged, all existing saved templates and built-in presets remain valid without migration. The `DEFAULT_BUILT_IN_TEMPLATES` array should be reviewed to ensure preset sizes still make visual sense with the new card styling.
+
+### 5. Widget Component Contracts -- UNCHANGED
+
+All widget components (ChartWidgets, StatWidget, ComparisonWidget, PerfTableWidget, HeatmapWidget, SymbolPnlWidget, WeeklyCalendar, etc.) receive data as props and render inside WidgetCard's `flex-1 min-h-0` container. They use `h-full w-full` or `min-h-[140px]` internally. No widget component needs logic changes -- only CSS class updates if card container styling changes.
 
 ---
 
-### Feature 2: Mistakes Tagging System
+## Data Model Changes
 
-**Data model: two new DB tables (migrations 023 and 024).**
+**None.** The existing `DashboardLayout` interface, settings keys, and API routes are sufficient.
 
-This is the only feature that requires new tables. The existing `trades.mistakes` column (TEXT, added in migration 013) stores a free-text string — it is not structured enough for filtering or analytics. The new system is a proper many-to-many relationship.
-
-```sql
--- Migration 023: mistake_types table
-CREATE TABLE IF NOT EXISTS mistake_types (
-  id         TEXT PRIMARY KEY,    -- crypto.randomUUID()
-  user_id    TEXT NOT NULL,
-  name       TEXT NOT NULL,
-  color      TEXT NOT NULL DEFAULT '#ef4444',  -- hex color for pill display
-  created_at TEXT DEFAULT (datetime('now')),
-  UNIQUE(user_id, name)
-);
-CREATE INDEX IF NOT EXISTS idx_mistake_types_user ON mistake_types(user_id);
-
--- Migration 024: trade_mistake_tags junction table
-CREATE TABLE IF NOT EXISTS trade_mistake_tags (
-  trade_id    INTEGER NOT NULL REFERENCES trades(id) ON DELETE CASCADE,
-  mistake_id  TEXT NOT NULL REFERENCES mistake_types(id) ON DELETE CASCADE,
-  PRIMARY KEY (trade_id, mistake_id)
-);
-CREATE INDEX IF NOT EXISTS idx_trade_mistake_tags_trade ON trade_mistake_tags(trade_id);
-CREATE INDEX IF NOT EXISTS idx_trade_mistake_tags_mistake ON trade_mistake_tags(mistake_id);
-```
-
-**Why not reuse `trades.mistakes` TEXT column?**
-
-The existing `trades.mistakes` column is a freeform text reflection field used in the journal/TradeModal. It is NOT structured tag data — it stores notes like "Chased entry, ignored stop". The new system is separate: user-defined mistake type records linked to trades. The old column remains for backward compat. The TradeModal can continue writing freeform reflection to `trades.mistakes`; the new pill-based tagging writes to `trade_mistake_tags`.
-
-**MistakeType interface:**
-
-```typescript
-// lib/types.ts
-export interface MistakeType {
-  id: string;
-  user_id: string;
-  name: string;
-  color: string;
-  created_at: string;
-}
-```
-
-**API routes:**
-
-```
-GET  /api/mistakes              → list user's mistake types
-POST /api/mistakes              → create new mistake type { name, color }
-PUT  /api/mistakes/[id]         → rename or recolor { name?, color? }
-DELETE /api/mistakes/[id]       → delete (cascades to trade_mistake_tags)
-
-POST   /api/trades/[id]/mistakes         → tag a trade { mistake_id }
-DELETE /api/trades/[id]/mistakes/[mid]   → untag a trade
-```
-
-**Loading mistakes on the trades page:** `GET /api/trades` does NOT join `trade_mistake_tags` — that would bloat the response. Instead, `TradesShell` makes two parallel fetches: one for trades, one for mistakes types. A third fetch gets `trade_mistake_tags` for the current account scope as a mapping `{ trade_id: mistake_id[] }`. This mapping is joined client-side.
-
-```typescript
-// TradesShell: parallel load
-const [tradesRes, mistakesRes, tagsRes] = await Promise.all([
-  fetch(tradesUrl),
-  fetch("/api/mistakes"),
-  fetch("/api/trades/mistake-tags" + (activeAccountId ? `?account_id=${activeAccountId}` : "")),
-]);
-```
-
-Alternatively, add a `?include_mistakes=1` param to `GET /api/trades` that adds a LEFT JOIN and returns `mistake_ids: string[]` per trade. This is cleaner. Either approach works — the join approach is recommended to keep network requests to 2 instead of 3.
-
-**Tagging UI in TradeTable:** Each row gets a small `MistakesPill` component showing colored pills for each tagged mistake type. Clicking a pill opens a dropdown to add/remove mistake types. This is inline editing — no modal needed.
+| Aspect | Change | Rationale |
+|--------|--------|-----------|
+| `DashboardLayout` interface | None | `sizes` already stores column spans |
+| Settings API | None | `saveLayout()` already handles per-account JSON |
+| Database | None | No new tables or migrations |
+| Templates | None | Store `DashboardLayout` which is unchanged |
+| `DEFAULT_SIZES` | Review only | Some defaults may need adjustment for new card design |
 
 ---
 
-### Feature 3: Summary Stats Bar with Sparklines
+## Component Changes
 
-**Positioning:** Between the filter bar and the trade table. Scoped to the currently filtered trades (updates as filters change). Does not use the AccountBanner (which shows all-account stats) — it shows filter-scoped stats.
+### 1. DashboardShell.tsx -- Header Restructure
 
-**Stats to display:**
+**Remove:**
+- Lines 1070-1074: `<h1>Dashboard</h1>` title block and subtitle
+- Lines 1166-1217: Separate account summary strip card (the rounded card with Balance, P&L, Today, Trades, Win Rate)
+- The `space-y-6` top-level wrapper class
 
-| Stat | Calculation | Sparkline |
-|------|-------------|-----------|
-| Cumulative P&L | Sum of `pnl` for closed trades in filter | Daily P&L over time (line chart) |
-| Win Rate | Winners / (Winners + Losers) × 100 | Win/loss by week (bar chart) |
-| P/L Ratio | Avg winner pnl / Abs(avg loser pnl) | None (single ratio) |
+**Add:**
+- Navbar-style top bar combining account stats + controls in a single fixed-height row
+- Viewport-locked layout (flex column with scrollable content area)
 
-**Sparkline implementation:** Use Recharts (already in the stack). A `<AreaChart>` or `<LineChart>` at 120×40px with no axes, no tooltip, no legend — purely visual. The data is derived client-side from the filtered trades array (group by exit_date, sum pnl). No new API calls.
-
-```typescript
-// SummaryStatsBar.tsx — data derivation (client-side, no fetch)
-interface SummaryStatsBarProps {
-  trades: Trade[];  // already filtered
-  hidden: boolean;
-}
-```
-
-**Why not persist the time scope separately?** The trades page will have date filters in the filter bar. The summary stats bar reflects the filter bar's active date range. No additional time selector is needed on the stats bar itself — this avoids the confusion of having two date controls on the same page. The stat "scoped to all trades unless date-filtered" in the milestone brief means: show all-time stats when no date filter is active; show filtered stats when one is.
-
----
-
-### Feature 4: Enhanced Trade Table
-
-**Modifications to `TradeTable.tsx`:**
-
-1. **Status/side badges:** Already partially styled (`STATUS_STYLE` object exists). The badge rendering is already in the table — `direction` uses `ArrowUpRight`/`ArrowDownRight` icons. No structural change; just confirm the visual treatment is distinct badges (colored background + text).
-
-2. **New columns to add to `ALL_COLUMNS`:**
-
-```typescript
-{ key: "net_return",   label: "Net $",    default: false },  // pnl - commission
-{ key: "pct_return_exit", label: "% Return", default: false }, // already exists as pct_return — confirm calculation uses exit
-{ key: "cost",         label: "Cost",     default: false },  // entry_price * shares
-{ key: "mistakes",     label: "Mistakes", default: false },  // MistakesPill rendering
-```
-
-Note: `pct_return` already exists in `ALL_COLUMNS` (index 11). Confirm it uses `(exit_price - entry_price) / entry_price * direction_multiplier`. If so, no change needed — just verify.
-
-3. **Column reorder:** The existing system uses a toggle-based dropdown. For v3.0, the milestone asks for "column config" not necessarily drag-to-reorder. A simpler approach: the column visibility dropdown already exists; add an "order" concept by letting the user drag columns in that dropdown (DnD kit is already in the stack). The column order is stored alongside `trade_table_columns` in settings:
-
-```typescript
-// settings key: "trade_table_columns" (already exists)
-// current: JSON.stringify(ColumnKey[])  — array of visible keys
-// new: same format — the array order defines render order
-```
-
-The `TradeTable` receives `visibleColumns: ColumnKey[]` and renders them in array order. This is already the case. The only change: the column config dropdown now supports drag-to-reorder (using `@dnd-kit/sortable`), and the ordered array is saved.
-
----
-
-### Feature 5: Right Sidebar Analytics
-
-**Layout structure:**
-
-```
-┌─────────────────────────────────────────────────────┐
-│  Filter Bar                                         │
-│  Summary Stats Bar                                  │
-│  ┌──────────────────────────────┐ ┌───────────────┐ │
-│  │  Trade Table                 │ │  Sidebar      │ │
-│  │  (flexible width)            │ │  Analytics    │ │
-│  │                              │ │  (fixed 280px)│ │
-│  └──────────────────────────────┘ └───────────────┘ │
-└─────────────────────────────────────────────────────┘
-```
-
-**Implementation:** CSS grid with two columns. The sidebar is collapsible (toggle button on its left edge, similar to the Navbar collapse pattern). Width is fixed at 280px when expanded, 0 when collapsed (CSS transition). Collapsed state is persisted in localStorage (`trades_sidebar_collapsed`).
+**Target structure:**
 
 ```tsx
-// In TradesShell.tsx
-const [sidebarOpen, setSidebarOpen] = useState(true);
-// Persist in localStorage on change
+<div className="flex flex-col h-[calc(100vh-64px)]">
+  {/* Top bar -- fixed height, matches trades page filter bar */}
+  <div className="px-6 flex items-center h-16 shrink-0 border-b dark:border-slate-800 border-slate-200 dark:bg-slate-900 bg-slate-100">
+    {/* Left: Account stats inline */}
+    <div className="flex items-center gap-4 mr-auto">
+      {/* Balance | P&L | Today | Trades | Win Rate -- inline with dividers */}
+    </div>
 
-<div className={`flex gap-4 ${sidebarOpen ? "grid grid-cols-[1fr_280px]" : "grid grid-cols-[1fr]"}`}>
-  <div className="min-w-0">
-    <TradeTable ... />
+    {/* Right: Controls */}
+    <div className="flex items-center gap-2">
+      {/* Time filter pills (30d/60d/90d/All) */}
+      {/* Edit/Reset/Templates/Refresh/Export/Privacy buttons */}
+      {/* New Trade button */}
+    </div>
   </div>
-  {sidebarOpen && (
-    <TradesSidebar trades={filteredTrades} mistakeTypes={mistakeTypes} />
-  )}
+
+  {/* Scrollable content area */}
+  <div className="flex-1 overflow-y-auto p-6 space-y-4">
+    {/* Daily loss warning */}
+    {/* Weekly calendar */}
+    {/* Widget grid (DndContext + SortableContext) */}
+    {/* Hidden widgets panel (edit mode) */}
+    {/* Open trades section */}
+  </div>
 </div>
 ```
 
-**Sidebar content (three panels, each collapsible):**
+**Why `h-[calc(100vh-64px)]`:** The 64px accounts for the Navbar sidebar logo area height alignment. This is the same pattern used by the trades page.
 
-1. **Account Performance:** Starting balance, current balance (start + total realized PnL), total PnL, win rate, expectancy. Derived from the UNFILTERED allTrades + activeAccount. This is the same data as AccountBanner — pass in the same computed values rather than re-fetching.
+### 2. WidgetCard -- Styling Update + Optional Resize Handle
 
-2. **Setups P&L Breakdown:** Group filtered trades by `strategy_id` (join with strategies from settings). Show strategy name, trade count, total PnL, win rate per strategy. Sorted by total PnL descending.
+**Current card style** (line 246):
+```
+rounded-2xl dark:bg-slate-800/50 bg-white p-3 flex flex-col shadow-sm
+```
 
-3. **Mistakes P&L Breakdown:** Group filtered trades by mistake type tag. For each mistake type, show: name, tagged trade count, total PnL of tagged trades. Sorted by total PnL (worst first — helps identify most costly mistakes).
+**Target card style** (matching trades page design language):
+```
+rounded-md border dark:border-slate-800 border-slate-200 dark:bg-slate-900/50 bg-white p-3 flex flex-col
+```
 
-All sidebar data is client-side derived from `filteredTrades` + `mistakeTypes` + strategies. No additional API calls.
+Changes:
+- `rounded-2xl` to `rounded-md` (sharper corners)
+- Add explicit `border dark:border-slate-800 border-slate-200`
+- Remove `shadow-sm` (borders replace shadows)
+- Background: `dark:bg-slate-800/50` to `dark:bg-slate-900/50` (slightly darker, matching trades page cards)
 
-**Mobile behavior:** On screens below `md` breakpoint (768px), the sidebar is hidden entirely (not collapsible, just gone). The toggle button does not render on mobile. This avoids a complex overlay/drawer pattern for v3.0. A drawer can be added later.
+**Resize interaction -- two approaches:**
+
+**Option A (Recommended): Keep cycle button.** The current edit-mode size toggle button (L -> M -> C -> L) already provides column-span resize. This is the simplest approach and already works. The "grid-based resize" from the project spec is satisfied because the grid snaps to column widths.
+
+**Option B (If drag-to-resize required): Add edge handle.**
+- Small handle element at right edge of card (only in edit mode)
+- Native mousedown/mousemove/mouseup (NOT @dnd-kit -- avoids conflict)
+- Track horizontal movement, snap to nearest column boundary (1/2/3 cols)
+- Call existing `saveLayout()` with updated sizes on mouseup
+- Risk: Medium. Mouse events near DnD handles can conflict. Mitigated by separate DOM elements and the 5px activation distance on PointerSensor.
+
+### 3. Grid Container -- Add grid-auto-rows
+
+**Current grid** (line 1251):
+```
+grid grid-cols-1 md:grid-cols-6 gap-3
+```
+
+**Updated grid:**
+```
+grid grid-cols-1 md:grid-cols-6 gap-3 auto-rows-[minmax(200px,auto)]
+```
+
+The `auto-rows-[minmax(200px,auto)]` Tailwind class ensures all grid rows have a minimum 200px height while allowing content to expand. This provides visual consistency across cards of different content heights without explicit row spans.
+
+### 4. Elements to Remove
+
+**"Recent Trades" / "Open Trades" table** (lines 1285-1303): Per project spec ("Remove recent trades table"), this section should be removed. Open/planned trades are accessible from the trades page.
+
+**Page title** (line 1072): `<h1>Dashboard</h1>` and subtitle removed. The account stats in the top bar serve as the page identifier.
+
+### 5. Hidden Widgets Panel -- Style Update
+
+**Current** (lines 1269-1283):
+```
+rounded-2xl border dark:border-slate-700 border-slate-200 dark:bg-slate-800/30 bg-slate-50 p-3 shadow-sm
+```
+
+**Updated** (matching new card style):
+```
+rounded-md border dark:border-slate-800 border-slate-200 dark:bg-slate-900/30 bg-slate-50 p-3
+```
+
+### 6. Daily Loss Warning Banner -- Style Update
+
+The existing banner (lines 1221-1236) uses `rounded-2xl`. Update to `rounded-md` to match new design language. Keep the red color scheme.
 
 ---
 
-## Data Flow Changes
+## Build Order
 
-### New Settings Keys
+Build in this order to minimize risk and allow incremental verification at each step.
 
-| Key | Scope | Format | Purpose |
-|-----|-------|--------|---------|
-| `trades_saved_views` | user | `JSON: SavedView[]` | Named filter presets |
-| `trade_table_columns` | user | `JSON: ColumnKey[]` (ordered) | Visible columns + render order |
+### Phase 1: Top Bar Extraction (Highest Impact, Lowest Risk)
 
-`trade_table_columns` already exists — the format does not change, just the implication that order matters now.
+**What:** Replace the title header + account summary strip with a single navbar-style top bar. Make the content area below scrollable.
 
-### New DB Tables (Migrations 023 + 024)
+**Changes:**
+1. Remove `<h1>Dashboard</h1>` and subtitle
+2. Remove the separate account summary strip card
+3. Add a `h-16 border-b dark:bg-slate-900 bg-slate-100` top bar
+4. Move account stats (Balance, P&L, Today, Trades, Win Rate) into the top bar left side, inline
+5. Move time filter pills into the top bar center-right
+6. Move utility buttons (edit, reset, templates, refresh, export, privacy) + New Trade button into the top bar right side
+7. Wrap remaining content in a scrollable container (`flex-1 overflow-y-auto`)
+8. Change root wrapper to `flex flex-col h-[calc(100vh-64px)]`
 
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `mistake_types` | User-defined mistake type catalog | id, user_id, name, color |
-| `trade_mistake_tags` | Many-to-many: trades ↔ mistake types | trade_id, mistake_id (composite PK) |
+**Risk:** Low. Pure UI restructure. No data model or logic changes. All state variables remain in DashboardShell.
 
-### New API Routes
+**Verification:** Page loads, stats display correctly, time filter works, edit mode works, layout saves persist.
 
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `GET /api/mistakes` | GET | List user's mistake types |
-| `POST /api/mistakes` | POST | Create mistake type |
-| `PUT /api/mistakes/[id]` | PUT | Rename or recolor |
-| `DELETE /api/mistakes/[id]` | DELETE | Delete (cascades tags) |
-| `POST /api/trades/[id]/mistakes` | POST | Tag a trade with a mistake type |
-| `DELETE /api/trades/[id]/mistakes/[mid]` | DELETE | Remove a mistake tag |
+### Phase 2: Card Design Update (Visual Alignment)
 
-### Modified API Routes
+**What:** Update WidgetCard and related panel styling to match trades page design language.
 
-| Route | Change |
-|-------|--------|
-| `GET /api/trades` | Add `date_from`, `date_to`, `mistake_id` query params (server-side filtering). Also add `?include_mistakes=1` to return `mistake_ids[]` per trade. |
+**Changes:**
+1. WidgetCard: `rounded-2xl` to `rounded-md`, add border, remove shadow, adjust bg
+2. Hidden widgets panel: same style updates
+3. Daily loss warning: `rounded-2xl` to `rounded-md`
+4. Weekly calendar card: align styling if it uses `rounded-2xl`
+5. Empty state card: align styling
+6. Grid container: add `auto-rows-[minmax(200px,auto)]` for uniform row heights
 
-**Current `GET /api/trades` supports:** `account_id`, `status`, `direction`, `symbol`, `ai_pattern`
+**Risk:** Low. CSS-only changes. No interaction or data changes.
 
-**New params to add:**
-- `date_from`: `exit_date >= ?` (ISO date)
-- `date_to`: `exit_date <= ?` (ISO date)
-- `mistake_id`: JOIN with `trade_mistake_tags WHERE mistake_id = ?`
-- `include_mistakes=1`: adds LEFT JOIN subquery to return mistake IDs per trade
+**Verification:** Visual inspection. Cards match trades page style. No content overflow issues.
 
-Most filtering will remain client-side for responsiveness (symbol search, pnl winners/losers, tag filtering). Date range and mistake filters benefit from server-side filtering when trade counts are large.
+### Phase 3: Remove Open Trades Section + Cleanup
 
-### Component File Map
+**What:** Remove the "Open Trades" table from the dashboard, clean up any remaining style inconsistencies.
 
-| File | Status | What Changes |
-|------|--------|--------------|
-| `app/trades/page.tsx` | MODIFY | Becomes a thin shell importing `TradesShell` |
-| `components/trades/TradesShell.tsx` | NEW | Main orchestrator, owns all state from current page.tsx |
-| `components/trades/FilterBar.tsx` | NEW | All filter controls + saved views UI |
-| `components/trades/SummaryStatsBar.tsx` | NEW | 3 stats + sparklines |
-| `components/trades/TradesSidebar.tsx` | NEW | Right sidebar with 3 analytics panels |
-| `components/trades/MistakesPill.tsx` | NEW | Inline mistake tag pills for table rows |
-| `components/trades/SavedViewsMenu.tsx` | NEW | Dropdown for save/load/delete views |
-| `components/TradeTable.tsx` | MODIFY | Add new columns, mistakes column, column reorder support |
-| `lib/db.ts` | MODIFY | Migrations 023, 024 |
-| `lib/types.ts` | MODIFY | Add MistakeType, SavedView, TradeFilterState |
-| `app/api/mistakes/route.ts` | NEW | GET + POST mistake types |
-| `app/api/mistakes/[id]/route.ts` | NEW | PUT + DELETE mistake type |
-| `app/api/trades/[id]/mistakes/route.ts` | NEW | POST: add mistake tag to trade |
-| `app/api/trades/[id]/mistakes/[mid]/route.ts` | NEW | DELETE: remove mistake tag |
-| `app/api/trades/route.ts` | MODIFY | Add date_from, date_to, mistake_id, include_mistakes params |
+**Changes:**
+1. Remove lines 1285-1303 (open trades section)
+2. Remove `TradeTable` import if no longer used in DashboardShell
+3. Remove related state (`openTrades` memo, `handleEdit`, `handleDelete` if only used for open trades table)
+4. Review `DEFAULT_SIZES` -- adjust defaults if any widgets look wrong at current sizes with new card design
+5. Review built-in templates (`DEFAULT_BUILT_IN_TEMPLATES`) for sensible defaults
 
-**Untouched:** `lib/auth.ts`, `middleware.ts`, `lib/account-context.tsx`, `components/AccountBanner.tsx`, `components/TradeModal.tsx` (no changes needed for v3.0 — mistake tagging lives in the table row, not the modal), all settings API routes, all other pages.
+**Risk:** Low. Removal of self-contained section. May need to keep `handleEdit`/`handleDelete` and `TradeModal` if they serve the widget click-through interactions.
+
+**Verification:** Dashboard loads without open trades section. No broken references. Modal still works for "New Trade" button.
+
+### Phase 4: Resize Enhancement (Optional, Medium Risk)
+
+**Only build if the cycle button is insufficient for the "grid-based resize" requirement.**
+
+**What:** Add edge-drag resize handles to cards in edit mode.
+
+**Changes:**
+1. Add a resize handle div to WidgetCard right edge (edit mode only)
+2. Implement mousedown/mousemove/mouseup resize logic
+3. Calculate target column count based on mouse X position relative to grid
+4. Snap to 1/2/3 columns, call `saveLayout()` with updated size
+5. Add `pointer-events-none` overlay during resize to prevent iframe widgets from stealing events
+
+**Risk:** Medium. Mouse event handling alongside @dnd-kit drag. Mitigations:
+- Resize handle is a separate DOM element from the drag handle (bottom-right corner vs top-right grip icon)
+- PointerSensor has 5px activation distance, so micro-movements don't trigger DnD
+- Add `e.stopPropagation()` on the resize handle to prevent DnD pickup
+
+**Verification:** Resize works in edit mode. DnD reorder still works. Layout persists after resize. No conflict between resize and drag.
 
 ---
 
 ## Patterns to Follow
 
-### Pattern 1: Settings-Backed User Preferences (Saved Views)
+### Pattern 1: Viewport-Locked Layout (from Trades Page)
 
-Follow the `strategies` / `dashboard_layout_templates` pattern exactly:
+The trades page uses `h-16` fixed top bar + scrollable content. Apply the same:
 
-```typescript
-// TradesShell.tsx
-const [savedViews, setSavedViews] = useState<SavedView[]>([]);
-
-// Load on mount (alongside trades fetch)
-const settingsData = await fetch("/api/settings").then(r => r.json());
-if (settingsData.trades_saved_views) {
-  try { setSavedViews(JSON.parse(settingsData.trades_saved_views)); } catch {}
-}
-
-// Save
-const persistViews = (views: SavedView[]) => {
-  setSavedViews(views);
-  fetch("/api/settings", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ trades_saved_views: JSON.stringify(views) }),
-  });
-};
-
-const saveCurrentView = (name: string) => {
-  const view: SavedView = { id: crypto.randomUUID(), name, filter: { ...activeFilter }, created_at: new Date().toISOString() };
-  persistViews([...savedViews, view]);
-};
+```tsx
+<div className="flex flex-col h-[calc(100vh-64px)]">
+  <div className="h-16 shrink-0 border-b dark:border-slate-800 dark:bg-slate-900 bg-slate-100">
+    {/* fixed top bar */}
+  </div>
+  <div className="flex-1 overflow-y-auto p-6">
+    {/* scrollable content */}
+  </div>
+</div>
 ```
 
-### Pattern 2: Client-Side Filter Application
+### Pattern 2: Debounced Layout Save (Already Implemented)
 
-The existing page filters in-memory. Keep this approach for symbol, status, direction, pnl winners/losers, and tags. Server-side filtering is only added for date range and mistake_id (where index scans are worth the round-trip).
+Keep the existing 1-second debounce for resize changes. Immediate save on edit mode exit (`finishEdit` calls `saveLayout(layout, true)`). This prevents API spam during rapid size cycling or drag-to-resize.
 
-```typescript
-// TradesShell.tsx
-const filteredTrades = useMemo(() => {
-  return allTrades.filter(t => {
-    if (filter.status !== "all" && t.status !== filter.status) return false;
-    if (filter.direction !== "all" && t.direction !== filter.direction) return false;
-    if (filter.symbol && !t.symbol.toUpperCase().includes(filter.symbol.toUpperCase())) return false;
-    if (filter.pnlFilter === "winners" && (t.pnl ?? 0) <= 0) return false;
-    if (filter.pnlFilter === "losers" && (t.pnl ?? 0) >= 0) return false;
-    if (filter.mistakeId) {
-      const tradeMistakeIds = mistakeTagMap[t.id] ?? [];
-      if (!tradeMistakeIds.includes(filter.mistakeId)) return false;
-    }
-    if (filter.tags.length > 0) {
-      const tradeTags = t.tags ? JSON.parse(t.tags) : [];
-      if (!filter.tags.every((tag: string) => tradeTags.includes(tag))) return false;
-    }
-    return true;
-  });
-}, [allTrades, filter, mistakeTagMap]);
+### Pattern 3: CSS Grid Auto Rows
+
+```
+grid grid-cols-1 md:grid-cols-6 gap-3 auto-rows-[minmax(200px,auto)]
 ```
 
-### Pattern 3: Inline Row Editing for Mistake Tags
+Provides uniform minimum card heights without row spans. The `auto` upper bound lets widgets with more content (tables, charts) grow naturally. Stat widgets and comparison widgets render comfortably at 200px minimum.
 
-The MistakesPill component handles its own fetch on tag add/remove:
+### Pattern 4: Top Bar Stat Layout
 
-```typescript
-// components/trades/MistakesPill.tsx
-interface MistakesPillProps {
-  tradeId: number;
-  mistakeIds: string[];
-  allMistakeTypes: MistakeType[];
-  onUpdated: () => void;  // triggers TradesShell to reload mistake tag map
-}
+Use the same inline stat pattern as the current account summary strip, but compressed:
 
-const addTag = async (mistakeId: string) => {
-  await fetch(`/api/trades/${tradeId}/mistakes`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mistake_id: mistakeId }),
-  });
-  onUpdated();
-};
+```tsx
+<div className="flex items-center gap-3 text-sm">
+  <span className="text-xs font-medium dark:text-slate-400 uppercase">Balance</span>
+  <span className="font-bold text-emerald-400">$12,345.67</span>
+  <div className="w-px h-4 dark:bg-slate-700" />
+  {/* ... more stats with dividers */}
+</div>
 ```
 
-This avoids bubbling the operation up to the page — each row manages its own tagging state via the callback.
-
-### Pattern 4: Migration Pattern (023, 024)
-
-Follow the existing `hasMigration` / `markMigration` pattern in `lib/db.ts`:
-
-```typescript
-// Migration 023: mistake_types
-if (!hasMigration(db, "023_mistake_types")) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS mistake_types (
-      id         TEXT PRIMARY KEY,
-      user_id    TEXT NOT NULL,
-      name       TEXT NOT NULL,
-      color      TEXT NOT NULL DEFAULT '#ef4444',
-      created_at TEXT DEFAULT (datetime('now')),
-      UNIQUE(user_id, name)
-    );
-    CREATE INDEX IF NOT EXISTS idx_mistake_types_user ON mistake_types(user_id);
-  `);
-  markMigration(db, "023_mistake_types");
-}
-
-// Migration 024: trade_mistake_tags
-if (!hasMigration(db, "024_trade_mistake_tags")) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS trade_mistake_tags (
-      trade_id   INTEGER NOT NULL REFERENCES trades(id) ON DELETE CASCADE,
-      mistake_id TEXT NOT NULL REFERENCES mistake_types(id) ON DELETE CASCADE,
-      PRIMARY KEY (trade_id, mistake_id)
-    );
-    CREATE INDEX IF NOT EXISTS idx_trade_mistake_tags_trade ON trade_mistake_tags(trade_id);
-    CREATE INDEX IF NOT EXISTS idx_trade_mistake_tags_mistake ON trade_mistake_tags(mistake_id);
-  `);
-  markMigration(db, "024_trade_mistake_tags");
-}
-```
-
-### Pattern 5: Sidebar Collapse with localStorage
-
-Follow the Navbar sidebar pattern:
-
-```typescript
-// TradesShell.tsx
-const [sidebarOpen, setSidebarOpen] = useState(() => {
-  if (typeof window === "undefined") return true;
-  return localStorage.getItem("trades_sidebar_collapsed") !== "true";
-});
-
-const toggleSidebar = () => {
-  const next = !sidebarOpen;
-  setSidebarOpen(next);
-  localStorage.setItem("trades_sidebar_collapsed", String(!next));
-};
-```
+On smaller screens (`< sm`), hide less critical stats (Today, Trades) using `hidden sm:flex`.
 
 ---
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Reusing `trades.mistakes` TEXT for the Tagging System
-**What:** Storing comma-separated mistake type IDs in `trades.mistakes`.
-**Why bad:** That column is a freeform reflection text field, not a tag field. Storing IDs there breaks the journal/TradeModal which expects human-readable text. Also prevents filtering by mistake ID without a LIKE query across all rows.
-**Instead:** New `trade_mistake_tags` junction table. Leave `trades.mistakes` for freeform notes.
+### Anti-Pattern 1: Replacing @dnd-kit with react-grid-layout
 
-### Anti-Pattern 2: URL Params for Filter State
-**What:** Syncing `TradeFilterState` to `?status=closed&direction=long&dateFrom=...` URL params.
-**Why bad:** Adds `useSearchParams`, `useRouter`, and navigation complexity. The app is not a shareable link destination — no user needs to bookmark a filtered trade view. Saved views provide better UX for persistence.
-**Instead:** React state only. `useSearchParams` is a future addition if deep-linking becomes a requirement.
+**Why tempting:** react-grid-layout has built-in drag-to-resize with grid snapping.
+**Why bad:** Introduces a new dependency (~40KB), requires rewriting all drag-reorder logic, breaks existing layout templates (different data format), and the current @dnd-kit setup already handles variable column spans. The migration cost is not justified when the existing system works.
+**Instead:** Keep @dnd-kit. If drag-to-resize is needed, implement it with native mouse events alongside the existing DnD.
 
-### Anti-Pattern 3: Fetching Sidebar Analytics Separately
-**What:** Making dedicated API calls from `TradesSidebar` for setups breakdown, account performance.
-**Why bad:** Data is already loaded in `TradesShell` (allTrades, filteredTrades, accounts, strategies from settings). Making additional fetches duplicates the data and introduces loading states inside the sidebar.
-**Instead:** Pass derived data as props to `TradesSidebar`. All computation is client-side `useMemo`.
+### Anti-Pattern 2: Adding Row Spans in v3.1
 
-### Anti-Pattern 4: Mistake Types as Settings JSON
-**What:** Storing `mistake_types` as a JSON array in the settings table (like strategies).
-**Why bad:** Mistake types need CASCADE delete (removing a type should untag all trades). This requires a FK relationship. JSON-in-settings has no FK support. Also, filtering trades by mistake type at the DB level requires a real indexed table.
-**Instead:** Proper tables: `mistake_types` + `trade_mistake_tags` with FK constraints and indexes.
+**Why tempting:** "Full grid control" sounds better.
+**Why bad:** PROJECT.md explicitly defers "Dashboard widget height adjustment" to a later milestone. Adding row spans changes how every widget renders (some widgets hardcode min-heights). It also changes the layout data model, breaking existing saved layouts and templates.
+**Instead:** Use `grid-auto-rows` with a minmax for visual consistency. Defer row spans to the dedicated future milestone.
 
-### Anti-Pattern 5: Moving All Filtering Server-Side
-**What:** Adding all filter params (symbol, status, direction, pnl, tags) to the API and removing client-side filtering.
-**Why bad:** The summary stats bar and sidebar analytics both need the full trades array for their calculations. If filtering is server-side, the stats only see the filtered subset — which is correct for the summary bar, but the sidebar "Account Performance" panel should show all-account stats regardless of filter. Mixing server-side + client-side filtering is more complex than client-side-only.
-**Instead:** Load all trades for the active account. Filter client-side for display. Only use server-side params for date range (performance on large datasets) and mistake_id (requires a JOIN the client doesn't have).
+### Anti-Pattern 3: Extracting DashboardTopBar to a Separate File
 
-### Anti-Pattern 6: Full TradesShell Re-render on Mistake Tag
-**What:** Calling `load()` (full page reload) after adding/removing a mistake tag.
-**Why bad:** Reloads all trades and all settings, causing visible loading flicker.
-**Instead:** Maintain a `mistakeTagMap: Record<number, string[]>` in TradesShell state. On tag add/remove, update only this map optimistically. The `onUpdated` callback from `MistakesPill` triggers a targeted refetch of just the tag map, not all trades.
+**Why tempting:** Smaller files.
+**Why bad:** The top bar needs access to 15+ state variables (currentBalance, totalPnl, todayPnl, closed.length, winRate, timeFilter, editMode, hidden, loading, templates, plus all callbacks). Extracting it means either prop-drilling all of these or creating a context. Both add complexity for ~50 lines of JSX.
+**Instead:** Keep inline in DashboardShell.tsx. The file will stay under ~750 lines after removing the open trades section and header.
 
----
+### Anti-Pattern 4: Freeform Pixel-Based Resize
 
-## Build Order (Feature Dependencies)
+**Why tempting:** More flexible dragging.
+**Why bad:** Breaks the 6-column grid system. Creates unpredictable layouts. Layout persistence becomes pixel coordinates instead of semantic sizes. Responsive behavior breaks. Column-fill behavior of CSS grid no longer works.
+**Instead:** Snap to 1/2/3 column units. Keep the semantic size names (compact/medium/large).
 
-Dependencies:
-- Summary stats bar, filter bar, and sidebar all depend on `TradesShell` existing
-- Mistakes filtering in FilterBar depends on `MistakeType` data + the API routes
-- Column config changes to `TradeTable` are independent of filter work
+### Anti-Pattern 5: Moving DndContext Outside the Scrollable Area
 
-### Phase 1: DB Migrations + API Routes (foundation, no UI yet)
-1. Add migrations 023 + 024 to `lib/db.ts`
-2. Create `app/api/mistakes/route.ts` (GET + POST)
-3. Create `app/api/mistakes/[id]/route.ts` (PUT + DELETE)
-4. Create `app/api/trades/[id]/mistakes/route.ts` (POST)
-5. Create `app/api/trades/[id]/mistakes/[mid]/route.ts` (DELETE)
-6. Modify `GET /api/trades` to accept `date_from`, `date_to`, `mistake_id`, `include_mistakes`
-7. Add `MistakeType`, `SavedView`, `TradeFilterState` to `lib/types.ts`
-
-### Phase 2: TradesShell Extraction (structural refactor, no new features)
-1. Create `components/trades/` directory
-2. Move all state and logic from `app/trades/page.tsx` into `components/trades/TradesShell.tsx`
-3. `app/trades/page.tsx` becomes: `export default function TradesPage() { return <TradesShell />; }`
-4. Verify existing behavior is unchanged (this is a pure refactor)
-
-### Phase 3: Filter Bar + Saved Views (high visibility, foundational for rest)
-1. Create `components/trades/FilterBar.tsx` with new `TradeFilterState` model
-2. Replace the existing inline filter controls in `TradesShell` with `FilterBar`
-3. Add quick filter chips (Winners, Losers, This Week, This Month)
-4. Add active filter chips with individual clear buttons
-5. Add mistake type dropdown to FilterBar (uses Phase 1 API)
-6. Create `components/trades/SavedViewsMenu.tsx`
-7. Wire saved views to `/api/settings` (load + persist)
-
-### Phase 4: Summary Stats Bar
-1. Create `components/trades/SummaryStatsBar.tsx`
-2. Wire to `filteredTrades` from `TradesShell`
-3. Add Recharts sparklines (AreaChart for cumulative P&L, BarChart for win rate by week)
-
-### Phase 5: Enhanced Table + Mistakes Column
-1. Add `MistakesPill` component (`components/trades/MistakesPill.tsx`)
-2. Add new columns to `ALL_COLUMNS` in `TradeTable.tsx` (net_return, cost, mistakes)
-3. Wire mistakes column to `mistakeTagMap` from `TradesShell`
-4. Add column drag-to-reorder in the column config dropdown (DnD kit already available)
-5. Confirm status/side badge visual treatment meets design intent
-
-### Phase 6: Right Sidebar Analytics
-1. Create `components/trades/TradesSidebar.tsx` with three collapsible panels
-2. Add sidebar toggle to `TradesShell` layout with localStorage persistence
-3. Account Performance panel: derived from `allTrades` + `activeAccount`
-4. Setups P&L breakdown: group `filteredTrades` by `strategy_id`
-5. Mistakes breakdown: group `filteredTrades` by mistake type via `mistakeTagMap`
-
-**Rationale for this order:**
-- Phase 1 unblocks all feature work (types + APIs exist before UI)
-- Phase 2 is a safe refactor that validates the split before adding features
-- Phase 3 delivers the most user-visible value early (filtering is the headline feature)
-- Phases 4-6 are additive and non-blocking — they can be reordered if needed
-
----
-
-## Mobile Responsive Layout
-
-The sidebar uses a CSS grid approach that degrades gracefully:
-
-```tsx
-// On md+ screens: two-column grid
-// On sm- screens: single column (sidebar hidden)
-<div className="hidden md:block" /* sidebar toggle button */>
-<div className={clsx(
-  "grid gap-4",
-  sidebarOpen ? "md:grid-cols-[1fr_280px]" : "grid-cols-1"
-)}>
-  <div className="min-w-0">...</div>
-  <div className="hidden md:block">
-    {sidebarOpen && <TradesSidebar ... />}
-  </div>
-</div>
-```
-
-The trade table is already horizontally scrollable (from existing implementation). The filter bar wraps via `flex-wrap`. The summary stats bar renders 1, 2, or 3 cards based on available space using `flex-wrap` or a responsive grid.
-
-No new breakpoints needed beyond the existing Tailwind `md:` (768px) and `sm:` (640px) usage in the codebase.
-
----
-
-## Scalability Considerations
-
-| Concern | At ~500 trades | At ~5K trades |
-|---------|---------------|---------------|
-| Client-side filter | Instant (< 1ms) | Still fast (< 10ms) |
-| Mistake tag map join | Negligible (< 500 entries) | Acceptable (< 5K entries) |
-| Sidebar analytics derivation | Instant useMemo | < 50ms — add `useMemo` with deps |
-| Sparkline data derivation | Instant (group by date) | Instant (SQLite date grouping if needed) |
-| `mistake_types` JSON | N/A — stored in DB table | N/A |
-| Saved views JSON | < 50 views = < 10KB | Same — no growth concern |
-
-Server-side date filtering is the only optimization worth adding proactively. At 5K+ trades with a date range filter, loading all trades then filtering client-side is still fast (< 100ms), but the network payload grows. The `date_from`/`date_to` params on the API handle this.
+**Why tempting:** Might seem cleaner to wrap the entire page.
+**Why bad:** DndContext should wrap only the sortable items. Wrapping the top bar too means the top bar elements participate in collision detection, which wastes CPU and can cause visual glitches.
+**Instead:** Keep DndContext exactly where it is -- wrapping only the widget grid.
 
 ---
 
 ## Sources
 
-- Codebase: `app/trades/page.tsx` (read in full, 589 lines)
-- Codebase: `app/api/trades/route.ts` (read in full, 149 lines)
-- Codebase: `components/TradeTable.tsx` (read lines 1-80)
-- Codebase: `lib/db.ts` (read in full through migration 022)
-- Codebase: `lib/types.ts` (read in full)
-- Codebase: `app/api/settings/route.ts` (read in full)
-- Codebase: `.planning/PROJECT.md` (read in full — v3.0 feature list)
-- Confidence: HIGH — all integration patterns derived directly from existing codebase
+- Codebase: `DashboardShell.tsx` (lines 1-1320, full read)
+- Codebase: `TradesShell.tsx` line 245 (trades page filter bar pattern)
+- Codebase: `PROJECT.md` (v3.1 milestone spec, out-of-scope items)
+- [dnd-kit issue #720: Handling differently sized grid items](https://github.com/clauderic/dnd-kit/issues/720) -- confirms known limitation with variable-sized sortables
+- [dnd-kit issue #77: Sortable grid with different item sizes](https://github.com/clauderic/dnd-kit/issues/77) -- community workarounds
+- [react-grid-layout](https://github.com/react-grid-layout/react-grid-layout) -- evaluated and rejected (unnecessary dependency swap)
+- [@dnd-grid/react](https://www.npmjs.com/package/@dnd-grid/react) -- evaluated and rejected (same reason)
+- Confidence: HIGH -- all integration patterns derived directly from existing codebase with working precedents

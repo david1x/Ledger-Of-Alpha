@@ -1,192 +1,179 @@
 # Project Research Summary
 
-**Project:** Ledger Of Alpha v3.0 — Trades Page Overhaul
-**Domain:** Advanced Trade Journal — Filters, Saved Views, Mistakes System, Sidebar Analytics
-**Researched:** 2026-03-21
+**Project:** Ledger Of Alpha v3.1 — Dashboard Redesign
+**Domain:** Trading analytics dashboard — grid-based resizable card layout
+**Researched:** 2026-03-22
 **Confidence:** HIGH
 
 ## Executive Summary
 
-The v3.0 milestone transforms the existing trades page from a basic symbol/status/direction filter with an inline table into a full-featured analytical workspace. The work is additive to an already well-structured Next.js 15 + SQLite codebase — no existing architecture is dismantled. The recommended approach is: introduce two new DB tables for a proper mistakes tagging system, extract the trades page into a `TradesShell` orchestrator component, build a unified `TradeFilterState` object before touching any UI, and keep all sidebar analytics as client-side derivations from the already-loaded trades array. Zero new npm dependencies are required for the base implementation.
+The v3.1 dashboard redesign is primarily a UI restructure, not a systems overhaul. The existing DashboardShell.tsx already has a working 6-column CSS grid, @dnd-kit drag-reorder, three column-span sizes with layout persistence, and per-account settings. The work breaks into two distinct efforts: (1) visual redesign -- merging the header and account summary into a navbar-style top bar, updating card styling to match the trades page, and removing the open trades table -- and (2) resize enhancement -- replacing the 3-mode size-cycle button with drag-to-resize handles that snap to grid columns.
 
-The headline risk is architectural: client-side filtering is already the pattern in use, but extending it naively to include mistakes (stored as a JSON column) will cause measurable render stalls at realistic trade counts (500+). The correct approach diverges from the existing pattern — filtering for date range and mistake type should be pushed server-side, while symbol, status, direction, and outcome remain client-side. This split must be designed before any UI is built. A second major risk is the data integrity of the existing `trades.mistakes` TEXT column, which may contain free-text notes rather than structured JSON; a `json_valid()` audit must precede the migration.
+**The key recommendation is to keep @dnd-kit and CSS Grid, adding a custom ~200-line `useGridResize` hook for resize handles.** FEATURES.md and PITFALLS.md lean toward react-grid-layout, but STACK.md and ARCHITECTURE.md correctly identify that react-grid-layout uses absolute positioning (not CSS Grid), would replace the entire layout engine, require a full data format migration (`order + sizes` to `x/y/w/h`), and remove working @dnd-kit code. The migration cost is disproportionate to the gain. The custom approach extends the existing system with zero new dependencies, preserves backward compatibility, and keeps bundle size flat. The resize interaction (snap colSpan from 1-6 via corner drag handle) is simple enough that a library is overkill.
 
-The feature dependency chain is clear and sequenced: DB migrations and API routes must land first, followed by the TradesShell structural refactor, then unified filter state. Saved views, the summary stats bar, enhanced table columns, and the right sidebar analytics are all independent once the filter state model is established.
+The top risks are: (1) @dnd-kit's `rectSortingStrategy` already has known issues with variable-sized items -- adding more size granularity will make this worse if not addressed; (2) Recharts `ResponsiveContainer` will cause performance collapse if chart re-renders are not debounced during resize; (3) layout schema migration must handle all storage keys (per-account, templates, built-in presets) or users lose their customizations. Row-span (height control) is explicitly out of scope per PROJECT.md and should stay deferred -- the data model should include `h` from day one but the UI should not expose height resize yet.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The existing stack handles every v3.0 feature without additions. Recharts (v2.15.0, already installed) provides sparklines via stripped-down `<LineChart>` instances. `@dnd-kit/sortable` (already installed) handles column drag-to-reorder. `clsx` (already installed) handles conditional styling. The settings API key-value store absorbs saved views and column order without schema changes. The only optional addition is `react-day-picker@9` for a polished two-month date range calendar — the recommendation is to start with native `<input type="date">` fields and upgrade only if trader feedback identifies friction.
+No new dependencies. Extend the existing stack with custom code.
 
-**Core technologies:**
-- Recharts `<LineChart>` stripped to no axes/grid/tooltip: sparklines — no new dependency, established pattern from existing dashboard charts
-- `@dnd-kit/sortable`: column drag-to-reorder — already in use for dashboard widget DnD, same pattern applies directly
-- `/api/settings` key-value store: saved views + column order persistence — identical to `dashboard_layout_presets` and strategies patterns
-- `mistake_types` + `trade_mistake_tags` DB tables (migrations 023/024): proper FK-backed mistakes system — required for filtering and cascade delete
-- `clsx` + Tailwind responsive modifiers: filter chips, mobile layout — no new dependency
-- Optional: `react-day-picker@9` — defer until user feedback confirms native date input UX is insufficient; brings `date-fns` as transitive dep (~13 kB gzipped estimate)
+**Core technologies (unchanged):**
+- **@dnd-kit** (core/sortable/utilities): drag-reorder -- already integrated, keep as-is
+- **CSS Grid** (6-column, `grid-cols-6`): layout engine -- native, performant, no replacement needed
+- **Tailwind CSS v3**: styling -- switch from static `col-span-*` classes to inline `gridColumn` style for dynamic spans
+
+**New custom code:**
+- **`useGridResize` hook** (~150-200 lines): pointer event handling, grid-cell snapping, colSpan/rowSpan update
+- **`ResizeHandle` component** (~50 lines): SE corner grip, edit-mode only, `stopPropagation` to prevent @dnd-kit conflicts
+
+**What NOT to add:**
+- react-grid-layout -- absolute positioning layout engine, replaces CSS Grid and @dnd-kit, high migration cost
+- react-resizable -- pixel-based, still needs custom snap logic, adds dependency for no real gain
+- gridstack.js -- jQuery-era, heavy (~50 kB)
 
 ### Expected Features
 
 **Must have (table stakes):**
-- Unified filter state object (`TradeFilterState`) replacing the three separate `useState` calls — prerequisite for everything else
-- Active filter chips with individual X dismiss — every modern data tool expects this
-- Quick filter presets (Winners / Losers / This Week / This Month) — highest-frequency trader workflows, zero schema changes
-- Date range filter (From/To) — without this, traders cannot answer "what did I do last month?"
-- Setup/Tag filter dropdown — traders build setups and need to isolate them; derive unique values from `tags` field
-- Account filter dropdown — multi-account users need cross-account filtering without switching global context
-- Mistakes filter dropdown — core to the mistake review workflow; derives from user's `mistake_types` list
-- Summary stats bar extension (P/L Ratio + sparkline) — extends the already-present `FilteredSummary` component
-- Status and side badges in table rows — visual at-a-glance trade classification; `STATUS_STYLE` map already exists
-- User-defined mistake types with per-trade tagging — structured taxonomy replaces ad-hoc free text
-- Column configuration with order persistence — already partially built; extend to include new columns and drag-to-reorder
+- Snap-to-grid resize via SE corner drag handle (edit mode only)
+- Visual resize handle affordance (bottom-right corner, industry standard)
+- Per-widget minimum column-span constraints (stat=1, chart=2, table=2)
+- Persist resized dimensions via existing settings API
+- Responsive fallback to single-column on mobile (already exists)
+- Navbar-style top bar with inline account stats and controls
 
-**Should have (competitive differentiators):**
-- Saved named filter views — "My FOMO Review" recalled in one click; TradeZella lists this as "coming soon"
-- Right sidebar analytics — Setup P&L breakdown + Mistakes P&L breakdown driven by filtered trades; TradesViz implements this as a key differentiator
-- Net return $ / % and cost basis columns — more meaningful than raw P&L; uncommon in basic journals
-- Mistake P&L impact per type — "cost of your bad habits" view; rarely found outside professional tools
-- Sparklines in summary stats bar — visual trajectory signal, not just a snapshot number
+**Should have (differentiators):**
+- Size presets per widget type (S/M/L quick buttons alongside free resize)
+- Resize preview ghost showing target grid cells during drag
+- Widget-aware minimum sizes (charts need 2+ cols, tables need 2+ cols)
+- Lock individual cards from accidental resize/move
 
-**Defer (post-v3.0):**
-- Mobile card stacked view — horizontal scroll with sticky Symbol column is the pragmatic v3.0 choice per research
-- Per-strategy analytics (strategy_id) — deferred per PROJECT.md; use tags field for setup grouping for now
-- Saved view sharing or export — no multi-user infrastructure in scope
-- Inline trade row editing — TradeModal works well; avoid the added state complexity
-- Drag-reorder of sidebar analytics panels — static ordered sections are sufficient; natural hierarchy exists
+**Defer (v2+):**
+- Row-span height control (explicitly out of scope per PROJECT.md -- include `h` in data model but do not expose UI)
+- 12-column grid upgrade (6 columns is sufficient for current widget set)
+- Per-breakpoint layout editing (single layout with auto-degradation is correct)
+- Undo/redo for layout changes (templates serve as checkpoints)
 
 ### Architecture Approach
 
-The structural pattern is a `TradesShell` orchestrator component that owns all filter state, loads trades and mistake types in parallel on mount, derives `filteredTrades` via `useMemo`, and passes data down to four child components: `FilterBar`, `SummaryStatsBar`, `TradeTable` (modified), and `TradesSidebar`. The current `app/trades/page.tsx` becomes a thin shell. A new `components/trades/` directory houses all new components. No existing API routes are removed; `GET /api/trades` gains `date_from`, `date_to`, `mistake_id`, and `include_mistakes` params. All sidebar analytics are client-side `useMemo` derivations from the already-loaded `filteredTrades` array — no sidebar-specific API calls.
+The architecture is an incremental extension, not a rewrite. DashboardShell.tsx stays as the single orchestrator file. The top bar replaces the title + account summary strip. Card styling updates are CSS-only. The resize feature adds a hook and component alongside existing @dnd-kit drag. No new database tables, API routes, or React contexts are needed. The layout data model extends `sizes: Record<string, WidgetSize>` from string-based (`"large"`) to object-based (`{ w: 3, h: 1 }`), with a backward-compatible migration function at load time.
 
 **Major components:**
-1. `TradesShell.tsx` (NEW) — orchestrator; owns `TradeFilterState`, loads trades + mistake types, computes `filteredTrades`, manages sidebar collapse
-2. `FilterBar.tsx` (NEW) — all filter controls (symbol search, dropdowns, quick chips, date range, active chips, saved views menu)
-3. `SummaryStatsBar.tsx` (NEW) — 3 stat cards (Cumulative P&L, Win Rate, P/L Ratio) + Recharts sparklines; scoped to `filteredTrades`
-4. `TradesSidebar.tsx` (NEW) — collapsible right panel; Account Performance, Setups P&L, Mistakes P&L; pure `useMemo` over `filteredTrades`
-5. `MistakesPill.tsx` (NEW) — inline mistake tag pills in table rows with inline add/remove interaction
-6. `SavedViewsMenu.tsx` (NEW) — dropdown for save/load/delete named filter views
-7. `TradeTable.tsx` (MODIFY) — add net_return, cost, mistakes columns; column drag-to-reorder via @dnd-kit
-8. `lib/db.ts` (MODIFY) — migrations 023 (`mistake_types` table) and 024 (`trade_mistake_tags` junction table)
-9. `app/api/mistakes/` (NEW routes) — CRUD for mistake types (GET, POST, PUT [id], DELETE [id])
-10. `app/api/trades/[id]/mistakes/` (NEW routes) — POST to tag, DELETE [mid] to untag trade-mistake associations
+1. **DashboardShell.tsx** -- header restructure (remove title/summary, add top bar), card style update, resize handle integration
+2. **`useGridResize` hook** (new) -- pointer event tracking, grid-cell calculation, colSpan update with clamping
+3. **`ResizeHandle` component** (new) -- SE corner visual indicator, edit-mode visibility, event isolation from @dnd-kit
+4. **WidgetCard** -- style update (rounded-md, borders, darker bg), dynamic `gridColumn` inline style replacing Tailwind classes
 
 ### Critical Pitfalls
 
-1. **Client-side mistakes filtering will stall the main thread** — `JSON.parse()` inside a hot `.filter()` loop across 500+ trades causes 200-400ms stalls on every filter change. Move date range and mistake filtering server-side via `GET /api/trades` params; use SQLite `json_each()` with parameterised queries for the JSON column.
+1. **@dnd-kit rectSortingStrategy breaks with variable-sized items** -- the existing sorting strategy assumes uniform item sizes. More size granularity makes this worse. Mitigation: consider null sorting strategy with manual reorder, or accept current behavior since users are already accustomed to it with 3 sizes.
 
-2. **`trades.mistakes` TEXT column may contain free text, not JSON** — calling `json_each()` on a row containing plain text causes silent data loss or SQLite errors. Audit actual column values before writing any migration; use `json_valid()` guard; write new tagging to the `trade_mistake_tags` junction table and leave the old column for freeform notes.
+2. **Resize handles intercepted by @dnd-kit drag sensors** -- pointer events on the resize handle can trigger drag instead of resize. Mitigation: `e.stopPropagation()` on resize handle, increase PointerSensor activation distance to 8px, keep resize handle and drag handle spatially separated (bottom-right corner vs top header grip).
 
-3. **Saved views auto-applying on page load breaks user expectations** — three distinct storage mechanisms: DB (`trades_saved_views` settings key) for the named views catalogue, `localStorage` for ephemeral session filter state, never auto-apply a saved view on mount.
+3. **Recharts ResponsiveContainer performance collapse** -- continuous resize events trigger 60+ chart re-renders per second across 24+ widgets. Mitigation: debounce ResizeObserver (150ms), show placeholder during active resize, re-render charts only on resize end.
 
-4. **Sparklines recompute on every filter keystroke, blocking the main thread** — use `useMemo` for all sparkline data derivations; debounce symbol search input at 150-300ms; consider raw SVG `<polyline>` instead of full Recharts instances for the 80x32px sparklines.
+4. **Layout migration breaks saved user layouts** -- switching from string sizes to `{ w, h }` objects invalidates all saved layouts, per-account layouts, and templates. Mitigation: backward-compatible migration function that accepts both formats, applied at every load point (main layout, templates, built-in presets).
 
-5. **`load()` resets filter state on account switch** — the existing `load()` mixes data fetching with state initialisation. Separate filter state lifecycle from data-fetch lifecycle; `load()` accepts the current filter as a parameter and must not reset it.
-
-6. **SQL injection via tag/mistake name strings** — use `?` placeholders even with `json_each()`; filter by `mistake_type_id` (an integer) rather than by the name string.
+5. **CSS Grid gaps with variable spans** -- auto-placement creates holes when mixing different col-span values. Mitigation: use `grid-auto-flow: dense` or keep the current 3-size system where gaps are less pronounced. Explicit grid placement is only needed if row-spans are added later.
 
 ## Implications for Roadmap
 
-The build order is driven by two hard constraints: (1) the mistakes API must exist before any mistakes UI can be built, and (2) a unified `TradeFilterState` type must be defined before any filter UI is built. Both are foundational, zero-user-visible phases that unlock all downstream work.
+Based on research, suggested phase structure:
 
-### Phase 1: DB Migrations + API Foundation
-**Rationale:** All feature work is blocked until the `mistake_types` and `trade_mistake_tags` tables exist and their API routes are testable. This is pure backend foundation with no UI. Can be verified independently via API calls before any UI exists.
-**Delivers:** Migrations 023 and 024, CRUD API routes for `/api/mistakes` and `/api/trades/[id]/mistakes`, updated `GET /api/trades` with `date_from`/`date_to`/`mistake_id`/`include_mistakes` params, `MistakeType` / `SavedView` / `TradeFilterState` types added to `lib/types.ts`.
-**Addresses:** Foundation for all mistakes system features from FEATURES.md.
-**Avoids:** Pitfall 2 (data migration corruption) — audit `trades.mistakes` column values before writing migration and use `json_valid()` guard; Pitfall 5 (SQL injection) — parameterised queries from day one.
+### Phase 1: Top Bar and Layout Restructure
+**Rationale:** Highest visual impact, lowest risk. Pure UI restructure with no data model or interaction changes. Establishes the viewport-locked layout pattern used by the trades page.
+**Delivers:** Navbar-style top bar with inline account stats, time filter pills, and control buttons. Scrollable content area below. Removes page title and separate account summary strip.
+**Addresses:** Trades-page design consistency, dashboard header consolidation
+**Avoids:** No data model changes means zero risk of breaking saved layouts
 
-### Phase 2: TradesShell Structural Refactor
-**Rationale:** The current `app/trades/page.tsx` is a ~590-line monolith. Before adding features, extract it into `components/trades/TradesShell.tsx`. This is a pure refactor — no new features, no behavior changes. Doing this now means Phases 3-6 have a clean component tree to build into, and the refactor can be verified in isolation.
-**Delivers:** `components/trades/` directory, `TradesShell.tsx` containing all state and logic from the current page, `app/trades/page.tsx` reduced to a thin wrapper. All existing behavior verified unchanged.
-**Avoids:** Pitfall 10 (filter state reset on account switch) — the refactor is the moment to separate filter state from the `load()` function.
+### Phase 2: Card Design Update
+**Rationale:** CSS-only changes that can be verified visually. Independent of resize mechanics. Sets the visual foundation before adding interactive features.
+**Delivers:** Updated card styling (rounded-md, explicit borders, darker bg), uniform minimum row height via `grid-auto-rows`, removal of open trades section.
+**Addresses:** Visual consistency with trades page design language
+**Avoids:** No interaction changes, no risk of event conflicts
 
-### Phase 3: Unified Filter System + Saved Views
-**Rationale:** The most user-visible feature and the foundation for every downstream feature. Sidebar analytics, summary stats bar, and mistakes filter all depend on `filteredTrades` derived from a unified `TradeFilterState`. Define the type, build `FilterBar`, implement quick chips, active chips, and saved views persistence in one phase to avoid partial filter state living in two places.
-**Delivers:** `TradeFilterState` type, `FilterBar.tsx` with symbol/status/direction/date/setup/mistakes/account filters, quick filter presets (Winners/Losers/This Week/This Month), active filter chips with individual clear, `SavedViewsMenu.tsx` with save/load/delete wired to `/api/settings`.
-**Addresses:** All filter-related table stakes from FEATURES.md; Saved Views differentiator.
-**Avoids:** Pitfall 1 (client-side filter stall) — server-side date/mistake params used; Pitfall 3 (saved view auto-apply) — never auto-apply on mount; Pitfall 9 (quick chip/saved view interaction semantics) — define `applyQuickFilter()` merge logic before building any UI; Pitfall 13 (symbol search debounce + AbortController).
+### Phase 3: Resize Handle Implementation
+**Rationale:** Depends on Phase 2 (card styling must be finalized before adding interactive elements). This is the core feature delivery.
+**Delivers:** SE corner resize handles in edit mode, snap-to-grid column resize, layout persistence with new `{ w, h }` format, backward-compatible migration for saved layouts and templates.
+**Addresses:** Grid-based resizable cards (the milestone's primary feature)
+**Avoids:** Recharts re-render storm (debounce strategy), @dnd-kit event conflict (stopPropagation + spatial separation), layout migration breakage (dual-format support)
 
-### Phase 4: Summary Stats Bar
-**Rationale:** Independent of Phase 3's saved views work but depends on `filteredTrades` existing. Short phase that extends the existing `FilteredSummary` component with two new metrics and sparklines.
-**Delivers:** `SummaryStatsBar.tsx` with Cumulative P&L, Win Rate, P/L Ratio stats plus Recharts sparklines; all stats scoped to `filteredTrades`.
-**Addresses:** Summary stats bar table stake; sparklines differentiator.
-**Avoids:** Pitfall 4 (sparkline recompute on keystroke) — `useMemo` on sparkline data, debounce text inputs; Pitfall 12 (stats bar showing unfiltered data) — wire exclusively to `filteredTrades`.
-
-### Phase 5: Enhanced Trade Table + Mistakes Column
-**Rationale:** The table enhancements are independent of the sidebar. Building the table before the sidebar means the mistakes tagging UX (MistakesPill) can be tested inline before the sidebar's breakdown charts reference the same data.
-**Delivers:** `MistakesPill.tsx` with inline tag add/remove, new columns in `ALL_COLUMNS` (net_return, cost, mistakes), column drag-to-reorder via @dnd-kit/sortable in the column config dropdown, column order persisted to `trade_table_columns` settings key.
-**Addresses:** Enhanced trade table table stakes; net return / cost basis differentiators.
-**Avoids:** Pitfall 6 (sticky column inside overflow-x wrapper) — use `table-layout: fixed` + `position: sticky; left: 0` specifically; Pitfall 7 (column key rename breaks saved configs) — validate saved keys against `ALL_COLUMNS` on load, never rename existing keys.
-
-### Phase 6: Right Sidebar Analytics
-**Rationale:** Final phase because it depends on `filteredTrades` (Phase 3), `mistakeTypes` (Phase 1), and the `mistakeTagMap` (Phases 1+5). All sidebar content is client-side derived — no new API calls. This is the highest-complexity UI component but has zero architectural unknowns by the time it is built.
-**Delivers:** `TradesSidebar.tsx` with three collapsible panels (Account Performance, Setups P&L breakdown, Mistakes P&L breakdown), sidebar toggle with localStorage persistence, hidden below `md` breakpoint.
-**Addresses:** Right sidebar analytics differentiator; Setup P&L breakdown; Mistakes P&L impact.
-**Avoids:** Pitfall 8 (sidebar waterfall API fetches) — all content is `useMemo` over props, zero `useEffect` fetches in the sidebar; Pitfall 6 (sidebar too wide on 1280px) — default-collapsed below 1400px, persist preference in localStorage.
+### Phase 4: Polish and Edge Cases
+**Rationale:** After core resize works, handle the long tail of UX details.
+**Delivers:** Resize preview ghost, per-widget minimum size constraints, template migration verification, mobile responsive adjustments, performance optimization for 24+ widget resize.
+**Addresses:** Size presets, widget-aware minimums, template compatibility
+**Avoids:** Scope creep into row-span or 12-column grid (explicitly deferred)
 
 ### Phase Ordering Rationale
 
-- Phases 1-2 are mandatory scaffolding. No feature work is possible without them.
-- Phase 3 (filter system) is the single highest-value delivery and unlocks Phases 4-6 simultaneously.
-- Phases 4, 5, and 6 are technically parallelisable once Phase 3 is done, but Phase 5 should precede Phase 6 so the `mistakeTagMap` tagging infrastructure is proven before the sidebar's breakdown charts reference it.
-- The dependency chain from FEATURES.md is respected: Mistake Types API (Phase 1) before Mistakes filter (Phase 3) before Mistakes sidebar breakdown (Phase 6).
-- All pitfall mitigations are front-loaded to the phase where they are introduced, not deferred.
+- Phases 1-2 are visual-only and can be shipped independently, giving immediate value without any risk to the resize feature.
+- Phase 3 is the core feature and benefits from stable card styling (Phase 2) being in place first.
+- Phase 4 is polish that should not block shipping Phase 3. It can be trimmed if the milestone runs long.
+- Row-span support is not in any phase. The data model includes `h` from Phase 3 onward, but no UI exposes it. This is intentional per PROJECT.md.
 
 ### Research Flags
 
-Phases needing deeper research during planning:
-- **Phase 1** (if `trades.mistakes` audit reveals non-JSON data): migration strategy will need case-by-case handling; surface to user for re-tagging. The specific stored format is unknown and must be confirmed before the migration is written.
-- **Phase 3** (URL params vs React state tension): ARCHITECTURE.md recommends React state only; PITFALLS.md recommends URL params as the authoritative filter state for shareability. This is a product decision that needs resolution before FilterBar is designed.
+Phases likely needing deeper research during planning:
+- **Phase 3:** The resize handle implementation needs careful attention to @dnd-kit event isolation and Recharts debouncing. Research during planning should produce exact pointer event handling code and test the stopPropagation approach against the current PointerSensor configuration.
 
 Phases with standard patterns (skip research-phase):
-- **Phase 2** (structural refactor): pure component extraction, no new patterns, risk is execution discipline only.
-- **Phase 4** (summary stats bar): Recharts sparkline pattern is well-documented and already in use in the dashboard.
-- **Phase 5** (table enhancements): @dnd-kit/sortable pattern already working in DashboardShell; column key validation is a standard runtime guard; `SymbolPnlWidget.tsx` is a direct reference implementation.
-- **Phase 6** (sidebar analytics): client-side `useMemo` groupBy is a trivial pattern; `SymbolPnlWidget.tsx` is the reference implementation for horizontal Recharts bar charts.
+- **Phase 1:** Viewport-locked layout with sticky top bar -- identical pattern to the existing trades page. Copy the approach directly.
+- **Phase 2:** CSS class updates -- no research needed, just systematic find-and-replace of card styling.
+- **Phase 4:** Polish items are all well-documented patterns (min-size constraints, template migration, resize preview).
+
+## Researcher Disagreement Resolution
+
+FEATURES.md and PITFALLS.md lean toward react-grid-layout. STACK.md and ARCHITECTURE.md recommend extending @dnd-kit with custom resize. The resolution:
+
+**Keep @dnd-kit + custom resize. Do not adopt react-grid-layout.**
+
+The disagreement stems from different frames of reference. FEATURES.md evaluated dashboard products (Grafana, Datadog) that use react-grid-layout-like systems and correctly noted its capabilities. PITFALLS.md identified real risks with @dnd-kit's variable-size handling and noted that react-grid-layout solves them natively. However, both underweighted the migration cost.
+
+STACK.md and ARCHITECTURE.md analyzed the actual codebase and found:
+- react-grid-layout uses absolute positioning, not CSS Grid -- it is a fundamentally different layout engine
+- Adopting it requires removing all @dnd-kit code from the dashboard AND rewriting the layout data model
+- The existing 3-size system already works with @dnd-kit's limitations -- users are accustomed to the behavior
+- The resize feature needed is discrete column-span snapping (1-6 values), not arbitrary pixel resize with auto-compaction
+- A custom hook (~200 lines) achieves the same result with zero migration risk
+
+The FEATURES.md recommendation for 12-column grid is also deferred. Six columns provides sufficient granularity for the current 24-widget set. Moving to 12 columns can happen in a future milestone if finer control is needed.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All decisions derived directly from `package.json` and existing codebase patterns; only optional addition is react-day-picker with MEDIUM confidence on exact bundle size estimate |
-| Features | HIGH | Benchmarked against TradeZella, TradesViz, TraderSync; feature dependency chain validated against existing codebase; anti-features are explicit and well-reasoned |
-| Architecture | HIGH | All patterns derived from full codebase read of `app/trades/page.tsx`, `lib/db.ts`, `app/api/trades/route.ts`, and working precedents in DashboardShell and PersistentChart |
-| Pitfalls | HIGH | 13 pitfalls identified with specific code locations, detection strategies, and phase assignments; critical pitfalls backed by SQLite and React performance documentation |
+| Stack | HIGH | Direct codebase analysis, verified against @dnd-kit GitHub issues, bundle size confirmed |
+| Features | HIGH | Cross-referenced with Grafana, Datadog, Metabase, Home Assistant patterns |
+| Architecture | HIGH | Full read of DashboardShell.tsx (~770 lines), integration points verified against existing code |
+| Pitfalls | HIGH | All critical pitfalls verified against library GitHub issues with maintainer responses |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **`trades.mistakes` column format in production**: Research confirms the pitfall exists but the actual stored data format is unknown. Must audit with `SELECT mistakes FROM trades WHERE mistakes IS NOT NULL LIMIT 20` before writing migration 023. Add an explicit pre-migration check step to Phase 1 planning.
-- **URL params vs React state for filter persistence**: ARCHITECTURE.md recommends React state + localStorage (simpler); PITFALLS.md recommends URL params (shareable). This is a product decision. Resolve before Phase 3 is planned — the answer determines how `FilterBar` and `TradesShell` are wired.
-- **Stats bar scope (filtered vs unfiltered)**: PITFALLS.md flags ambiguity in whether the summary stats bar reflects filtered or unfiltered trades. Competitor pattern is filtered. Confirm with project owner before Phase 4 to avoid a rework.
-- **react-day-picker bundle size**: MEDIUM confidence estimate of ~13 kB gzipped could not be verified via Bundlephobia directly. Validate before committing to the optional upgrade.
+- **@dnd-kit null sorting strategy:** PITFALLS.md recommends switching to a null sorting strategy for variable-sized items, but this is a significant change to drag behavior. Needs validation during Phase 3 planning -- test whether the current rectSortingStrategy is "good enough" with the new size granularity before committing to the null strategy rewrite.
+- **Exact row height for `grid-auto-rows`:** ARCHITECTURE.md suggests `minmax(200px, auto)` but the exact value needs visual testing with all 24 widget types. Determine during Phase 2 execution.
+- **Resize handle size and hit target:** PITFALLS.md recommends 16x16px minimum (24x24px touch-friendly). Exact dimensions need UX testing to balance visibility vs visual noise.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Codebase: `app/trades/page.tsx` (589 lines, full read) — existing filter state, `load()` function, column config
-- Codebase: `lib/db.ts` (full read through migration 022) — migration patterns, existing table definitions
-- Codebase: `app/api/trades/route.ts` (149 lines, full read) — parameterised query builder pattern
-- Codebase: `components/TradeTable.tsx`, `lib/types.ts`, `app/api/settings/route.ts` — integration points
-- Recharts official API docs — `hide` prop on XAxis/YAxis sparkline pattern confirmed
-- SQLite JSON Functions documentation — `json_each()`, `json_valid()` query patterns
-- @dnd-kit / TanStack Table column ordering guide — DnD column reorder pattern
-- `.planning/PROJECT.md` — v3.0 feature list and scope constraints
+- Codebase: `DashboardShell.tsx` -- full layout system, @dnd-kit integration, settings persistence
+- Codebase: `PersistentChart.tsx` -- resize overlay pattern (transparent div during drag)
+- [@dnd-kit Issue #720](https://github.com/clauderic/dnd-kit/issues/720) -- variable-sized grid items limitation
+- [Recharts Issue #1767](https://github.com/recharts/recharts/issues/1767) -- ResponsiveContainer resize performance
+- [react-grid-layout GitHub](https://github.com/react-grid-layout/react-grid-layout) -- evaluated and rejected
 
 ### Secondary (MEDIUM confidence)
-- TradeZella Features Page + Help docs — filter types, saved filters UX patterns, tag analysis patterns
-- TradesViz blog — saved filter combinations, sidebar analytics, Nov 2024 updates
-- Best Trading Journal 2026 comparisons (TradesViz blog, StockBrokers.com) — market expectations for table stakes
-- LogRocket — Advanced React state management using URL parameters — filter state persistence tradeoffs
-- Recharts Performance Guide — memoization recommendations
-- Mobile table responsive patterns (UXmatters, NN/g) — sticky column, horizontal scroll pattern
+- [Grafana Dashboard Best Practices](https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/best-practices/) -- panel sizing patterns
+- [Datadog Dashboard Docs](https://docs.datadoghq.com/dashboards/) -- grid snap behavior reference
+- [Home Assistant Dashboard Chapter 2](https://www.home-assistant.io/blog/2024/07/26/dashboard-chapter-2/) -- drag-and-drop grid UX
+- [PatternFly Dashboard Design Guidelines](https://www.patternfly.org/patterns/dashboard/design-guidelines/) -- card grid spacing
 
-### Tertiary (LOW confidence — validate during execution)
-- react-day-picker bundle size (~13 kB estimate) — GitHub discussions, not Bundlephobia direct verification
-- Client-side filter render stall timings (200-400ms at 500 trades) — derived from general React performance guidance, not measured against this specific codebase
+### Tertiary (LOW confidence)
+- [AntStack: React Grid Layout blog post](https://www.antstack.com/blog/building-customizable-dashboard-widgets-using-react-grid-layout/) -- implementation patterns (blog post, not official docs)
 
 ---
-*Research completed: 2026-03-21*
+*Research completed: 2026-03-22*
 *Ready for roadmap: yes*
