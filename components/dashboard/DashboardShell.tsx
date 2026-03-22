@@ -2,9 +2,6 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { Trade, QuoteMap, TradeStrategy } from "@/lib/types";
 import { calcRRAchieved } from "@/lib/trade-utils";
-import TradeTable from "@/components/TradeTable";
-import TradeModal from "@/components/TradeModal";
-import AlertModal from "@/components/AlertModal";
 import WeeklyCalendar from "./WeeklyCalendar";
 import { AreaChartWidget, BarChartWidget } from "./ChartWidgets";
 import ComparisonWidget from "./ComparisonWidget";
@@ -21,13 +18,13 @@ import AIInsightsWidget from "./AIInsightsWidget";
 import IBKRPositionsWidget from "./IBKRPositionsWidget";
 import TemplatePanel from "./TemplatePanel";
 import {
-  Plus, RefreshCw, Pencil, Check, GripVertical, EyeOff, Eye, Plus as PlusIcon, Minimize2, Maximize2,
+  RefreshCw, Pencil, Check, GripVertical, EyeOff, Eye, Plus as PlusIcon, Minimize2, Maximize2,
   RotateCcw, Download, ChevronDown as ChevronDownIcon
 } from "lucide-react";
 import { useGridResize, WidgetDims } from "./useGridResize";
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor,
-  useSensor, useSensors, DragEndEvent,
+  useSensor, useSensors, DragEndEvent, DragStartEvent, DragOverlay,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -222,11 +219,12 @@ function WidgetCard({ id, title, editMode, dims, isBeingResized, onHide, onToggl
   const gridStyle: React.CSSProperties = {
     gridColumn: `span ${Math.min(dims.w, GRID_COLS)}`,
     gridRow: `span ${dims.h}`,
-    ...(editMode ? {
+    ...(editMode && !isDragging ? {
       transform: CSS.Transform.toString(transform),
       transition,
-      opacity: isDragging ? 0.5 : 1,
     } : {}),
+    // Hide original in-place when dragging — DragOverlay shows the floating copy
+    ...(isDragging ? { opacity: 0.3 } : {}),
   };
 
   // Size label for display: 9+ = L, 5-8 = M, 1-4 = C
@@ -334,13 +332,9 @@ export default function DashboardShell() {
   const [strategies, setStrategies] = useState<TradeStrategy[]>([]);
   const [quotes, setQuotes] = useState<QuoteMap>({});
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editTrade, setEditTrade] = useState<Trade | null>(null);
   const [accountSize, setAccountSize] = useState(10000);
   const [riskPercent, setRiskPercent] = useState(1);
   const { accounts, activeAccountId, activeAccount } = useAccounts();
-  const [showAlertModal, setShowAlertModal] = useState(false);
-  const [alertDefaults, setAlertDefaults] = useState<{ symbol?: string; price?: number }>({});
   const [heatmapRanges, setHeatmapRanges] = useState<HeatmapRanges>({ high: 500, mid: 200, low: 1 });
   const [dailyLossLimit, setDailyLossLimit] = useState<number | null>(null);
   const [dailyLossLimitType, setDailyLossLimitType] = useState<"dollar" | "percent">("dollar");
@@ -884,12 +878,19 @@ export default function DashboardShell() {
   });
 
   // ── DnD ───────────────────────────────────────────────────────────
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor),
   );
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as string);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragId(null);
     const { active, over } = event;
     if (over && active.id !== over.id) {
       const oldIndex = layout.order.indexOf(active.id as string);
@@ -915,9 +916,29 @@ export default function DashboardShell() {
     saveLayout({ ...layout, dims: newDims });
   };
 
+  const compactLayout = useCallback((currentLayout: DashboardLayout): DashboardLayout => {
+    // Reorder cards by their rendered grid position to fill gaps
+    const grid = gridRef.current;
+    if (!grid) return currentLayout;
+    const visible = currentLayout.order.filter(id => !currentLayout.hidden.includes(id));
+    const positions: { id: string; top: number; left: number }[] = [];
+    for (const id of visible) {
+      const el = grid.querySelector(`[data-widget-id="${id}"]`) as HTMLElement | null;
+      if (el) positions.push({ id, top: el.offsetTop, left: el.offsetLeft });
+    }
+    // Sort by visual position: top first, then left
+    positions.sort((a, b) => a.top - b.top || a.left - b.left);
+    const visualOrder = positions.map(p => p.id);
+    // Rebuild full order: visual order for visible, hidden appended at end
+    const hiddenIds = currentLayout.order.filter(id => currentLayout.hidden.includes(id));
+    return { ...currentLayout, order: [...visualOrder, ...hiddenIds] };
+  }, []);
+
   const finishEdit = () => {
     setEditMode(false);
-    saveLayout(layout, true);
+    const compacted = compactLayout(layout);
+    setLayout(compacted);
+    saveLayout(compacted, true);
   };
 
   const resetLayout = () => {
@@ -941,21 +962,6 @@ export default function DashboardShell() {
   }, [layout]);
 
   // ── Trade actions ─────────────────────────────────────────────────
-  const handleDelete = async (id: number) => {
-    await fetch(`/api/trades/${id}`, { method: "DELETE" });
-    load();
-  };
-
-  const handleEdit = (t: Trade) => {
-    setEditTrade(t);
-    setShowModal(true);
-  };
-
-  // ── Open trades (not filtered by time) ────────────────────────────
-  const openTrades = useMemo(() =>
-    trades.filter(t => t.status === "open" || t.status === "planned"),
-    [trades]
-  );
 
   const mask = "------";
 
@@ -1262,11 +1268,6 @@ export default function DashboardShell() {
             </button>
           </div>
 
-          <button onClick={() => { setEditTrade(null); setShowModal(true); }}
-            className="flex items-center gap-2 h-9 px-4 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-[0.1em] transition-all shadow-lg shadow-emerald-600/20 active:scale-95 whitespace-nowrap">
-            <Plus className="w-4 h-4" />
-            <span>New Trade</span>
-          </button>
         </div>
       </div>
 
@@ -1301,7 +1302,7 @@ export default function DashboardShell() {
             </p>
           </div>
         ) : (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <SortableContext items={visibleWidgets} strategy={undefined}>
               <div ref={gridRef}
                 className={clsx("grid grid-cols-1 gap-2 relative", resizingId && "select-none")}
@@ -1330,6 +1331,29 @@ export default function DashboardShell() {
                 )}
               </div>
             </SortableContext>
+            {/* Floating drag overlay — prevents grid reflow during drag */}
+            <DragOverlay dropAnimation={null}>
+              {activeDragId ? (() => {
+                const d = layout.dims[activeDragId] ?? DEFAULT_DIMS[activeDragId] ?? { w: 4, h: 4 };
+                const dims = { w: d.w ?? 4, h: d.h ?? 4 };
+                const grid = gridRef.current;
+                const colPx = grid ? (grid.clientWidth - (GRID_COLS - 1) * GRID_GAP) / GRID_COLS : 60;
+                const widthPx = dims.w * colPx + (dims.w - 1) * GRID_GAP;
+                const heightPx = dims.h * GRID_ROW_PX + (dims.h - 1) * GRID_GAP;
+                return (
+                  <div style={{ width: widthPx, height: heightPx }}
+                    className="rounded-md border dark:border-emerald-500/50 border-emerald-400/50 dark:bg-slate-800/90 bg-white/90 p-3 flex flex-col overflow-hidden shadow-2xl backdrop-blur-sm"
+                  >
+                    <h3 className="text-sm font-semibold dark:text-white text-slate-900 truncate shrink-0 mb-2">
+                      {WIDGET_MAP.get(activeDragId)?.title ?? activeDragId}
+                    </h3>
+                    <div className="flex-1 min-h-0 overflow-hidden opacity-50">
+                      {renderWidget(activeDragId, dims)}
+                    </div>
+                  </div>
+                );
+              })() : null}
+            </DragOverlay>
           </DndContext>
         )}
 
@@ -1350,44 +1374,8 @@ export default function DashboardShell() {
           </div>
         )}
 
-        {/* Open Trades */}
-        {openTrades.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold dark:text-white text-slate-900">Open Trades</h2>
-              <a href="/trades" className="text-sm text-emerald-400 hover:underline">View all trades</a>
-            </div>
-            <div className="rounded-md dark:bg-slate-800/50 bg-white p-4 border dark:border-slate-800 border-slate-200">
-              <TradeTable
-                trades={trades}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                limit={10}
-                quotes={quotes}
-                onSetAlert={(symbol, price) => { setAlertDefaults({ symbol, price }); setShowAlertModal(true); }}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
-      {showModal && (
-        <TradeModal
-          trade={editTrade}
-          onClose={() => { setShowModal(false); setEditTrade(null); }}
-          onSaved={load}
-          accountSize={currentBalance}
-          riskPercent={riskPercent}
-        />
-      )}
-
-      <AlertModal
-        open={showAlertModal}
-        onClose={() => { setShowAlertModal(false); setAlertDefaults({}); }}
-        onSaved={() => {}}
-        defaultSymbol={alertDefaults.symbol}
-        defaultPrice={alertDefaults.price}
-      />
     </div>
   );
 }
