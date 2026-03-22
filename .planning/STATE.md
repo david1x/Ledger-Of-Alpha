@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Dashboard Redesign
 status: executing
-stopped_at: Phase 28 context gathered
-last_updated: "2026-03-22T21:06:17.242Z"
-last_activity: 2026-03-22 — Completed Plan 27-01 (data model migration + column resize approved by user)
+stopped_at: Completed 28-01 (layout persistence migration helper)
+last_updated: "2026-03-22T21:24:00.000Z"
+last_activity: 2026-03-22 — Completed Plan 28-01 (migrateDimsTo24Col helper + template path fixes)
 progress:
   total_phases: 3
   completed_phases: 2
@@ -19,10 +19,10 @@ progress:
 ## Current Position
 
 Milestone: v3.1 Dashboard Redesign
-Phase: 27 of 28 (Grid Resize System) — Plan 01 complete
-Plan: 01 of 01 complete (all tasks including human-verify approved)
-Status: In progress — Plan 27-01 complete, Plan 27-02 (row-span resize) is next
-Last activity: 2026-03-22 — Completed Plan 27-01 (data model migration + column resize approved by user)
+Phase: 28 of 28 (Layout Persistence and Migration) — Plan 01 complete
+Plan: 01 of 01 complete
+Status: Phase 28 complete — migrateDimsTo24Col helper extracted and template paths fixed
+Last activity: 2026-03-22 — Completed Plan 28-01 (migrateDimsTo24Col helper + template path fixes)
 
 Progress: [██████████] 100%
 
@@ -60,6 +60,8 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 - [Phase 27-02]: Switched to 24-column grid for finer resize granularity with half-step increments
 - [Phase 27-02]: DragOverlay replaces in-place SortableContext rendering to prevent grid reflow during drag
 - [Phase 27-02]: _gridScale version marker prevents layout migration loop on page reload
+- [Phase 28-01]: Consolidated all layout migration logic into shared migrateDimsTo24Col function
+- [Phase 28-01]: handleLoadTemplate merges migrated dims with DEFAULT_DIMS for forward-compatible template loading
 
 ### Blockers/Concerns
 
@@ -72,6 +74,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-22T21:06:17.240Z
-Stopped at: Phase 28 context gathered
-Resume file: .planning/phases/28-layout-persistence-and-migration/28-CONTEXT.md
+Last session: 2026-03-22T21:24:00.000Z
+Stopped at: Completed 28-01 (layout persistence migration helper)

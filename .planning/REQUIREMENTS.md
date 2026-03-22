@@ -29,8 +29,8 @@ Requirements for Dashboard Redesign milestone. Each maps to roadmap phases.
 
 ### Persistence
 
-- [ ] **PERSIST-01**: Resized layouts saved to settings API (same dashboard_layout key pattern)
-- [ ] **PERSIST-02**: Saved layout templates migrated to new schema format
+- [x] **PERSIST-01**: Resized layouts saved to settings API (same dashboard_layout key pattern)
+- [x] **PERSIST-02**: Saved layout templates migrated to new schema format
 
 ## Future Requirements
 
@@ -64,8 +64,8 @@ Requirements for Dashboard Redesign milestone. Each maps to roadmap phases.
 | RESIZE-02 | Phase 27 | Complete |
 | RESIZE-03 | Phase 27 | Complete (27-01) |
 | RESIZE-04 | Phase 27 | Complete (27-01) |
-| PERSIST-01 | Phase 28 | Pending |
-| PERSIST-02 | Phase 28 | Pending |
+| PERSIST-01 | Phase 28 | Complete |
+| PERSIST-02 | Phase 28 | Complete |
 
 **Coverage:**
 - v3.1 requirements: 13 total

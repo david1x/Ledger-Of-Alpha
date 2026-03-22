@@ -52,7 +52,7 @@ See [v3.0 Roadmap Archive](.planning/milestones/v3.0-ROADMAP.md) for details.
 
 - [x] **Phase 26: Top Bar and Card Redesign** - Navbar-style header with account stats, viewport-locked layout, unified card styling (completed 2026-03-22)
 - [x] **Phase 27: Grid Resize System** - Drag-to-resize handles with column and row span snapping (completed 2026-03-22)
-- [ ] **Phase 28: Layout Persistence and Migration** - Save resized layouts and migrate templates to new schema
+- [x] **Phase 28: Layout Persistence and Migration** - Save resized layouts and migrate templates to new schema (completed 2026-03-22)
 
 ## Phase Details
 
@@ -93,7 +93,7 @@ Plans:
   1. User resizes cards, refreshes the page, and sees the same layout they left
   2. Previously saved layout templates load correctly with card sizes converted to the new schema
   3. Built-in default templates render correctly in the new format
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 28-01-PLAN.md — Extract migration helper and wire into template load/save paths
 
@@ -112,7 +112,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 26. Top Bar and Card Redesign | 2/2 | Complete    | 2026-03-22 |
 | 27. Grid Resize System | 2/2 | Complete    | 2026-03-22 |
-| 28. Layout Persistence and Migration | 0/1 | Not started | - |
+| 28. Layout Persistence and Migration | 1/1 | Complete   | 2026-03-22 |
 
 ---
 *Phase numbering continues across milestones. Next phase: 29.*
