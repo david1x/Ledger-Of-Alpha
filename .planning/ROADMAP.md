@@ -69,7 +69,7 @@ See [v3.0 Roadmap Archive](.planning/milestones/v3.0-ROADMAP.md) for details.
 **Plans:** 2/2 plans complete
 Plans:
 - [x] 26-01-PLAN.md — Top bar with inline account stats and viewport-locked layout
-- [ ] 26-02-PLAN.md — Unified card styling (rounded-md borders, no shadows)
+- [x] 26-02-PLAN.md — Unified card styling (rounded-md borders, no shadows)
 
 ### Phase 27: Grid Resize System
 **Goal**: Users can resize any dashboard card by dragging to set column and row span
@@ -80,7 +80,10 @@ Plans:
   2. User can drag to change card row span with grid-row snapping
   3. Resize handles are visible only when edit mode is active and hidden during normal viewing
   4. Layout data uses `{ w, h }` object format internally, and any saved layout in the old string format loads correctly without data loss
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 27-01-PLAN.md — Data model migration to {w,h} dims and column-span resize hook
+- [ ] 27-02-PLAN.md — Row-span resize and Recharts debounce
 
 ### Phase 28: Layout Persistence and Migration
 **Goal**: Resized layouts persist across sessions and existing templates work with the new format
@@ -101,13 +104,13 @@ Plans:
 | v2.1 | 12-17 | 10 | Complete | 2026-03-21 |
 | v2.3 | — | — | Complete | 2026-03-21 |
 | v3.0 | 18-25 | 15 | Complete | 2026-03-22 |
-| v3.1 | 26-28 | 2 | In progress | - |
+| v3.1 | 26-28 | 4 | In progress | - |
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 26. Top Bar and Card Redesign | 2/2 | Complete    | 2026-03-22 |
-| 27. Grid Resize System | 0/TBD | Not started | - |
+| 27. Grid Resize System | 0/2 | Not started | - |
 | 28. Layout Persistence and Migration | 0/TBD | Not started | - |
 
 ---
-*Phase numbering continues across milestones. Next phase: 26.*
+*Phase numbering continues across milestones. Next phase: 27.*
