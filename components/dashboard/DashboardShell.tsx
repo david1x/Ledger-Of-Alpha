@@ -105,34 +105,34 @@ const DEFAULT_ORDER = [
 ];
 const DEFAULT_HIDDEN = ["dist-weekday", "dist-hour", "dist-month", "strategy-perf", "risk-simulator", "ai-insights", "perf-hour", "ibkr-positions"] as string[];
 
-// 12-column grid with 100px rows — w/h in grid units (half-step granularity)
-const GRID_COLS = 12;
-const GRID_ROW_PX = 100;
-const GRID_GAP = 12;
-const MAX_H = 8;
+// 24-column grid with 50px rows — fine-grained resize (each step ≈ 4% width, 50px height)
+const GRID_COLS = 24;
+const GRID_ROW_PX = 50;
+const GRID_GAP = 8;
+const MAX_H = 16;
 
 const DEFAULT_DIMS: Record<string, WidgetDims> = {
-  // Large widgets (6 of 12 cols)
-  "cumulative-pnl": { w: 6, h: 2 },
-  "cumulative-dd": { w: 6, h: 2 },
-  "symbol-pnl": { w: 6, h: 2 },
-  "top-mistakes": { w: 6, h: 2 },
-  "risk-simulator": { w: 6, h: 4 },
-  "ai-insights": { w: 6, h: 2 },
-  "ibkr-positions": { w: 6, h: 2 },
+  // Large widgets (12 of 24 cols, 4 rows = 200px+)
+  "cumulative-pnl": { w: 12, h: 4 },
+  "cumulative-dd": { w: 12, h: 4 },
+  "symbol-pnl": { w: 12, h: 4 },
+  "top-mistakes": { w: 12, h: 4 },
+  "risk-simulator": { w: 12, h: 8 },
+  "ai-insights": { w: 12, h: 4 },
+  "ibkr-positions": { w: 12, h: 4 },
   // Heatmap — needs vertical space
-  "heatmap": { w: 2, h: 4 },
-  // Medium widgets (4 of 12 cols)
-  "win-pct": { w: 4, h: 2 },
-  "avg-trade-pnl": { w: 4, h: 2 },
-  "daily-volume": { w: 4, h: 2 },
-  "perf-day-of-week": { w: 4, h: 2 },
-  "perf-month": { w: 4, h: 2 },
-  "perf-symbol": { w: 4, h: 2 },
-  "perf-duration": { w: 4, h: 2 },
-  "perf-price": { w: 4, h: 2 },
-  "tag-breakdown": { w: 4, h: 2 },
-  // Compact widgets (2 of 12 cols) — omit since fallback is { w: 2, h: 2 }
+  "heatmap": { w: 4, h: 8 },
+  // Medium widgets (8 of 24 cols)
+  "win-pct": { w: 8, h: 4 },
+  "avg-trade-pnl": { w: 8, h: 4 },
+  "daily-volume": { w: 8, h: 4 },
+  "perf-day-of-week": { w: 8, h: 4 },
+  "perf-month": { w: 8, h: 4 },
+  "perf-symbol": { w: 8, h: 4 },
+  "perf-duration": { w: 8, h: 4 },
+  "perf-price": { w: 8, h: 4 },
+  "tag-breakdown": { w: 8, h: 4 },
+  // Compact widgets (4 of 24 cols) — omit since fallback is { w: 4, h: 4 }
 };
 
 type TimeFilter = 30 | 60 | 90 | "all";
@@ -186,14 +186,14 @@ const DEFAULT_BUILT_IN_TEMPLATES: BuiltInTemplate[] = [
         'heatmap', 'total-return', 'total-trades', 'profit-factor',
       ].includes(w)),
       dims: {
-        'daily-loss-status': { w: 3, h: 2 },
-        'fear-greed': { w: 3, h: 2 },
-        'vix': { w: 3, h: 2 },
-        'market-overview': { w: 3, h: 2 },
-        'heatmap': { w: 3, h: 2 },
-        'total-return': { w: 3, h: 2 },
-        'total-trades': { w: 3, h: 2 },
-        'profit-factor': { w: 3, h: 2 },
+        'daily-loss-status': { w: 6, h: 4 },
+        'fear-greed': { w: 6, h: 4 },
+        'vix': { w: 6, h: 4 },
+        'market-overview': { w: 6, h: 4 },
+        'heatmap': { w: 6, h: 4 },
+        'total-return': { w: 6, h: 4 },
+        'total-trades': { w: 6, h: 4 },
+        'profit-factor': { w: 6, h: 4 },
       },
     },
   },
@@ -229,9 +229,9 @@ function WidgetCard({ id, title, editMode, dims, isBeingResized, onHide, onToggl
     } : {}),
   };
 
-  // Size label for display: 5+ = L, 3-4 = M, 1-2 = C
-  const sizeLabel = dims.w >= 5 ? "L" : dims.w >= 3 ? "M" : "C";
-  const showExpand = dims.w <= 2;
+  // Size label for display: 9+ = L, 5-8 = M, 1-4 = C
+  const sizeLabel = dims.w >= 9 ? "L" : dims.w >= 5 ? "M" : "C";
+  const showExpand = dims.w <= 4;
 
   return (
     <div ref={setNodeRef} style={gridStyle} data-widget-id={id}
@@ -425,23 +425,21 @@ export default function DashboardShell() {
                 merged.push(w);
               }
             }
-            // Migrate old "sizes" field (string format) to "dims" ({ w, h } format)
+            // Migrate old layouts to 24-col scale
             let dims: Record<string, WidgetDims> = {};
             if (parsed.sizes && !parsed.dims) {
-              // Old format: sizes is Record<string, string> — map to 12-col scale
+              // Old string format → 24-col scale
               for (const [k, v] of Object.entries(parsed.sizes as Record<string, string>)) {
-                const w = v === "large" || v === "normal" ? 6 : v === "medium" ? 4 : 2;
-                dims[k] = { w, h: 2 };
+                const w = v === "large" || v === "normal" ? 12 : v === "medium" ? 8 : 4;
+                dims[k] = { w, h: 4 };
               }
             } else if (parsed.dims) {
-              // Detect old 6-col scale (max w ≤ 6 and values are small) and upscale to 12-col
+              // Detect scale: maxW ≤ 6 = old 6-col (×4), ≤ 12 = old 12-col (×2), else 24-col
               const entries = Object.entries(parsed.dims as Record<string, Partial<WidgetDims>>);
               const maxW = Math.max(0, ...entries.map(([, v]) => v.w ?? 1));
-              const isOldScale = maxW <= 6;
+              const scale = maxW <= 6 ? 4 : maxW <= 12 ? 2 : 1;
               for (const [k, v] of entries) {
-                const rawW = v.w ?? 1;
-                const rawH = v.h ?? 1;
-                dims[k] = isOldScale ? { w: rawW * 2, h: rawH * 2 } : { w: rawW, h: rawH };
+                dims[k] = { w: (v.w ?? 1) * scale, h: (v.h ?? 1) * scale };
               }
             }
             setLayout({ order: merged, hidden: parsed.hidden ?? [], dims: { ...DEFAULT_DIMS, ...dims } });
@@ -460,19 +458,19 @@ export default function DashboardShell() {
           const merged = DEFAULT_BUILT_IN_TEMPLATES.map(t => {
             const override = parsed[t.id];
             if (!override) return t;
-            // Support both dims (new) and sizes (old) in overrides — upscale to 12-col
+            // Support both dims (new) and sizes (old) in overrides — upscale to 24-col
             let dims: Record<string, WidgetDims> = {};
             if (override.dims) {
               const entries = Object.entries(override.dims);
               const maxW = Math.max(0, ...entries.map(([, v]) => v.w ?? 1));
-              const isOldScale = maxW <= 6;
+              const scale = maxW <= 6 ? 4 : maxW <= 12 ? 2 : 1;
               for (const [k, v] of entries) {
-                dims[k] = isOldScale ? { w: (v.w ?? 1) * 2, h: (v.h ?? 1) * 2 } : { w: v.w ?? 2, h: v.h ?? 2 };
+                dims[k] = { w: (v.w ?? 1) * scale, h: (v.h ?? 1) * scale };
               }
             } else if (override.sizes) {
               for (const [k, v] of Object.entries(override.sizes)) {
-                const w = v === "large" || v === "normal" ? 6 : v === "medium" ? 4 : 2;
-                dims[k] = { w, h: 2 };
+                const w = v === "large" || v === "normal" ? 12 : v === "medium" ? 8 : 4;
+                dims[k] = { w, h: 4 };
               }
             }
             return { ...t, layout: { order: override.order, hidden: override.hidden, dims } };
@@ -910,9 +908,9 @@ export default function DashboardShell() {
   };
 
   const toggleSize = (id: string) => {
-    const current = layout.dims[id] ?? { w: 2, h: 2 };
-    // Cycle w: 6 -> 4 -> 2 -> 6 (large -> medium -> compact -> large)
-    const nextW = current.w >= 6 ? 4 : current.w >= 4 ? 2 : 6;
+    const current = layout.dims[id] ?? { w: 4, h: 4 };
+    // Cycle w: 12 -> 8 -> 4 -> 12 (large -> medium -> compact -> large)
+    const nextW = current.w >= 12 ? 8 : current.w >= 8 ? 4 : 12;
     const newDims = { ...layout.dims, [id]: { ...current, w: nextW } };
     saveLayout({ ...layout, dims: newDims });
   };
@@ -963,11 +961,11 @@ export default function DashboardShell() {
 
   // ── Helper to map dims.w to legacy size hint for widget components ──
   function dimsToSize(w: number): "large" | "medium" | "compact" {
-    return w >= 5 ? "large" : w >= 3 ? "medium" : "compact";
+    return w >= 9 ? "large" : w >= 5 ? "medium" : "compact";
   }
 
   // ── Render widget by ID ───────────────────────────────────────────
-  function renderWidget(id: string, dims: WidgetDims = { w: 6, h: 2 }) {
+  function renderWidget(id: string, dims: WidgetDims = { w: 12, h: 4 }) {
     const size = dimsToSize(dims.w);
     const isProfit = cumulativeData.length > 0 && cumulativeData[cumulativeData.length - 1].value >= 0;
     const maxDd = drawdownData.length > 0 ? Math.min(...drawdownData.map(d => d.value), 0) : 0;
@@ -1306,12 +1304,12 @@ export default function DashboardShell() {
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={visibleWidgets} strategy={undefined}>
               <div ref={gridRef}
-                className={clsx("grid grid-cols-1 md:grid-cols-12 gap-3 relative", resizingId && "select-none")}
-                style={{ gridAutoRows: `${GRID_ROW_PX}px` }}
+                className={clsx("grid grid-cols-1 gap-2 relative", resizingId && "select-none")}
+                style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`, gridAutoRows: `${GRID_ROW_PX}px`, gridAutoFlow: 'dense' }}
               >
                 {visibleWidgets.map(id => {
-                  const d = layout.dims[id] ?? DEFAULT_DIMS[id] ?? { w: 2, h: 2 };
-                  const dims = { w: d.w ?? 2, h: d.h ?? 2 };
+                  const d = layout.dims[id] ?? DEFAULT_DIMS[id] ?? { w: 4, h: 4 };
+                  const dims = { w: d.w ?? 4, h: d.h ?? 4 };
                   return (
                     <WidgetCard key={id} id={id}
                       title={WIDGET_MAP.get(id)?.title ?? id}
