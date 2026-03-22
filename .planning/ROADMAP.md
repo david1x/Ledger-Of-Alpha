@@ -112,7 +112,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 26. Top Bar and Card Redesign | 2/2 | Complete    | 2026-03-22 |
 | 27. Grid Resize System | 2/2 | Complete    | 2026-03-22 |
-| 28. Layout Persistence and Migration | 1/1 | Complete   | 2026-03-22 |
+| 28. Layout Persistence and Migration | 1/1 | Complete    | 2026-03-22 |
 
 ---
 *Phase numbering continues across milestones. Next phase: 29.*
